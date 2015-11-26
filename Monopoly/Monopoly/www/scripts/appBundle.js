@@ -63,6 +63,40 @@ var BlankCordovaApp3;
 })(BlankCordovaApp3 || (BlankCordovaApp3 = {}));
 var Model;
 (function (Model) {
+    var Game = (function () {
+        function Game() {
+            this._currentPlayer = "";
+            this.players = new Array();
+        }
+        Object.defineProperty(Game.prototype, "currentPlayer", {
+            get: function () {
+                return this._currentPlayer;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Game.prototype.advanceToNextPlayer = function () {
+            var _this = this;
+            if (this._currentPlayer === "") {
+                if (this.players.length > 0) {
+                    this._currentPlayer = this.players[0].playerName;
+                }
+                return;
+            }
+            var currentPlayerIndex = this.players.indexOf(this.players.filter(function (p) { return p.playerName === _this.currentPlayer; })[0]);
+            if (currentPlayerIndex < this.players.length - 1) {
+                this._currentPlayer = this.players[currentPlayerIndex + 1].playerName;
+            }
+            else {
+                this._currentPlayer = this.players[0].playerName;
+            }
+        };
+        return Game;
+    })();
+    Model.Game = Game;
+})(Model || (Model = {}));
+var Model;
+(function (Model) {
     var Player = (function () {
         function Player() {
             this.playerName = "";
@@ -114,6 +148,74 @@ var Services;
     Services.SettingsService = SettingsService;
     monopolyApp.service("settingsService", SettingsService);
 })(Services || (Services = {}));
+/// <reference path="../interfaces/serviceInterfaces.ts" />
+/// <reference path="../../../scripts/typings/angularjs/angular.d.ts" />
+/// <reference path="../../monopolyApp/modules/monopolyApp.ts" />
+/// <reference path="../../../scripts/game/services/settingsService.ts" />
+var Services;
+(function (Services) {
+    var GameService = (function () {
+        function GameService($http, settingsService) {
+            this.httpService = $http;
+            this.settingsService = settingsService;
+        }
+        GameService.prototype.initGame = function () {
+            this.game = new Model.Game();
+            this.initPlayers();
+            this.game.advanceToNextPlayer();
+        };
+        GameService.prototype.endTurn = function () {
+            this.game.advanceToNextPlayer();
+        };
+        GameService.prototype.getCurrentPlayer = function () {
+            return this.game.currentPlayer;
+        };
+        GameService.prototype.initPlayers = function () {
+            var settings = this.settingsService.loadSettings();
+            for (var i = 0; i < settings.numPlayers; i++) {
+                var player = new Model.Player();
+                player.playerName = i === 0 ? settings.playerName : "Computer " + i;
+                player.human = i === 0;
+                this.game.players.push(player);
+            }
+        };
+        GameService.$inject = ["$http", "settingsService"];
+        return GameService;
+    })();
+    Services.GameService = GameService;
+    monopolyApp.service("gameService", GameService);
+})(Services || (Services = {}));
+/// <reference path="../../../scripts/typings/angularjs/angular.d.ts" />
+/// <reference path="../modules/monopolyApp.ts" />
+/// <reference path="../../../scripts/typings/angular-ui-router/angular-ui-router.d.ts" />
+/// <reference path="../../../scripts/game/model/game.ts" />
+var MonopolyApp;
+(function (MonopolyApp) {
+    var controllers;
+    (function (controllers) {
+        var GameController = (function () {
+            function GameController(stateService, gameService) {
+                this.stateService = stateService;
+                this.gameService = gameService;
+                this.initGame();
+            }
+            Object.defineProperty(GameController.prototype, "currentPlayer", {
+                get: function () {
+                    return this.gameService.getCurrentPlayer();
+                },
+                enumerable: true,
+                configurable: true
+            });
+            GameController.prototype.initGame = function () {
+                this.gameService.initGame();
+            };
+            GameController.$inject = ["$state", "gameService"];
+            return GameController;
+        })();
+        controllers.GameController = GameController;
+        monopolyApp.controller("gameCtrl", GameController);
+    })(controllers = MonopolyApp.controllers || (MonopolyApp.controllers = {}));
+})(MonopolyApp || (MonopolyApp = {}));
 /// <reference path="../../../scripts/typings/angularjs/angular.d.ts" />
 /// <reference path="../modules/monopolyApp.ts" />
 /// <reference path="../../../scripts/typings/angular-ui-router/angular-ui-router.d.ts" />

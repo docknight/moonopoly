@@ -14,7 +14,8 @@ monopolyApp.config(function ($stateProvider, $urlRouterProvider) {
     })
     .state('newgame', {
       url: "/newgame",
-      templateUrl: "app/views/game.html"
+      templateUrl: "app/views/game.html",
+      controller: "gameCtrl as gameController"
     })
     .state('settings', {
         url: "/settings",
