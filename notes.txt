@@ -1,0 +1,3 @@
+vse skripte drag&dropaj v www\scripts
+
+po instalaciji angularJS, ki namesti tudi TS v 0.0.1 za jQuery, naredi ponovno instalacijo TS-ja za jQuery (NuGet detecta, da je v resnici potrebno narediti upgrade).

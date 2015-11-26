@@ -1,0 +1,14 @@
+﻿<div>GAME SETTINGS</div>
+<div>
+    <form ng-submit="settings.saveAndClose()">
+        <div>
+            <label>Player name</label>
+            <input ng-model="settings.settings.playerName" />
+        </div>
+        <div>
+            <label>Number of players</label>
+            <input ng-model="settings.settings.numPlayers" />
+        </div>
+        <input type="submit" />
+    </form>
+</div>

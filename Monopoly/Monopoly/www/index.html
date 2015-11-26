@@ -1,0 +1,56 @@
+﻿<!DOCTYPE html>
+<html ng-app="monopolyApp">
+<head>
+    <meta charset="utf-8" />
+
+    <!--
+        Customize the content security policy in the meta tag below as needed. Add 'unsafe-inline' to default-src to enable inline JavaScript.
+        For details, see http://go.microsoft.com/fwlink/?LinkID=617521
+    -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: gap: https://ssl.gstatic.com 'unsafe-eval'; style-src 'self' 'unsafe-inline'; media-src *">
+    <title>BlankCordovaApp3</title>
+
+    <!-- BlankCordovaApp3 references -->
+    <link href="css/index.css" rel="stylesheet"/>
+    <link href="css/angular-ui.css" rel="stylesheet"/>
+    <link href="css/select2.css" rel="stylesheet"/>
+    <link href="css/bootstrap.css" rel="stylesheet" />
+</head>
+<body>
+    <div ui-view></div>
+    <!--<canvas id="renderCanvas"></canvas>-->
+
+<!-- Cordova reference, this is added to your app when it's built. -->
+<script src="cordova.js"></script>
+<script src="scripts/platformOverrides.js"></script>
+<script src="scripts/jquery-2.1.4.min.js"></script>
+<script src="scripts/poly2tri.js"></script>
+<script src="scripts/Oimo.js"></script>
+<script src="scripts/cannon.js"></script>
+<script src="scripts/babylon.2.2.max.js"></script>
+<script src="scripts/babylontest.js"></script>
+<script src="scripts/angular-loader.js"></script>
+<!--<script src="scripts/angular-route.js"></script>-->
+<script src="scripts/angular-sanitize.js"></script>
+<script src="scripts/angular-touch.js"></script>
+<script src="scripts/angular.js"></script>
+<script src="scripts/angular-ui-router.js"></script>
+<script src="scripts/select2.js"></script>
+<script src="scripts/angular-ui.js"></script>
+<script src="scripts/angular-ui-ieshiv.js"></script>
+<script src="scripts/angular-ui/ui-bootstrap.js"></script>
+<script src="scripts/angular-ui/ui-bootstrap-tpls.js"></script>
+<script src="scripts/appBundle.js"></script>
+
+<!--modules-->
+<script src="app/js/modules/monopolyApp.js"></script>
+
+<script>
+    $(document).ready(function() {
+        document.getElementById("naloziScenoButton").addEventListener("click", naloziSceno);
+    });
+</script>
+
+</body>
+
+</html>
