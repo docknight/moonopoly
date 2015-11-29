@@ -7,5 +7,7 @@
         playerName: string;
         human: boolean;
         color: string;
+        money: number;
+        position: BoardField;
     }
 } 

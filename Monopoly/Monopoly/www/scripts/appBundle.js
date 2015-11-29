@@ -63,14 +63,127 @@ var BlankCordovaApp3;
 })(BlankCordovaApp3 || (BlankCordovaApp3 = {}));
 var Model;
 (function (Model) {
+    (function (AssetGroup) {
+        AssetGroup[AssetGroup["None"] = 0] = "None";
+        AssetGroup[AssetGroup["First"] = 1] = "First";
+        AssetGroup[AssetGroup["Second"] = 2] = "Second";
+        AssetGroup[AssetGroup["Third"] = 3] = "Third";
+        AssetGroup[AssetGroup["Fourth"] = 4] = "Fourth";
+        AssetGroup[AssetGroup["Fifth"] = 5] = "Fifth";
+        AssetGroup[AssetGroup["Sixth"] = 6] = "Sixth";
+        AssetGroup[AssetGroup["Seventh"] = 7] = "Seventh";
+        AssetGroup[AssetGroup["Eighth"] = 8] = "Eighth";
+        AssetGroup[AssetGroup["Utility"] = 9] = "Utility";
+        AssetGroup[AssetGroup["Railway"] = 10] = "Railway";
+    })(Model.AssetGroup || (Model.AssetGroup = {}));
+    var AssetGroup = Model.AssetGroup;
+    ;
+    var Asset = (function () {
+        function Asset() {
+            this._unowned = true;
+        }
+        Object.defineProperty(Asset.prototype, "unowned", {
+            get: function () {
+                return this._unowned;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Asset.prototype.setOwner = function (ownerName) {
+            if (this._unowned) {
+                this.owner = ownerName;
+                this._unowned = false;
+            }
+        };
+        return Asset;
+    })();
+    Model.Asset = Asset;
+})(Model || (Model = {}));
+var Model;
+(function (Model) {
+    var Board = (function () {
+        function Board() {
+            this.initBoard();
+        }
+        Board.prototype.initBoard = function () {
+            this.fields = new Array();
+            var startField = new Model.BoardField(null);
+            startField.index = 0;
+            startField.type = Model.BoardFieldType.Start;
+            this.fields.push(startField);
+            this.fields.push(this.createAssetBoardField("Kranjska gora", this.fields.length, Model.AssetGroup.First));
+            // TODO: declare the rest of the board
+        };
+        Board.prototype.createAssetBoardField = function (assetName, boardFieldIndex, assetGroup) {
+            var asset = new Model.Asset();
+            asset.name = assetName;
+            asset.group = assetGroup;
+            var boardField = new Model.BoardField(asset);
+            boardField.index = boardFieldIndex;
+            return boardField;
+        };
+        return Board;
+    })();
+    Model.Board = Board;
+})(Model || (Model = {}));
+var Model;
+(function (Model) {
+    (function (BoardFieldType) {
+        BoardFieldType[BoardFieldType["Asset"] = 0] = "Asset";
+        BoardFieldType[BoardFieldType["Start"] = 1] = "Start";
+        BoardFieldType[BoardFieldType["Event"] = 2] = "Event";
+        BoardFieldType[BoardFieldType["Treasure"] = 3] = "Treasure";
+        BoardFieldType[BoardFieldType["Prison"] = 4] = "Prison";
+        BoardFieldType[BoardFieldType["Relax"] = 5] = "Relax";
+    })(Model.BoardFieldType || (Model.BoardFieldType = {}));
+    var BoardFieldType = Model.BoardFieldType;
+    ;
+    var BoardField = (function () {
+        function BoardField(asset) {
+            this.occupiedBy = new Array();
+            if (asset) {
+                this._asset = asset;
+                this.type = BoardFieldType.Asset;
+            }
+        }
+        Object.defineProperty(BoardField.prototype, "asset", {
+            get: function () {
+                return this._asset;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        return BoardField;
+    })();
+    Model.BoardField = BoardField;
+})(Model || (Model = {}));
+var Model;
+(function (Model) {
+    (function (GameState) {
+        GameState[GameState["BeginTurn"] = 0] = "BeginTurn";
+        GameState[GameState["ThrowDice"] = 1] = "ThrowDice";
+        GameState[GameState["Move"] = 2] = "Move";
+        GameState[GameState["Process"] = 3] = "Process";
+    })(Model.GameState || (Model.GameState = {}));
+    var GameState = Model.GameState;
+    ;
     var Game = (function () {
         function Game() {
             this._currentPlayer = "";
             this.players = new Array();
+            this._board = new Model.Board();
+            this.state = GameState.BeginTurn;
         }
         Object.defineProperty(Game.prototype, "currentPlayer", {
             get: function () {
                 return this._currentPlayer;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(Game.prototype, "board", {
+            get: function () {
+                return this._board;
             },
             enumerable: true,
             configurable: true
@@ -166,17 +279,31 @@ var Services;
         };
         GameService.prototype.endTurn = function () {
             this.game.advanceToNextPlayer();
+            this.game.state = Model.GameState.BeginTurn;
         };
         GameService.prototype.getCurrentPlayer = function () {
             return this.game.currentPlayer;
         };
+        GameService.prototype.setPlayerPosition = function (player, boardFieldIndex) {
+            player.position = this.game.board.fields[boardFieldIndex];
+            var previousFields = this.game.board.fields.filter(function (b) { return b.occupiedBy != null && b.occupiedBy.filter(function (ocb) { return ocb == player.playerName; }).length > 0; });
+            if (previousFields && previousFields.length > 0) {
+                var previousField = previousFields[0];
+                previousField.occupiedBy.splice(previousField.occupiedBy.indexOf(player.playerName));
+            }
+            player.position.occupiedBy.push(player.playerName);
+        };
         GameService.prototype.initPlayers = function () {
             var settings = this.settingsService.loadSettings();
+            var colors = ["Red", "Green", "Yellow", "Blue"];
             for (var i = 0; i < settings.numPlayers; i++) {
                 var player = new Model.Player();
                 player.playerName = i === 0 ? settings.playerName : "Computer " + i;
                 player.human = i === 0;
+                player.money = 1500;
+                player.color = colors[i];
                 this.game.players.push(player);
+                this.setPlayerPosition(player, 0);
             }
         };
         GameService.$inject = ["$http", "settingsService"];

@@ -3,6 +3,7 @@
 /// <reference path="../../monopolyApp/modules/monopolyApp.ts" />
 /// <reference path="../../../scripts/game/services/settingsService.ts" />
 module Services {
+
     export class GameService implements Interfaces.IGameService {
         httpService: ng.IHttpService;
         settingsService: Interfaces.ISettingsService;
@@ -23,19 +24,35 @@ module Services {
 
         endTurn() {
             this.game.advanceToNextPlayer();
+            this.game.state = Model.GameState.BeginTurn;
         }
 
         getCurrentPlayer(): string {
             return this.game.currentPlayer;
         }
 
+        setPlayerPosition(player: Model.Player, boardFieldIndex: number) {
+            player.position = this.game.board.fields[boardFieldIndex];
+            var previousFields = this.game.board.fields.filter(b => b.occupiedBy != null && b.occupiedBy.filter(ocb => ocb == player.playerName).length > 0);
+            if (previousFields && previousFields.length > 0) {
+                var previousField = previousFields[0];
+                previousField.occupiedBy.splice(previousField.occupiedBy.indexOf(player.playerName));
+            }
+
+            player.position.occupiedBy.push(player.playerName);
+        }
+
         private initPlayers() {
             var settings = this.settingsService.loadSettings();
+            var colors: string[] = ["Red", "Green", "Yellow", "Blue"];
             for (var i = 0; i < settings.numPlayers; i++) {
                 var player = new Model.Player();
                 player.playerName = i === 0 ? settings.playerName : "Computer " + i;
                 player.human = i === 0;
+                player.money = 1500;
+                player.color = colors[i];
                 this.game.players.push(player);
+                this.setPlayerPosition(player, 0);
             }
         }
     }
