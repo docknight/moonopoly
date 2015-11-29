@@ -322,7 +322,6 @@
     "res\\icons\\ios\\icon-60-3x.png",
     "plugins\\cordova-plugin-whitelist\\whitelist.js",
     "plugins\\fetch.json",
-    "config.xml",
     "scripts\\i18n\\angular-locale_wal-et.js",
     "scripts\\i18n\\angular-locale_ee-gh.js",
     "scripts\\i18n\\angular-locale_gd-gb.js",
@@ -952,12 +951,9 @@
     "www\\app\\js\\modules\\monopolyApp.js",
     "scripts\\angular-messages.js",
     "scripts\\i18n\\angular-locale_pt-pt.js",
-    "scripts\\game\\model\\game.ts~RF223ed4.TMP",
-    "scripts\\game\\model\\boardField.ts~RF2b6a47.TMP",
-    "scripts\\game\\services\\gameService.ts~RF416f66.TMP",
-    "scripts\\game\\model\\boardField.ts~RF471bea.TMP",
-    "scripts\\game\\model\\board.ts~RF49e7a1.TMP",
-    "scripts\\game\\services\\gameService.ts~RF4c8131.TMP"
+    "config.xml",
+    "www\\images\\Gameboard.png",
+    "scripts\\monopolyApp\\controllers\\gameCtrl.ts~RFee1690.TMP"
   ],
   "deletedFilesIos": [],
   "addedPluginsIos": [],
@@ -965,7 +961,7 @@
   "changedFiles": [
     "www\\scripts\\appBundle.js.map",
     "www\\scripts\\appBundle.js",
-    "scripts\\game\\services\\gameService.ts~RF4c8131.TMP"
+    "scripts\\monopolyApp\\controllers\\gameCtrl.ts~RFee1690.TMP"
   ],
   "deletedFiles": [],
   "addedPlugins": [],

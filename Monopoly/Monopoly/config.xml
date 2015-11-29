@@ -1,8 +1,8 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <widget xmlns:cdv="http://cordova.apache.org/ns/1.0" xmlns:vs="http://schemas.microsoft.com/appx/2014/htmlapps" id="io.cordova.myapp60107e" version="1.0.0" xmlns="http://www.w3.org/ns/widgets" defaultlocale="en-US">
-  <name>BlankCordovaApp3</name>
+  <name>Knight Monopoly</name>
   <description>A blank project that uses Apache Cordova to help you build an app that targets multiple mobile platforms: Android, iOS, Windows, and Windows Phone.</description>
-  <author href="http://cordova.io" email="dev@cordova.apache.org">Tomaž</author>
+  <author href="http://cordova.io" email="dev@cordova.apache.org">Tomaz Zavrsnik</author>
   <content src="index.html" />
   <access origin="*" />
   <vs:features />
@@ -105,4 +105,5 @@
     <splash src="res/screens/wp8/SplashScreenImage.jpg" width="480" height="800" />
   </platform>
   <preference name="Fullscreen" value="True" />
+  <preference name="Orientation" value="landscape" />
 </widget>
