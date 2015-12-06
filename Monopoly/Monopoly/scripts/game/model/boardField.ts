@@ -1,5 +1,5 @@
 ﻿module Model {
-    export enum BoardFieldType { Asset, Start, Event, Treasure, Prison, Relax};
+    export enum BoardFieldType { Asset, Start, Tax, TaxIncome, Event, Treasure, PrisonAndVisit, FreeParking, GoToPrison };
 
     export class BoardField {
         private _asset: Asset;

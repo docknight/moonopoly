@@ -66,6 +66,13 @@ module MonopolyApp.controllers {
             boardMaterial.diffuseTexture = new BABYLON.Texture("images/Gameboard.png", scene);
             board.material = boardMaterial;
 
+            BABYLON.SceneLoader.ImportMesh(null, "meshes/", "character.babylon", scene, function (newMeshes, particleSystems) {
+                if (newMeshes != null) {
+                    var mesh = newMeshes[0];
+                    mesh.position.x = -3;
+                    mesh.position.z = -3;
+                }
+            });
             return scene;
         }
 

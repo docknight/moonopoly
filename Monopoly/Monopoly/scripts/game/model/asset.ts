@@ -12,6 +12,11 @@
         group: AssetGroup;
         priceRent: number;
         priceRentGroup: number;
+        priceRent1House: number;
+        priceRent2House: number;
+        priceRent3House: number;
+        priceRent4House: number;
+        priceRentHotel: number;
         priceHouse: number;
         priceHotel: number;
         priceMortgage: number;

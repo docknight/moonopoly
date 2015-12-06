@@ -293,6 +293,7 @@
     "scripts\\i18n\\angular-locale_shi-latn-ma.js",
     "scripts\\i18n\\angular-locale_es-419.js",
     "scripts\\i18n\\angular-locale_tzm.js",
+    "www\\images\\Gameboard.png",
     "res\\screens\\ios\\screen-ipad-landscape.png",
     "scripts\\i18n\\angular-locale_dsb-de.js",
     "scripts\\i18n\\angular-locale_hsb-de.js",
@@ -951,17 +952,27 @@
     "www\\app\\js\\modules\\monopolyApp.js",
     "scripts\\angular-messages.js",
     "scripts\\i18n\\angular-locale_pt-pt.js",
+    "scripts\\game\\model\\board.ts~RF37b4fd.TMP",
+    "Assets\\characterlowpoly2.obj",
+    "Assets\\legoBrick.obj",
+    "Assets\\minecraftplayer.babylon",
+    "Assets\\vegetation.babylon",
+    "Assets\\characterlowpoly2.babylon",
     "config.xml",
-    "www\\images\\Gameboard.png",
-    "scripts\\monopolyApp\\controllers\\gameCtrl.ts~RFee1690.TMP"
+    "www\\meshes\\minecraftplayer.babylon",
+    "www\\meshes\\vegetation.babylon",
+    "www\\meshes\\characterlowpoly2.babylon",
+    "www\\meshes\\character.babylon"
   ],
-  "deletedFilesIos": [],
+  "deletedFilesIos": [
+    "Assets\\untitled-scene.babylon",
+    "www\\meshes\\untitled-scene.babylon"
+  ],
   "addedPluginsIos": [],
   "deletedPluginsIos": [],
   "changedFiles": [
     "www\\scripts\\appBundle.js.map",
-    "www\\scripts\\appBundle.js",
-    "scripts\\monopolyApp\\controllers\\gameCtrl.ts~RFee1690.TMP"
+    "www\\scripts\\appBundle.js"
   ],
   "deletedFiles": [],
   "addedPlugins": [],
