@@ -620,6 +620,98 @@ var monopolyApp = angular.module('monopolyApp', ['ui.router', 'ui.bootstrap']);
 /// <reference path="../../monopolyApp/modules/monopolyApp.ts" />
 var Services;
 (function (Services) {
+    var DrawingService = (function () {
+        function DrawingService($http, gameService) {
+            this.boardFieldsInQuadrant = 11;
+            this.httpService = $http;
+            this.gameService = gameService;
+            this.boardFieldWidth = this.boardSize / (this.boardFieldsInQuadrant + 2); // assuming the corner fields are double the width of the rest of the fields
+            this.boardFieldHeight = this.boardFieldWidth * 2;
+            this.boardFieldEdgeWidth = this.boardFieldWidth * 2;
+            this.initQuadrantStartingCoordinates();
+        }
+        Object.defineProperty(DrawingService.prototype, "boardSize", {
+            /// board dimenzion in both, X and Z directions
+            get: function () {
+                return 10;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        DrawingService.prototype.positionPlayer = function (playerModel) {
+            var player = this.gameService.players.filter(function (player, index) { return player.playerName === playerModel.name; })[0];
+            var playerQuadrant = Math.floor(player.position.index / this.boardFieldsInQuadrant);
+            var playerQuadrantOffset = player.position.index % this.boardFieldsInQuadrant;
+            var playerCoordinate = new MonopolyApp.Viewmodels.Coordinate();
+            playerCoordinate.x = this.quadrantStartingCoordinate[playerQuadrant].x;
+            playerCoordinate.z = this.quadrantStartingCoordinate[playerQuadrant].z;
+            playerCoordinate[this.getQuadrantRunningCoordinate(playerQuadrant)] += playerQuadrantOffset * this.boardFieldWidth * this.getQuadrantRunningDirection(playerQuadrant);
+            // now that the player is positioned on the board field corner, position him inside the field
+            var playersInField = player.position.occupiedBy.length;
+            var playerIndexInField = player.position.occupiedBy.indexOf(player.playerName);
+            var offset = ((playerQuadrantOffset === 0 ? this.boardFieldEdgeWidth : this.boardFieldWidth) / (playersInField + 1)) * (playerIndexInField + 1);
+            playerCoordinate[this.getQuadrantRunningCoordinate(playerQuadrant)] += offset * this.getQuadrantRunningDirection(playerQuadrant) * -1;
+            playerModel.mesh.position.x = playerCoordinate.x;
+            playerModel.mesh.position.z = playerCoordinate.z;
+        };
+        DrawingService.prototype.initQuadrantStartingCoordinates = function () {
+            this.quadrantStartingCoordinate = [];
+            var firstQuadrantStartingCoordinate = new MonopolyApp.Viewmodels.Coordinate();
+            firstQuadrantStartingCoordinate.x = (this.boardSize / 2) - this.boardFieldEdgeWidth;
+            firstQuadrantStartingCoordinate.z = -(this.boardSize / 2) + this.boardFieldHeight;
+            this.quadrantStartingCoordinate.push(firstQuadrantStartingCoordinate);
+            var secondQuadrantStartingCoordinate = new MonopolyApp.Viewmodels.Coordinate();
+            secondQuadrantStartingCoordinate.x = -(this.boardSize / 2) + this.boardFieldHeight;
+            secondQuadrantStartingCoordinate.z = -(this.boardSize / 2) + this.boardFieldEdgeWidth;
+            this.quadrantStartingCoordinate.push(secondQuadrantStartingCoordinate);
+            var thirdQuadrantStartingCoordinate = new MonopolyApp.Viewmodels.Coordinate();
+            thirdQuadrantStartingCoordinate.x = -(this.boardSize / 2) + this.boardFieldEdgeWidth;
+            thirdQuadrantStartingCoordinate.z = (this.boardSize / 2) - this.boardFieldHeight;
+            this.quadrantStartingCoordinate.push(thirdQuadrantStartingCoordinate);
+            var fourthQuadrantStartingCoordinate = new MonopolyApp.Viewmodels.Coordinate();
+            fourthQuadrantStartingCoordinate.x = (this.boardSize / 2) + this.boardFieldHeight;
+            fourthQuadrantStartingCoordinate.z = (this.boardSize / 2) - this.boardFieldEdgeWidth;
+            this.quadrantStartingCoordinate.push(fourthQuadrantStartingCoordinate);
+        };
+        DrawingService.prototype.getQuadrantRunningCoordinate = function (quadrantIndex) {
+            if (quadrantIndex === 0) {
+                return "x";
+            }
+            else if (quadrantIndex === 1) {
+                return "z";
+            }
+            else if (quadrantIndex === 2) {
+                return "x";
+            }
+            else {
+                return "z";
+            }
+        };
+        DrawingService.prototype.getQuadrantRunningDirection = function (quadrantIndex) {
+            if (quadrantIndex === 0) {
+                return -1;
+            }
+            else if (quadrantIndex === 1) {
+                return 1;
+            }
+            else if (quadrantIndex === 2) {
+                return 1;
+            }
+            else {
+                return -1;
+            }
+        };
+        DrawingService.$inject = ["$http", "gameService"];
+        return DrawingService;
+    })();
+    Services.DrawingService = DrawingService;
+    monopolyApp.service("drawingService", DrawingService);
+})(Services || (Services = {}));
+/// <reference path="../interfaces/serviceInterfaces.ts" />
+/// <reference path="../../../scripts/typings/angularjs/angular.d.ts" />
+/// <reference path="../../monopolyApp/modules/monopolyApp.ts" />
+var Services;
+(function (Services) {
     var SettingsService = (function () {
         function SettingsService($http) {
             this.loadSettings = function () {
@@ -663,6 +755,13 @@ var Services;
         GameService.prototype.getCurrentPlayer = function () {
             return this.game.currentPlayer;
         };
+        Object.defineProperty(GameService.prototype, "players", {
+            get: function () {
+                return this.game.players;
+            },
+            enumerable: true,
+            configurable: true
+        });
         GameService.prototype.setPlayerPosition = function (player, boardFieldIndex) {
             player.position = this.game.board.fields[boardFieldIndex];
             var previousFields = this.game.board.fields.filter(function (b) { return b.occupiedBy != null && b.occupiedBy.filter(function (ocb) { return ocb == player.playerName; }).length > 0; });
@@ -700,15 +799,23 @@ var MonopolyApp;
     var controllers;
     (function (controllers) {
         var GameController = (function () {
-            function GameController(stateService, gameService) {
+            function GameController(stateService, gameService, drawingService) {
                 this.stateService = stateService;
                 this.gameService = gameService;
+                this.drawingService = drawingService;
                 this.initGame();
                 this.createScene();
             }
             Object.defineProperty(GameController.prototype, "currentPlayer", {
                 get: function () {
                     return this.gameService.getCurrentPlayer();
+                },
+                enumerable: true,
+                configurable: true
+            });
+            Object.defineProperty(GameController.prototype, "playerModels", {
+                get: function () {
+                    return this.players;
                 },
                 enumerable: true,
                 configurable: true
@@ -732,6 +839,7 @@ var MonopolyApp;
                 });
             };
             GameController.prototype.createBoard = function (engine, canvas) {
+                var _this = this;
                 // This creates a basic Babylon Scene object (non-mesh)
                 var scene = new BABYLON.Scene(engine);
                 // This creates and positions a free camera (non-mesh)
@@ -745,21 +853,37 @@ var MonopolyApp;
                 // Default intensity is 1. Let's dim the light a small amount
                 light.intensity = 1;
                 // Our built-in 'ground' shape. Params: name, width, depth, subdivs, scene
-                var board = BABYLON.Mesh.CreateGround("ground1", 6, 6, 2, scene);
+                var board = BABYLON.Mesh.CreateGround("ground1", this.drawingService.boardSize, this.drawingService.boardSize, 2, scene);
                 var boardMaterial = new BABYLON.StandardMaterial("boardTexture", scene);
                 boardMaterial.emissiveTexture = new BABYLON.Texture("images/Gameboard.png", scene);
                 boardMaterial.diffuseTexture = new BABYLON.Texture("images/Gameboard.png", scene);
                 board.material = boardMaterial;
-                BABYLON.SceneLoader.ImportMesh(null, "meshes/", "character.babylon", scene, function (newMeshes, particleSystems) {
-                    if (newMeshes != null) {
-                        var mesh = newMeshes[0];
-                        mesh.position.x = -3;
-                        mesh.position.z = -3;
-                    }
+                this.players = [];
+                var meshLoads = [];
+                this.gameService.players.forEach(function (player) {
+                    var playerModel = new MonopolyApp.Viewmodels.Player();
+                    playerModel.name = player.playerName;
+                    var d = $.Deferred();
+                    meshLoads.push(d);
+                    var that = _this;
+                    BABYLON.SceneLoader.ImportMesh(null, "meshes/", "character.babylon", scene, function (newMeshes, particleSystems) {
+                        if (newMeshes != null) {
+                            var mesh = newMeshes[0];
+                            playerModel.mesh = mesh;
+                            d.resolve(that);
+                        }
+                    });
+                    _this.players.push(playerModel);
                 });
+                $.when.apply($, meshLoads).done(this.setupPlayerPositions);
                 return scene;
             };
-            GameController.$inject = ["$state", "gameService"];
+            GameController.prototype.setupPlayerPositions = function (that) {
+                that.players.forEach(function (playerModel) {
+                    that.drawingService.positionPlayer(playerModel);
+                });
+            };
+            GameController.$inject = ["$state", "gameService", "drawingService"];
             return GameController;
         })();
         controllers.GameController = GameController;
@@ -825,5 +949,29 @@ var MonopolyApp;
         controllers.SettingsController = SettingsController;
         monopolyApp.controller("settingsCtrl", SettingsController);
     })(controllers = MonopolyApp.controllers || (MonopolyApp.controllers = {}));
+})(MonopolyApp || (MonopolyApp = {}));
+var MonopolyApp;
+(function (MonopolyApp) {
+    var Viewmodels;
+    (function (Viewmodels) {
+        var Coordinate = (function () {
+            function Coordinate() {
+            }
+            return Coordinate;
+        })();
+        Viewmodels.Coordinate = Coordinate;
+    })(Viewmodels = MonopolyApp.Viewmodels || (MonopolyApp.Viewmodels = {}));
+})(MonopolyApp || (MonopolyApp = {}));
+var MonopolyApp;
+(function (MonopolyApp) {
+    var Viewmodels;
+    (function (Viewmodels) {
+        var Player = (function () {
+            function Player() {
+            }
+            return Player;
+        })();
+        Viewmodels.Player = Player;
+    })(Viewmodels = MonopolyApp.Viewmodels || (MonopolyApp.Viewmodels = {}));
 })(MonopolyApp || (MonopolyApp = {}));
 //# sourceMappingURL=appBundle.js.map

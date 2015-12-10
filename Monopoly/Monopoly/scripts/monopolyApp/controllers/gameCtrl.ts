@@ -6,15 +6,23 @@ module MonopolyApp.controllers {
     export class GameController {
         stateService: angular.ui.IStateService;
         gameService: Interfaces.IGameService;
-        static $inject = ["$state", "gameService"];
+        drawingService: Interfaces.IDrawingService;
+        static $inject = ["$state", "gameService", "drawingService"];
+
+        private players: Array<Viewmodels.Player>;
 
         get currentPlayer(): string {
             return this.gameService.getCurrentPlayer();
         }
 
-        constructor(stateService: angular.ui.IStateService, gameService: Interfaces.IGameService) {
+        get playerModels(): Array<Viewmodels.Player> {
+            return this.players;
+        }
+
+        constructor(stateService: angular.ui.IStateService, gameService: Interfaces.IGameService, drawingService: Interfaces.IDrawingService) {
             this.stateService = stateService;
             this.gameService = gameService;
+            this.drawingService = drawingService;
             this.initGame();
             this.createScene();
         }
@@ -60,20 +68,37 @@ module MonopolyApp.controllers {
             light.intensity = 1;
 
             // Our built-in 'ground' shape. Params: name, width, depth, subdivs, scene
-            var board = BABYLON.Mesh.CreateGround("ground1", 6, 6, 2, scene);
+            var board = BABYLON.Mesh.CreateGround("ground1", this.drawingService.boardSize, this.drawingService.boardSize, 2, scene);
             var boardMaterial = new BABYLON.StandardMaterial("boardTexture", scene);
             boardMaterial.emissiveTexture = new BABYLON.Texture("images/Gameboard.png", scene);
             boardMaterial.diffuseTexture = new BABYLON.Texture("images/Gameboard.png", scene);
             board.material = boardMaterial;
 
-            BABYLON.SceneLoader.ImportMesh(null, "meshes/", "character.babylon", scene, function (newMeshes, particleSystems) {
-                if (newMeshes != null) {
-                    var mesh = newMeshes[0];
-                    mesh.position.x = -3;
-                    mesh.position.z = -3;
-                }
+            this.players = [];
+            var meshLoads = [];
+            this.gameService.players.forEach((player) => {
+                var playerModel = new Viewmodels.Player();
+                playerModel.name = player.playerName;
+                var d = $.Deferred();
+                meshLoads.push(d);
+                var that = this;
+                BABYLON.SceneLoader.ImportMesh(null, "meshes/", "character.babylon", scene, function (newMeshes, particleSystems) {
+                    if (newMeshes != null) {
+                        var mesh = newMeshes[0];
+                        playerModel.mesh = mesh;
+                        d.resolve(that);
+                    }
+                });
+                this.players.push(playerModel);
             });
+            $.when.apply($, meshLoads).done(this.setupPlayerPositions);
             return scene;
+        }
+
+        private setupPlayerPositions(that: GameController) {
+            that.players.forEach((playerModel) => {
+                that.drawingService.positionPlayer(playerModel);
+            });
         }
 
     }
