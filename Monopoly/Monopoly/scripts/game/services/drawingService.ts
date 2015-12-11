@@ -28,8 +28,8 @@ module Services {
 
         positionPlayer(playerModel: MonopolyApp.Viewmodels.Player) {
             var player = this.gameService.players.filter((player, index) => { return player.playerName === playerModel.name; })[0];
-            var playerQuadrant = Math.floor(player.position.index / this.boardFieldsInQuadrant);
-            var playerQuadrantOffset = player.position.index % this.boardFieldsInQuadrant;
+            var playerQuadrant = Math.floor(player.position.index / (this.boardFieldsInQuadrant - 1));
+            var playerQuadrantOffset = player.position.index % (this.boardFieldsInQuadrant - 1);
             var playerCoordinate = new MonopolyApp.Viewmodels.Coordinate();
             playerCoordinate.x = this.quadrantStartingCoordinate[playerQuadrant].x;
             playerCoordinate.z = this.quadrantStartingCoordinate[playerQuadrant].z;
@@ -42,6 +42,10 @@ module Services {
             playerCoordinate[this.getQuadrantRunningCoordinate(playerQuadrant)] += offset * this.getQuadrantRunningDirection(playerQuadrant) * -1;
             playerModel.mesh.position.x = playerCoordinate.x;
             playerModel.mesh.position.z = playerCoordinate.z;
+        }
+
+        animatePlayerMove(oldPositionIndex: Model.BoardField, newPosition: Model.BoardField, playerModel: MonopolyApp.Viewmodels.Player) {
+            this.positionPlayer(playerModel);
         }
 
         private initQuadrantStartingCoordinates() {
@@ -59,7 +63,7 @@ module Services {
             thirdQuadrantStartingCoordinate.z = (this.boardSize / 2) - this.boardFieldHeight;
             this.quadrantStartingCoordinate.push(thirdQuadrantStartingCoordinate);
             var fourthQuadrantStartingCoordinate = new MonopolyApp.Viewmodels.Coordinate();
-            fourthQuadrantStartingCoordinate.x = (this.boardSize / 2) + this.boardFieldHeight;
+            fourthQuadrantStartingCoordinate.x = (this.boardSize / 2) - this.boardFieldHeight;
             fourthQuadrantStartingCoordinate.z = (this.boardSize / 2) - this.boardFieldEdgeWidth;
             this.quadrantStartingCoordinate.push(fourthQuadrantStartingCoordinate);
         }

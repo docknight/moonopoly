@@ -1,3 +1,6 @@
 ﻿<div>Let's play, {{gameController.currentPlayer}}!</div>
 <canvas id="renderCanvas"></canvas>
-
+<div id="commandPanel" style="position: fixed; bottom: 0px; left: 0px; width: 100%">
+    <button ng-disabled="!gameController.availableActions.throwDice" ng-click="gameController.throwDice()">Throw dice</button>
+    <button ng-disabled="!gameController.availableActions.endTurn" ng-click="gameController.endTurn()">End turn</button>
+</div>

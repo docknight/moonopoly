@@ -640,8 +640,8 @@ var Services;
         });
         DrawingService.prototype.positionPlayer = function (playerModel) {
             var player = this.gameService.players.filter(function (player, index) { return player.playerName === playerModel.name; })[0];
-            var playerQuadrant = Math.floor(player.position.index / this.boardFieldsInQuadrant);
-            var playerQuadrantOffset = player.position.index % this.boardFieldsInQuadrant;
+            var playerQuadrant = Math.floor(player.position.index / (this.boardFieldsInQuadrant - 1));
+            var playerQuadrantOffset = player.position.index % (this.boardFieldsInQuadrant - 1);
             var playerCoordinate = new MonopolyApp.Viewmodels.Coordinate();
             playerCoordinate.x = this.quadrantStartingCoordinate[playerQuadrant].x;
             playerCoordinate.z = this.quadrantStartingCoordinate[playerQuadrant].z;
@@ -653,6 +653,9 @@ var Services;
             playerCoordinate[this.getQuadrantRunningCoordinate(playerQuadrant)] += offset * this.getQuadrantRunningDirection(playerQuadrant) * -1;
             playerModel.mesh.position.x = playerCoordinate.x;
             playerModel.mesh.position.z = playerCoordinate.z;
+        };
+        DrawingService.prototype.animatePlayerMove = function (oldPositionIndex, newPosition, playerModel) {
+            this.positionPlayer(playerModel);
         };
         DrawingService.prototype.initQuadrantStartingCoordinates = function () {
             this.quadrantStartingCoordinate = [];
@@ -669,7 +672,7 @@ var Services;
             thirdQuadrantStartingCoordinate.z = (this.boardSize / 2) - this.boardFieldHeight;
             this.quadrantStartingCoordinate.push(thirdQuadrantStartingCoordinate);
             var fourthQuadrantStartingCoordinate = new MonopolyApp.Viewmodels.Coordinate();
-            fourthQuadrantStartingCoordinate.x = (this.boardSize / 2) + this.boardFieldHeight;
+            fourthQuadrantStartingCoordinate.x = (this.boardSize / 2) - this.boardFieldHeight;
             fourthQuadrantStartingCoordinate.z = (this.boardSize / 2) - this.boardFieldEdgeWidth;
             this.quadrantStartingCoordinate.push(fourthQuadrantStartingCoordinate);
         };
@@ -749,8 +752,10 @@ var Services;
             this.game.advanceToNextPlayer();
         };
         GameService.prototype.endTurn = function () {
-            this.game.advanceToNextPlayer();
-            this.game.state = Model.GameState.BeginTurn;
+            if (this.canEndTurn) {
+                this.game.advanceToNextPlayer();
+                this.game.state = Model.GameState.BeginTurn;
+            }
         };
         GameService.prototype.getCurrentPlayer = function () {
             return this.game.currentPlayer;
@@ -758,6 +763,26 @@ var Services;
         Object.defineProperty(GameService.prototype, "players", {
             get: function () {
                 return this.game.players;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(GameService.prototype, "canThrowDice", {
+            get: function () {
+                if (this.game.state === Model.GameState.BeginTurn) {
+                    return true;
+                }
+                return false;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(GameService.prototype, "canEndTurn", {
+            get: function () {
+                if (this.game.state !== Model.GameState.BeginTurn) {
+                    return true;
+                }
+                return false;
             },
             enumerable: true,
             configurable: true
@@ -770,6 +795,27 @@ var Services;
                 previousField.occupiedBy.splice(previousField.occupiedBy.indexOf(player.playerName));
             }
             player.position.occupiedBy.push(player.playerName);
+        };
+        GameService.prototype.throwDice = function () {
+            this.game.state = Model.GameState.ThrowDice;
+            this.lastDiceResult1 = 3;
+            this.lastDiceResult2 = 2;
+        };
+        GameService.prototype.getCurrentPlayerPosition = function () {
+            var _this = this;
+            var player = this.game.players.filter(function (p) { return p.playerName === _this.getCurrentPlayer(); })[0];
+            return player.position;
+        };
+        GameService.prototype.moveCurrentPlayer = function () {
+            var _this = this;
+            this.game.state = Model.GameState.Move;
+            var player = this.game.players.filter(function (p) { return p.playerName === _this.getCurrentPlayer(); })[0];
+            var currentPositionIndex = player.position.index;
+            var newPositionIndex = currentPositionIndex + Math.floor((this.lastDiceResult1 + this.lastDiceResult2) % 40);
+            player.position = this.game.board.fields[newPositionIndex];
+            this.game.board.fields[currentPositionIndex].occupiedBy.splice(this.game.board.fields[currentPositionIndex].occupiedBy.indexOf(player.playerName), 1);
+            player.position.occupiedBy.push(player.playerName);
+            return player.position;
         };
         GameService.prototype.initPlayers = function () {
             var settings = this.settingsService.loadSettings();
@@ -805,6 +851,8 @@ var MonopolyApp;
                 this.drawingService = drawingService;
                 this.initGame();
                 this.createScene();
+                this.availableActions = new MonopolyApp.Viewmodels.AvailableActions();
+                this.setAvailableActions();
             }
             Object.defineProperty(GameController.prototype, "currentPlayer", {
                 get: function () {
@@ -822,6 +870,21 @@ var MonopolyApp;
             });
             GameController.prototype.initGame = function () {
                 this.gameService.initGame();
+            };
+            GameController.prototype.throwDice = function () {
+                if (this.gameService.canThrowDice) {
+                    this.gameService.throwDice();
+                    var oldPosition = this.gameService.getCurrentPlayerPosition();
+                    var newPosition = this.gameService.moveCurrentPlayer();
+                    this.animateMove(oldPosition, newPosition);
+                    this.setAvailableActions();
+                }
+            };
+            GameController.prototype.endTurn = function () {
+                if (this.gameService.canEndTurn) {
+                    this.gameService.endTurn();
+                    this.setAvailableActions();
+                }
             };
             GameController.prototype.createScene = function () {
                 var canvas = document.getElementById("renderCanvas");
@@ -882,6 +945,15 @@ var MonopolyApp;
                 that.players.forEach(function (playerModel) {
                     that.drawingService.positionPlayer(playerModel);
                 });
+            };
+            GameController.prototype.setAvailableActions = function () {
+                this.availableActions.endTurn = this.gameService.canEndTurn;
+                this.availableActions.throwDice = this.gameService.canThrowDice;
+            };
+            GameController.prototype.animateMove = function (oldPosition, newPosition) {
+                var _this = this;
+                var playerModel = this.players.filter(function (p) { return p.name === _this.gameService.getCurrentPlayer(); })[0];
+                this.drawingService.animatePlayerMove(oldPosition, newPosition, playerModel);
             };
             GameController.$inject = ["$state", "gameService", "drawingService"];
             return GameController;
@@ -949,6 +1021,18 @@ var MonopolyApp;
         controllers.SettingsController = SettingsController;
         monopolyApp.controller("settingsCtrl", SettingsController);
     })(controllers = MonopolyApp.controllers || (MonopolyApp.controllers = {}));
+})(MonopolyApp || (MonopolyApp = {}));
+var MonopolyApp;
+(function (MonopolyApp) {
+    var Viewmodels;
+    (function (Viewmodels) {
+        var AvailableActions = (function () {
+            function AvailableActions() {
+            }
+            return AvailableActions;
+        })();
+        Viewmodels.AvailableActions = AvailableActions;
+    })(Viewmodels = MonopolyApp.Viewmodels || (MonopolyApp.Viewmodels = {}));
 })(MonopolyApp || (MonopolyApp = {}));
 var MonopolyApp;
 (function (MonopolyApp) {

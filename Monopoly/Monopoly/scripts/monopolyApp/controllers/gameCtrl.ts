@@ -11,6 +11,8 @@ module MonopolyApp.controllers {
 
         private players: Array<Viewmodels.Player>;
 
+        availableActions: Viewmodels.AvailableActions;
+
         get currentPlayer(): string {
             return this.gameService.getCurrentPlayer();
         }
@@ -25,10 +27,29 @@ module MonopolyApp.controllers {
             this.drawingService = drawingService;
             this.initGame();
             this.createScene();
+            this.availableActions = new Viewmodels.AvailableActions();
+            this.setAvailableActions();
         }
 
         initGame() {
             this.gameService.initGame();
+        }
+
+        throwDice() {
+            if (this.gameService.canThrowDice) {
+                this.gameService.throwDice();
+                var oldPosition = this.gameService.getCurrentPlayerPosition();
+                var newPosition = this.gameService.moveCurrentPlayer();
+                this.animateMove(oldPosition, newPosition);
+                this.setAvailableActions();
+            }
+        }
+
+        endTurn() {
+            if (this.gameService.canEndTurn) {
+                this.gameService.endTurn();
+                this.setAvailableActions();
+            }
         }
 
         private createScene() {
@@ -101,6 +122,15 @@ module MonopolyApp.controllers {
             });
         }
 
+        private setAvailableActions() {
+            this.availableActions.endTurn = this.gameService.canEndTurn;
+            this.availableActions.throwDice = this.gameService.canThrowDice;
+        }
+
+        private animateMove(oldPosition: Model.BoardField, newPosition: Model.BoardField) {
+            var playerModel = this.players.filter(p => p.name === this.gameService.getCurrentPlayer())[0];
+            this.drawingService.animatePlayerMove(oldPosition, newPosition, playerModel);
+        }
     }
 
     monopolyApp.controller("gameCtrl", GameController);

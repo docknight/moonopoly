@@ -1,5 +1,10 @@
 ﻿module Model {
-    export enum GameState { BeginTurn, ThrowDice, Move, Process };
+    export enum GameState {
+        BeginTurn, // beginning of player's turn
+        ThrowDice, // player is throwing the dice
+        Move, // the move to the next board field is being made
+        Process
+    };
 
     export class Game {
         private _currentPlayer: string; // name of the current player

@@ -9,6 +9,8 @@ module Services {
         settingsService: Interfaces.ISettingsService;
 
         private game: Model.Game;
+        private lastDiceResult1: number;
+        private lastDiceResult2: number;
 
         static $inject = ["$http", "settingsService"];
         constructor($http: ng.IHttpService, settingsService: Interfaces.ISettingsService) {
@@ -23,8 +25,10 @@ module Services {
         }
 
         endTurn() {
-            this.game.advanceToNextPlayer();
-            this.game.state = Model.GameState.BeginTurn;
+            if (this.canEndTurn) {
+                this.game.advanceToNextPlayer();
+                this.game.state = Model.GameState.BeginTurn;
+            }
         }
 
         getCurrentPlayer(): string {
@@ -33,6 +37,20 @@ module Services {
 
         get players(): Array<Model.Player> {
             return this.game.players;
+        }
+
+        get canThrowDice() {
+            if (this.game.state === Model.GameState.BeginTurn) {
+                return true;
+            }
+            return false;
+        }
+
+        get canEndTurn() {
+            if (this.game.state !== Model.GameState.BeginTurn) {
+                return true;
+            }
+            return false;
         }
 
         setPlayerPosition(player: Model.Player, boardFieldIndex: number) {
@@ -44,6 +62,28 @@ module Services {
             }
 
             player.position.occupiedBy.push(player.playerName);
+        }
+
+        throwDice() {
+            this.game.state = Model.GameState.ThrowDice;
+            this.lastDiceResult1 = 3;
+            this.lastDiceResult2 = 2;
+        }
+
+        getCurrentPlayerPosition(): Model.BoardField {
+            var player = this.game.players.filter(p => p.playerName === this.getCurrentPlayer())[0];
+            return player.position;
+        }
+
+        moveCurrentPlayer(): Model.BoardField {
+            this.game.state = Model.GameState.Move;
+            var player = this.game.players.filter(p => p.playerName === this.getCurrentPlayer())[0];
+            var currentPositionIndex = player.position.index;
+            var newPositionIndex = currentPositionIndex + Math.floor((this.lastDiceResult1 + this.lastDiceResult2) % 40);
+            player.position = this.game.board.fields[newPositionIndex];
+            this.game.board.fields[currentPositionIndex].occupiedBy.splice(this.game.board.fields[currentPositionIndex].occupiedBy.indexOf(player.playerName), 1);
+            player.position.occupiedBy.push(player.playerName);
+            return player.position;
         }
 
         private initPlayers() {
