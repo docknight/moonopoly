@@ -787,6 +787,21 @@ var Services;
             enumerable: true,
             configurable: true
         });
+        Object.defineProperty(GameService.prototype, "canBuy", {
+            get: function () {
+                if (this.game.state === Model.GameState.Process) {
+                    var currentPosition = this.getCurrentPlayerPosition();
+                    if (currentPosition.type === Model.BoardFieldType.Asset) {
+                        if (!currentPosition.asset.owner) {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            },
+            enumerable: true,
+            configurable: true
+        });
         GameService.prototype.setPlayerPosition = function (player, boardFieldIndex) {
             player.position = this.game.board.fields[boardFieldIndex];
             var previousFields = this.game.board.fields.filter(function (b) { return b.occupiedBy != null && b.occupiedBy.filter(function (ocb) { return ocb == player.playerName; }).length > 0; });
@@ -798,8 +813,8 @@ var Services;
         };
         GameService.prototype.throwDice = function () {
             this.game.state = Model.GameState.ThrowDice;
-            this.lastDiceResult1 = 3;
-            this.lastDiceResult2 = 2;
+            this.lastDiceResult1 = 1;
+            this.lastDiceResult2 = 0;
         };
         GameService.prototype.getCurrentPlayerPosition = function () {
             var _this = this;
@@ -811,10 +826,11 @@ var Services;
             this.game.state = Model.GameState.Move;
             var player = this.game.players.filter(function (p) { return p.playerName === _this.getCurrentPlayer(); })[0];
             var currentPositionIndex = player.position.index;
-            var newPositionIndex = currentPositionIndex + Math.floor((this.lastDiceResult1 + this.lastDiceResult2) % 40);
+            var newPositionIndex = Math.floor((currentPositionIndex + this.lastDiceResult1 + this.lastDiceResult2) % 40);
             player.position = this.game.board.fields[newPositionIndex];
             this.game.board.fields[currentPositionIndex].occupiedBy.splice(this.game.board.fields[currentPositionIndex].occupiedBy.indexOf(player.playerName), 1);
             player.position.occupiedBy.push(player.playerName);
+            this.game.state = Model.GameState.Process;
             return player.position;
         };
         GameService.prototype.initPlayers = function () {
@@ -878,7 +894,12 @@ var MonopolyApp;
                     var newPosition = this.gameService.moveCurrentPlayer();
                     this.animateMove(oldPosition, newPosition);
                     this.setAvailableActions();
+                    if (this.availableActions.buy) {
+                        this.showDeed();
+                    }
                 }
+            };
+            GameController.prototype.buy = function () {
             };
             GameController.prototype.endTurn = function () {
                 if (this.gameService.canEndTurn) {
@@ -949,11 +970,15 @@ var MonopolyApp;
             GameController.prototype.setAvailableActions = function () {
                 this.availableActions.endTurn = this.gameService.canEndTurn;
                 this.availableActions.throwDice = this.gameService.canThrowDice;
+                this.availableActions.buy = this.gameService.canBuy;
             };
             GameController.prototype.animateMove = function (oldPosition, newPosition) {
                 var _this = this;
                 var playerModel = this.players.filter(function (p) { return p.name === _this.gameService.getCurrentPlayer(); })[0];
                 this.drawingService.animatePlayerMove(oldPosition, newPosition, playerModel);
+            };
+            GameController.prototype.showDeed = function () {
+                this.assetToBuy = this.gameService.getCurrentPlayerPosition().asset;
             };
             GameController.$inject = ["$state", "gameService", "drawingService"];
             return GameController;

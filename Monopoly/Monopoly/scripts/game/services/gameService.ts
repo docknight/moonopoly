@@ -53,6 +53,18 @@ module Services {
             return false;
         }
 
+        get canBuy() {
+            if (this.game.state === Model.GameState.Process) {
+                var currentPosition = this.getCurrentPlayerPosition();
+                if (currentPosition.type === Model.BoardFieldType.Asset) {
+                    if (!currentPosition.asset.owner) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
         setPlayerPosition(player: Model.Player, boardFieldIndex: number) {
             player.position = this.game.board.fields[boardFieldIndex];
             var previousFields = this.game.board.fields.filter(b => b.occupiedBy != null && b.occupiedBy.filter(ocb => ocb == player.playerName).length > 0);
@@ -66,8 +78,8 @@ module Services {
 
         throwDice() {
             this.game.state = Model.GameState.ThrowDice;
-            this.lastDiceResult1 = 3;
-            this.lastDiceResult2 = 2;
+            this.lastDiceResult1 = 1;
+            this.lastDiceResult2 = 0;
         }
 
         getCurrentPlayerPosition(): Model.BoardField {
@@ -79,10 +91,11 @@ module Services {
             this.game.state = Model.GameState.Move;
             var player = this.game.players.filter(p => p.playerName === this.getCurrentPlayer())[0];
             var currentPositionIndex = player.position.index;
-            var newPositionIndex = currentPositionIndex + Math.floor((this.lastDiceResult1 + this.lastDiceResult2) % 40);
+            var newPositionIndex = Math.floor((currentPositionIndex + this.lastDiceResult1 + this.lastDiceResult2) % 40);
             player.position = this.game.board.fields[newPositionIndex];
             this.game.board.fields[currentPositionIndex].occupiedBy.splice(this.game.board.fields[currentPositionIndex].occupiedBy.indexOf(player.playerName), 1);
             player.position.occupiedBy.push(player.playerName);
+            this.game.state = Model.GameState.Process;
             return player.position;
         }
 

@@ -7,6 +7,7 @@
         players: Array<Model.Player>;
         canThrowDice: boolean;
         canEndTurn: boolean;
+        canBuy: boolean;
         initGame();
         getCurrentPlayer(): string;
         endTurn();

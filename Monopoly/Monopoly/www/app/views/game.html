@@ -1,6 +1,17 @@
 ﻿<div>Let's play, {{gameController.currentPlayer}}!</div>
 <canvas id="renderCanvas"></canvas>
+<div id="titleDeed" style="position: fixed; top: 10%; left: 30%; width: 40%; height: 80%; background-color: white; border: 2px; border-color: black; border-radius: 3px" ng-show="gameController.availableActions.buy">
+    <table style="width:100%">
+        <tr>
+            <td colspan="2" style="text-align: center; font-size: 12px">TITLE DEED</td>
+        </tr>
+        <tr>
+            <td colspan="2" style="text-align: center; font-size: 16px; font-weight: bold">{{gameController.assetToBuy.name}}</td>
+        </tr>
+    </table>    
+</div>
 <div id="commandPanel" style="position: fixed; bottom: 0px; left: 0px; width: 100%">
     <button ng-disabled="!gameController.availableActions.throwDice" ng-click="gameController.throwDice()">Throw dice</button>
+    <button ng-show="gameController.availableActions.buy" ng-click="gameController.buy()">Buy</button>
     <button ng-disabled="!gameController.availableActions.endTurn" ng-click="gameController.endTurn()">End turn</button>
 </div>

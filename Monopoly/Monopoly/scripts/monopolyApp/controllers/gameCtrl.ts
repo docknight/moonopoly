@@ -12,6 +12,7 @@ module MonopolyApp.controllers {
         private players: Array<Viewmodels.Player>;
 
         availableActions: Viewmodels.AvailableActions;
+        assetToBuy: Model.Asset; // asset currently available for purchase
 
         get currentPlayer(): string {
             return this.gameService.getCurrentPlayer();
@@ -42,7 +43,14 @@ module MonopolyApp.controllers {
                 var newPosition = this.gameService.moveCurrentPlayer();
                 this.animateMove(oldPosition, newPosition);
                 this.setAvailableActions();
+                if (this.availableActions.buy) {
+                    this.showDeed();
+                }
             }
+        }
+
+        buy() {
+            
         }
 
         endTurn() {
@@ -125,11 +133,16 @@ module MonopolyApp.controllers {
         private setAvailableActions() {
             this.availableActions.endTurn = this.gameService.canEndTurn;
             this.availableActions.throwDice = this.gameService.canThrowDice;
+            this.availableActions.buy = this.gameService.canBuy;
         }
 
         private animateMove(oldPosition: Model.BoardField, newPosition: Model.BoardField) {
             var playerModel = this.players.filter(p => p.name === this.gameService.getCurrentPlayer())[0];
             this.drawingService.animatePlayerMove(oldPosition, newPosition, playerModel);
+        }
+
+        showDeed() {
+            this.assetToBuy = this.gameService.getCurrentPlayerPosition().asset;
         }
     }
 
