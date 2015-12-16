@@ -14,6 +14,8 @@
         throwDice();
         getCurrentPlayerPosition(): Model.BoardField;
         moveCurrentPlayer(): Model.BoardField;
+        buy();
+        processOwnedFieldVisit(): Model.ProcessResult;
     }
     export interface IDrawingService {
         boardSize: number;

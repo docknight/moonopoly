@@ -81,7 +81,20 @@ var Model;
     var Asset = (function () {
         function Asset() {
             this._unowned = true;
+            this._mortgage = false;
+            this._houses = 0;
+            this._hotel = false;
+            this.priceRent = [];
+            this.priceRentHouse = [];
+            this.priceMultiplierUtility = [];
         }
+        Object.defineProperty(Asset.prototype, "owner", {
+            get: function () {
+                return this._owner;
+            },
+            enumerable: true,
+            configurable: true
+        });
         Object.defineProperty(Asset.prototype, "unowned", {
             get: function () {
                 return this._unowned;
@@ -89,9 +102,43 @@ var Model;
             enumerable: true,
             configurable: true
         });
+        Object.defineProperty(Asset.prototype, "houses", {
+            get: function () {
+                return this._houses;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(Asset.prototype, "hotel", {
+            get: function () {
+                return this._hotel;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(Asset.prototype, "mortgage", {
+            get: function () {
+                return this._mortgage;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Asset.prototype.placeHouse = function () {
+            this._houses++;
+        };
+        Asset.prototype.placeHotel = function () {
+            this._houses = 0;
+            this._hotel = true;
+        };
+        Asset.prototype.putUnderMortgage = function () {
+            this._mortgage = true;
+        };
+        Asset.prototype.releaseMortgage = function () {
+            this._mortgage = false;
+        };
         Asset.prototype.setOwner = function (ownerName) {
             if (this._unowned) {
-                this.owner = ownerName;
+                this._owner = ownerName;
                 this._unowned = false;
             }
         };
@@ -115,12 +162,8 @@ var Model;
             boardField.asset.price = 60;
             boardField.asset.priceHouse = 50;
             boardField.asset.priceHotel = 50;
-            boardField.asset.priceRent = 2;
-            boardField.asset.priceRentGroup = 4;
-            boardField.asset.priceRent1House = 10;
-            boardField.asset.priceRent2House = 30;
-            boardField.asset.priceRent3House = 90;
-            boardField.asset.priceRent4House = 160;
+            boardField.asset.priceRent.push(2, 4);
+            boardField.asset.priceRentHouse.push(10, 30, 90, 160);
             boardField.asset.priceRentHotel = 250;
             boardField.asset.priceMortgage = 30;
             this.fields.push(boardField);
@@ -132,12 +175,8 @@ var Model;
             boardField.asset.price = 60;
             boardField.asset.priceHouse = 50;
             boardField.asset.priceHotel = 50;
-            boardField.asset.priceRent = 4;
-            boardField.asset.priceRentGroup = 8;
-            boardField.asset.priceRent1House = 20;
-            boardField.asset.priceRent2House = 60;
-            boardField.asset.priceRent3House = 180;
-            boardField.asset.priceRent4House = 320;
+            boardField.asset.priceRent.push(4, 8);
+            boardField.asset.priceRentHouse.push(20, 60, 180, 320);
             boardField.asset.priceRentHotel = 450;
             boardField.asset.priceMortgage = 30;
             this.fields.push(boardField);
@@ -147,23 +186,15 @@ var Model;
             this.fields.push(taxField);
             boardField = this.createAssetBoardField("Železniška postaja Jesenice", this.fields.length, Model.AssetGroup.Railway);
             boardField.asset.price = 200;
-            boardField.asset.price1Railway = 25;
-            boardField.asset.priceRent = 25;
-            boardField.asset.price2Railway = 50;
-            boardField.asset.price3Railway = 100;
-            boardField.asset.price4Railway = 200;
+            boardField.asset.priceRent.push(25, 50, 100, 200);
             boardField.asset.priceMortgage = 100;
             this.fields.push(boardField);
             boardField = this.createAssetBoardField("Bogenšperk", this.fields.length, Model.AssetGroup.Second);
             boardField.asset.price = 100;
             boardField.asset.priceHouse = 50;
             boardField.asset.priceHotel = 50;
-            boardField.asset.priceRent = 6;
-            boardField.asset.priceRentGroup = 12;
-            boardField.asset.priceRent1House = 30;
-            boardField.asset.priceRent2House = 90;
-            boardField.asset.priceRent3House = 270;
-            boardField.asset.priceRent4House = 400;
+            boardField.asset.priceRent.push(6, 6, 12);
+            boardField.asset.priceRentHouse.push(30, 90, 270, 400);
             boardField.asset.priceRentHotel = 550;
             boardField.asset.priceMortgage = 50;
             this.fields.push(boardField);
@@ -175,12 +206,8 @@ var Model;
             boardField.asset.price = 100;
             boardField.asset.priceHouse = 50;
             boardField.asset.priceHotel = 50;
-            boardField.asset.priceRent = 6;
-            boardField.asset.priceRentGroup = 12;
-            boardField.asset.priceRent1House = 30;
-            boardField.asset.priceRent2House = 90;
-            boardField.asset.priceRent3House = 270;
-            boardField.asset.priceRent4House = 400;
+            boardField.asset.priceRent.push(6, 6, 12);
+            boardField.asset.priceRentHouse.push(30, 90, 270, 400);
             boardField.asset.priceRentHotel = 550;
             boardField.asset.priceMortgage = 50;
             this.fields.push(boardField);
@@ -188,12 +215,8 @@ var Model;
             boardField.asset.price = 120;
             boardField.asset.priceHouse = 50;
             boardField.asset.priceHotel = 50;
-            boardField.asset.priceRent = 8;
-            boardField.asset.priceRentGroup = 16;
-            boardField.asset.priceRent1House = 40;
-            boardField.asset.priceRent2House = 100;
-            boardField.asset.priceRent3House = 300;
-            boardField.asset.priceRent4House = 450;
+            boardField.asset.priceRent.push(8, 8, 16);
+            boardField.asset.priceRentHouse.push(40, 100, 300, 450);
             boardField.asset.priceRentHotel = 600;
             boardField.asset.priceMortgage = 60;
             this.fields.push(boardField);
@@ -205,31 +228,22 @@ var Model;
             boardField.asset.price = 140;
             boardField.asset.priceHouse = 100;
             boardField.asset.priceHotel = 100;
-            boardField.asset.priceRent = 10;
-            boardField.asset.priceRentGroup = 20;
-            boardField.asset.priceRent1House = 50;
-            boardField.asset.priceRent2House = 150;
-            boardField.asset.priceRent3House = 450;
-            boardField.asset.priceRent4House = 625;
+            boardField.asset.priceRent.push(10, 10, 20);
+            boardField.asset.priceRentHouse.push(50, 150, 450, 625);
             boardField.asset.priceRentHotel = 750;
             boardField.asset.priceMortgage = 70;
             this.fields.push(boardField);
             boardField = this.createAssetBoardField("Javna razsvetljava", this.fields.length, Model.AssetGroup.Utility);
             boardField.asset.price = 150;
-            boardField.asset.priceMultiplier1Utility = 4;
-            boardField.asset.priceMultiplier2Utility = 10;
+            boardField.asset.priceMultiplierUtility.push(4, 10);
             boardField.asset.priceMortgage = 75;
             this.fields.push(boardField);
             boardField = this.createAssetBoardField("Dolenjske toplice", this.fields.length, Model.AssetGroup.Third);
             boardField.asset.price = 140;
             boardField.asset.priceHouse = 100;
             boardField.asset.priceHotel = 100;
-            boardField.asset.priceRent = 10;
-            boardField.asset.priceRentGroup = 20;
-            boardField.asset.priceRent1House = 50;
-            boardField.asset.priceRent2House = 150;
-            boardField.asset.priceRent3House = 450;
-            boardField.asset.priceRent4House = 625;
+            boardField.asset.priceRent.push(10, 10, 20);
+            boardField.asset.priceRentHouse.push(50, 150, 450, 625);
             boardField.asset.priceRentHotel = 750;
             boardField.asset.priceMortgage = 70;
             this.fields.push(boardField);
@@ -237,34 +251,22 @@ var Model;
             boardField.asset.price = 160;
             boardField.asset.priceHouse = 100;
             boardField.asset.priceHotel = 100;
-            boardField.asset.priceRent = 12;
-            boardField.asset.priceRentGroup = 24;
-            boardField.asset.priceRent1House = 60;
-            boardField.asset.priceRent2House = 180;
-            boardField.asset.priceRent3House = 500;
-            boardField.asset.priceRent4House = 700;
+            boardField.asset.priceRent.push(12, 12, 24);
+            boardField.asset.priceRentHouse.push(60, 180, 500, 700);
             boardField.asset.priceRentHotel = 900;
             boardField.asset.priceMortgage = 80;
             this.fields.push(boardField);
             boardField = this.createAssetBoardField("Glavni kolodvor Ljubljana", this.fields.length, Model.AssetGroup.Railway);
             boardField.asset.price = 200;
-            boardField.asset.price1Railway = 25;
-            boardField.asset.priceRent = 25;
-            boardField.asset.price2Railway = 50;
-            boardField.asset.price3Railway = 100;
-            boardField.asset.price4Railway = 200;
+            boardField.asset.priceRent.push(25, 50, 100, 200);
             boardField.asset.priceMortgage = 100;
             this.fields.push(boardField);
             boardField = this.createAssetBoardField("Športni park Stožice", this.fields.length, Model.AssetGroup.Fourth);
             boardField.asset.price = 180;
             boardField.asset.priceHouse = 100;
             boardField.asset.priceHotel = 100;
-            boardField.asset.priceRent = 14;
-            boardField.asset.priceRentGroup = 28;
-            boardField.asset.priceRent1House = 70;
-            boardField.asset.priceRent2House = 200;
-            boardField.asset.priceRent3House = 550;
-            boardField.asset.priceRent4House = 750;
+            boardField.asset.priceRent.push(14, 14, 28);
+            boardField.asset.priceRentHouse.push(70, 200, 550, 750);
             boardField.asset.priceRentHotel = 950;
             boardField.asset.priceMortgage = 90;
             this.fields.push(boardField);
@@ -276,12 +278,8 @@ var Model;
             boardField.asset.price = 180;
             boardField.asset.priceHouse = 100;
             boardField.asset.priceHotel = 100;
-            boardField.asset.priceRent = 14;
-            boardField.asset.priceRentGroup = 28;
-            boardField.asset.priceRent1House = 70;
-            boardField.asset.priceRent2House = 200;
-            boardField.asset.priceRent3House = 550;
-            boardField.asset.priceRent4House = 750;
+            boardField.asset.priceRent.push(14, 14, 28);
+            boardField.asset.priceRentHouse.push(70, 200, 550, 750);
             boardField.asset.priceRentHotel = 950;
             boardField.asset.priceMortgage = 90;
             this.fields.push(boardField);
@@ -289,12 +287,8 @@ var Model;
             boardField.asset.price = 200;
             boardField.asset.priceHouse = 100;
             boardField.asset.priceHotel = 100;
-            boardField.asset.priceRent = 16;
-            boardField.asset.priceRentGroup = 32;
-            boardField.asset.priceRent1House = 80;
-            boardField.asset.priceRent2House = 220;
-            boardField.asset.priceRent3House = 600;
-            boardField.asset.priceRent4House = 800;
+            boardField.asset.priceRent.push(16, 16, 32);
+            boardField.asset.priceRentHouse.push(80, 220, 600, 800);
             boardField.asset.priceRentHotel = 1000;
             boardField.asset.priceMortgage = 100;
             this.fields.push(boardField);
@@ -306,12 +300,8 @@ var Model;
             boardField.asset.price = 220;
             boardField.asset.priceHouse = 150;
             boardField.asset.priceHotel = 150;
-            boardField.asset.priceRent = 18;
-            boardField.asset.priceRentGroup = 36;
-            boardField.asset.priceRent1House = 90;
-            boardField.asset.priceRent2House = 250;
-            boardField.asset.priceRent3House = 700;
-            boardField.asset.priceRent4House = 875;
+            boardField.asset.priceRent.push(18, 18, 36);
+            boardField.asset.priceRentHouse.push(90, 250, 700, 875);
             boardField.asset.priceRentHotel = 1050;
             boardField.asset.priceMortgage = 110;
             this.fields.push(boardField);
@@ -323,12 +313,8 @@ var Model;
             boardField.asset.price = 220;
             boardField.asset.priceHouse = 150;
             boardField.asset.priceHotel = 150;
-            boardField.asset.priceRent = 18;
-            boardField.asset.priceRentGroup = 36;
-            boardField.asset.priceRent1House = 90;
-            boardField.asset.priceRent2House = 250;
-            boardField.asset.priceRent3House = 700;
-            boardField.asset.priceRent4House = 875;
+            boardField.asset.priceRent.push(18, 18, 36);
+            boardField.asset.priceRentHouse.push(90, 250, 700, 875);
             boardField.asset.priceRentHotel = 1050;
             boardField.asset.priceMortgage = 110;
             this.fields.push(boardField);
@@ -336,34 +322,22 @@ var Model;
             boardField.asset.price = 240;
             boardField.asset.priceHouse = 150;
             boardField.asset.priceHotel = 150;
-            boardField.asset.priceRent = 20;
-            boardField.asset.priceRentGroup = 40;
-            boardField.asset.priceRent1House = 100;
-            boardField.asset.priceRent2House = 300;
-            boardField.asset.priceRent3House = 750;
-            boardField.asset.priceRent4House = 925;
+            boardField.asset.priceRent.push(20, 20, 40);
+            boardField.asset.priceRentHouse.push(100, 300, 750, 925);
             boardField.asset.priceRentHotel = 1100;
             boardField.asset.priceMortgage = 120;
             this.fields.push(boardField);
             boardField = this.createAssetBoardField("Železniška postaja Zidani most", this.fields.length, Model.AssetGroup.Railway);
             boardField.asset.price = 200;
-            boardField.asset.price1Railway = 25;
-            boardField.asset.priceRent = 25;
-            boardField.asset.price2Railway = 50;
-            boardField.asset.price3Railway = 100;
-            boardField.asset.price4Railway = 200;
+            boardField.asset.priceRent.push(25, 50, 100, 200);
             boardField.asset.priceMortgage = 100;
             this.fields.push(boardField);
             boardField = this.createAssetBoardField("Lipica", this.fields.length, Model.AssetGroup.Sixth);
             boardField.asset.price = 260;
             boardField.asset.priceHouse = 150;
             boardField.asset.priceHotel = 150;
-            boardField.asset.priceRent = 22;
-            boardField.asset.priceRentGroup = 44;
-            boardField.asset.priceRent1House = 110;
-            boardField.asset.priceRent2House = 330;
-            boardField.asset.priceRent3House = 800;
-            boardField.asset.priceRent4House = 975;
+            boardField.asset.priceRent.push(22, 22, 44);
+            boardField.asset.priceRentHouse.push(110, 330, 800, 975);
             boardField.asset.priceRentHotel = 1150;
             boardField.asset.priceMortgage = 130;
             this.fields.push(boardField);
@@ -371,31 +345,22 @@ var Model;
             boardField.asset.price = 260;
             boardField.asset.priceHouse = 150;
             boardField.asset.priceHotel = 150;
-            boardField.asset.priceRent = 22;
-            boardField.asset.priceRentGroup = 44;
-            boardField.asset.priceRent1House = 110;
-            boardField.asset.priceRent2House = 330;
-            boardField.asset.priceRent3House = 800;
-            boardField.asset.priceRent4House = 975;
+            boardField.asset.priceRent.push(22, 22, 44);
+            boardField.asset.priceRentHouse.push(110, 330, 800, 975);
             boardField.asset.priceRentHotel = 1150;
             boardField.asset.priceMortgage = 130;
             this.fields.push(boardField);
             boardField = this.createAssetBoardField("Mestni vodovod", this.fields.length, Model.AssetGroup.Utility);
             boardField.asset.price = 150;
-            boardField.asset.priceMultiplier1Utility = 4;
-            boardField.asset.priceMultiplier2Utility = 10;
+            boardField.asset.priceMultiplierUtility.push(4, 10);
             boardField.asset.priceMortgage = 75;
             this.fields.push(boardField);
             boardField = this.createAssetBoardField("Postojnska jama", this.fields.length, Model.AssetGroup.Sixth);
             boardField.asset.price = 280;
             boardField.asset.priceHouse = 150;
             boardField.asset.priceHotel = 150;
-            boardField.asset.priceRent = 24;
-            boardField.asset.priceRentGroup = 48;
-            boardField.asset.priceRent1House = 120;
-            boardField.asset.priceRent2House = 360;
-            boardField.asset.priceRent3House = 850;
-            boardField.asset.priceRent4House = 1025;
+            boardField.asset.priceRent.push(24, 24, 48);
+            boardField.asset.priceRentHouse.push(120, 360, 850, 1025);
             boardField.asset.priceRentHotel = 1200;
             boardField.asset.priceMortgage = 140;
             this.fields.push(boardField);
@@ -407,12 +372,8 @@ var Model;
             boardField.asset.price = 300;
             boardField.asset.priceHouse = 200;
             boardField.asset.priceHotel = 200;
-            boardField.asset.priceRent = 26;
-            boardField.asset.priceRentGroup = 52;
-            boardField.asset.priceRent1House = 130;
-            boardField.asset.priceRent2House = 390;
-            boardField.asset.priceRent3House = 900;
-            boardField.asset.priceRent4House = 1100;
+            boardField.asset.priceRent.push(26, 26, 52);
+            boardField.asset.priceRentHouse.push(130, 390, 900, 1100);
             boardField.asset.priceRentHotel = 1275;
             boardField.asset.priceMortgage = 150;
             this.fields.push(boardField);
@@ -420,12 +381,8 @@ var Model;
             boardField.asset.price = 300;
             boardField.asset.priceHouse = 200;
             boardField.asset.priceHotel = 200;
-            boardField.asset.priceRent = 26;
-            boardField.asset.priceRentGroup = 52;
-            boardField.asset.priceRent1House = 130;
-            boardField.asset.priceRent2House = 390;
-            boardField.asset.priceRent3House = 900;
-            boardField.asset.priceRent4House = 1100;
+            boardField.asset.priceRent.push(26, 26, 52);
+            boardField.asset.priceRentHouse.push(130, 390, 900, 1100);
             boardField.asset.priceRentHotel = 1275;
             boardField.asset.priceMortgage = 150;
             this.fields.push(boardField);
@@ -437,22 +394,14 @@ var Model;
             boardField.asset.price = 320;
             boardField.asset.priceHouse = 200;
             boardField.asset.priceHotel = 200;
-            boardField.asset.priceRent = 28;
-            boardField.asset.priceRentGroup = 56;
-            boardField.asset.priceRent1House = 150;
-            boardField.asset.priceRent2House = 450;
-            boardField.asset.priceRent3House = 1000;
-            boardField.asset.priceRent4House = 1200;
+            boardField.asset.priceRent.push(28, 28, 56);
+            boardField.asset.priceRentHouse.push(150, 450, 1000, 1200);
             boardField.asset.priceRentHotel = 1400;
             boardField.asset.priceMortgage = 160;
             this.fields.push(boardField);
             boardField = this.createAssetBoardField("Železniška postaja Koper", this.fields.length, Model.AssetGroup.Railway);
             boardField.asset.price = 200;
-            boardField.asset.price1Railway = 25;
-            boardField.asset.priceRent = 25;
-            boardField.asset.price2Railway = 50;
-            boardField.asset.price3Railway = 100;
-            boardField.asset.price4Railway = 200;
+            boardField.asset.priceRent.push(25, 50, 100, 200);
             boardField.asset.priceMortgage = 100;
             this.fields.push(boardField);
             eventField = new Model.BoardField(null);
@@ -463,12 +412,8 @@ var Model;
             boardField.asset.price = 350;
             boardField.asset.priceHouse = 200;
             boardField.asset.priceHotel = 200;
-            boardField.asset.priceRent = 35;
-            boardField.asset.priceRentGroup = 70;
-            boardField.asset.priceRent1House = 175;
-            boardField.asset.priceRent2House = 500;
-            boardField.asset.priceRent3House = 1100;
-            boardField.asset.priceRent4House = 1300;
+            boardField.asset.priceRent.push(35, 70);
+            boardField.asset.priceRentHouse.push(175, 500, 1100, 1300);
             boardField.asset.priceRentHotel = 1500;
             boardField.asset.priceMortgage = 175;
             this.fields.push(boardField);
@@ -480,12 +425,8 @@ var Model;
             boardField.asset.price = 400;
             boardField.asset.priceHouse = 200;
             boardField.asset.priceHotel = 200;
-            boardField.asset.priceRent = 50;
-            boardField.asset.priceRentGroup = 100;
-            boardField.asset.priceRent1House = 200;
-            boardField.asset.priceRent2House = 600;
-            boardField.asset.priceRent3House = 1400;
-            boardField.asset.priceRent4House = 1700;
+            boardField.asset.priceRent.push(50, 100);
+            boardField.asset.priceRentHouse.push(200, 600, 1400, 1700);
             boardField.asset.priceRentHotel = 2000;
             boardField.asset.priceMortgage = 200;
             this.fields.push(boardField);
@@ -597,6 +538,15 @@ var Model;
         return Player;
     })();
     Model.Player = Player;
+})(Model || (Model = {}));
+var Model;
+(function (Model) {
+    var ProcessResult = (function () {
+        function ProcessResult() {
+        }
+        return ProcessResult;
+    })();
+    Model.ProcessResult = ProcessResult;
 })(Model || (Model = {}));
 var Model;
 (function (Model) {
@@ -789,11 +739,15 @@ var Services;
         });
         Object.defineProperty(GameService.prototype, "canBuy", {
             get: function () {
+                var _this = this;
                 if (this.game.state === Model.GameState.Process) {
                     var currentPosition = this.getCurrentPlayerPosition();
                     if (currentPosition.type === Model.BoardFieldType.Asset) {
-                        if (!currentPosition.asset.owner) {
-                            return true;
+                        if (currentPosition.asset.unowned) {
+                            var player = this.game.players.filter(function (p) { return p.playerName === _this.getCurrentPlayer(); })[0];
+                            if (player.money >= currentPosition.asset.price) {
+                                return true;
+                            }
                         }
                     }
                 }
@@ -804,7 +758,7 @@ var Services;
         });
         GameService.prototype.setPlayerPosition = function (player, boardFieldIndex) {
             player.position = this.game.board.fields[boardFieldIndex];
-            var previousFields = this.game.board.fields.filter(function (b) { return b.occupiedBy != null && b.occupiedBy.filter(function (ocb) { return ocb == player.playerName; }).length > 0; });
+            var previousFields = this.game.board.fields.filter(function (b) { return b.occupiedBy != null && b.occupiedBy.filter(function (ocb) { return ocb === player.playerName; }).length > 0; });
             if (previousFields && previousFields.length > 0) {
                 var previousField = previousFields[0];
                 previousField.occupiedBy.splice(previousField.occupiedBy.indexOf(player.playerName));
@@ -815,6 +769,17 @@ var Services;
             this.game.state = Model.GameState.ThrowDice;
             this.lastDiceResult1 = 1;
             this.lastDiceResult2 = 0;
+        };
+        GameService.prototype.buy = function () {
+            var _this = this;
+            if (this.canBuy) {
+                var asset = this.getCurrentPlayerPosition().asset;
+                if (asset) {
+                    var player = this.game.players.filter(function (p) { return p.playerName === _this.getCurrentPlayer(); })[0];
+                    player.money -= asset.price;
+                    asset.setOwner(this.getCurrentPlayer());
+                }
+            }
         };
         GameService.prototype.getCurrentPlayerPosition = function () {
             var _this = this;
@@ -832,6 +797,45 @@ var Services;
             player.position.occupiedBy.push(player.playerName);
             this.game.state = Model.GameState.Process;
             return player.position;
+        };
+        // process visit of a field owned by another player
+        GameService.prototype.processOwnedFieldVisit = function () {
+            var _this = this;
+            var result = new Model.ProcessResult();
+            var asset = this.getCurrentPlayerPosition().asset;
+            var priceToPay = 0;
+            if (!asset.mortgage) {
+                if (asset.hotel) {
+                    priceToPay = asset.priceRentHotel;
+                }
+                else if (asset.houses > 0) {
+                    priceToPay = asset.priceRentHouse[asset.houses - 1];
+                }
+                // for the rest of the scenarios, we need to find out the number of owned assets in a group
+                var numOwnedInGroup = this.game.board.fields.filter(function (f) {
+                    return f.type === Model.BoardFieldType.Asset && f.asset.group === asset.group && !f.asset.unowned && f.asset.owner === asset.owner;
+                }).length;
+                if (asset.group === Model.AssetGroup.Railway) {
+                    priceToPay = asset.priceRent[numOwnedInGroup - 1];
+                }
+                else if (asset.group === Model.AssetGroup.Utility) {
+                    priceToPay = asset.priceMultiplierUtility[numOwnedInGroup - 1] * (this.lastDiceResult1 + this.lastDiceResult2);
+                }
+                else if (asset.group !== Model.AssetGroup.None) {
+                    priceToPay = asset.priceRent[numOwnedInGroup - 1];
+                }
+                var player = this.game.players.filter(function (p) { return p.playerName === _this.getCurrentPlayer(); })[0];
+                if (player.money < priceToPay) {
+                    // TODO: player can not pay
+                    result.moneyShortage = priceToPay - player.money;
+                    return result;
+                }
+                player.money -= priceToPay;
+                var ownerPlayer = this.game.players.filter(function (p) { return p.playerName === asset.owner; })[0];
+                ownerPlayer.money += priceToPay;
+                result.message = "Paid rent of " + priceToPay + " to " + ownerPlayer.playerName + ".";
+            }
+            return result;
         };
         GameService.prototype.initPlayers = function () {
             var settings = this.settingsService.loadSettings();
@@ -869,6 +873,7 @@ var MonopolyApp;
                 this.createScene();
                 this.availableActions = new MonopolyApp.Viewmodels.AvailableActions();
                 this.setAvailableActions();
+                this.messages = [];
             }
             Object.defineProperty(GameController.prototype, "currentPlayer", {
                 get: function () {
@@ -894,12 +899,12 @@ var MonopolyApp;
                     var newPosition = this.gameService.moveCurrentPlayer();
                     this.animateMove(oldPosition, newPosition);
                     this.setAvailableActions();
-                    if (this.availableActions.buy) {
-                        this.showDeed();
-                    }
+                    this.processDestinationField();
                 }
             };
             GameController.prototype.buy = function () {
+                this.gameService.buy();
+                this.setAvailableActions();
             };
             GameController.prototype.endTurn = function () {
                 if (this.gameService.canEndTurn) {
@@ -979,6 +984,26 @@ var MonopolyApp;
             };
             GameController.prototype.showDeed = function () {
                 this.assetToBuy = this.gameService.getCurrentPlayerPosition().asset;
+            };
+            GameController.prototype.processDestinationField = function () {
+                if (this.gameService.getCurrentPlayerPosition().type === Model.BoardFieldType.Asset) {
+                    this.processAssetField(this.gameService.getCurrentPlayerPosition());
+                }
+            };
+            GameController.prototype.processAssetField = function (position) {
+                if (this.availableActions.buy) {
+                    this.showDeed();
+                }
+                else if (!position.asset.unowned && position.asset.owner !== this.gameService.getCurrentPlayer()) {
+                    var result = this.gameService.processOwnedFieldVisit();
+                    if (result.message) {
+                        this.showMessage(result.message);
+                    }
+                }
+            };
+            GameController.prototype.showMessage = function (message) {
+                var _this = this;
+                $("#messageOverlay").html(message).show().fadeOut(4000, function () { _this.messages.push(message); });
             };
             GameController.$inject = ["$state", "gameService", "drawingService"];
             return GameController;

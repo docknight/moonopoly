@@ -13,6 +13,7 @@ module MonopolyApp.controllers {
 
         availableActions: Viewmodels.AvailableActions;
         assetToBuy: Model.Asset; // asset currently available for purchase
+        messages: Array<string>;
 
         get currentPlayer(): string {
             return this.gameService.getCurrentPlayer();
@@ -30,6 +31,7 @@ module MonopolyApp.controllers {
             this.createScene();
             this.availableActions = new Viewmodels.AvailableActions();
             this.setAvailableActions();
+            this.messages = [];
         }
 
         initGame() {
@@ -43,14 +45,13 @@ module MonopolyApp.controllers {
                 var newPosition = this.gameService.moveCurrentPlayer();
                 this.animateMove(oldPosition, newPosition);
                 this.setAvailableActions();
-                if (this.availableActions.buy) {
-                    this.showDeed();
-                }
+                this.processDestinationField();                
             }
         }
 
         buy() {
-            
+            this.gameService.buy();
+            this.setAvailableActions();
         }
 
         endTurn() {
@@ -141,8 +142,29 @@ module MonopolyApp.controllers {
             this.drawingService.animatePlayerMove(oldPosition, newPosition, playerModel);
         }
 
-        showDeed() {
+        private showDeed() {
             this.assetToBuy = this.gameService.getCurrentPlayerPosition().asset;
+        }
+
+        private processDestinationField() {
+            if (this.gameService.getCurrentPlayerPosition().type === Model.BoardFieldType.Asset) {
+                this.processAssetField(this.gameService.getCurrentPlayerPosition());
+            }
+        }
+
+        private processAssetField(position: Model.BoardField) {
+            if (this.availableActions.buy) {
+                this.showDeed();
+            } else if (!position.asset.unowned && position.asset.owner !== this.gameService.getCurrentPlayer()) {
+                var result = this.gameService.processOwnedFieldVisit();
+                if (result.message) {
+                    this.showMessage(result.message);
+                }
+            }
+        }
+
+        private showMessage(message: string) {
+            $("#messageOverlay").html(message).show().fadeOut(4000, () => { this.messages.push(message); });
         }
     }
 

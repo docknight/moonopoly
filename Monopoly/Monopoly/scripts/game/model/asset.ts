@@ -3,38 +3,72 @@
 
     export class Asset {
         private _unowned: boolean;
+        private _owner: string;
+        private _houses: number;
+        private _hotel: boolean;
+        private _mortgage: boolean;
+
         constructor() {
             this._unowned = true;
+            this._mortgage = false;
+            this._houses = 0;
+            this._hotel = false;
+            this.priceRent = [];
+            this.priceRentHouse = [];
+            this.priceMultiplierUtility = [];
         }
 
         name: string;
         price: number;
         group: AssetGroup;
-        priceRent: number;
-        priceRentGroup: number;
-        priceRent1House: number;
-        priceRent2House: number;
-        priceRent3House: number;
-        priceRent4House: number;
+        priceRent: number[];
+        priceRentHouse: number[];
         priceRentHotel: number;
         priceHouse: number;
         priceHotel: number;
         priceMortgage: number;
-        price1Railway: number;
-        price2Railway: number;
-        price3Railway: number;
-        price4Railway: number;
-        priceMultiplier1Utility: number;
-        priceMultiplier2Utility: number;
-        owner: string;
+        priceMultiplierUtility: number[];
+
+        get owner(): string {
+            return this._owner;
+        }
 
         get unowned(): boolean {
             return this._unowned;
         }
 
+        get houses(): number {
+            return this._houses;
+        }
+
+        get hotel(): boolean {
+            return this._hotel;
+        }
+
+        get mortgage(): boolean {
+            return this._mortgage;
+        }
+
+        placeHouse() {
+            this._houses++;
+        }
+
+        placeHotel() {
+            this._houses = 0;
+            this._hotel = true;
+        }
+
+        putUnderMortgage() {
+            this._mortgage = true;
+        }
+
+        releaseMortgage() {
+            this._mortgage = false;
+        }
+
         setOwner(ownerName: string) {
             if (this._unowned) {
-                this.owner = ownerName;
+                this._owner = ownerName;
                 this._unowned = false;
             }
         }

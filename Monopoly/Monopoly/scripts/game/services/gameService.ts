@@ -57,8 +57,11 @@ module Services {
             if (this.game.state === Model.GameState.Process) {
                 var currentPosition = this.getCurrentPlayerPosition();
                 if (currentPosition.type === Model.BoardFieldType.Asset) {
-                    if (!currentPosition.asset.owner) {
-                        return true;
+                    if (currentPosition.asset.unowned) {
+                        var player = this.game.players.filter(p => p.playerName === this.getCurrentPlayer())[0];
+                        if (player.money >= currentPosition.asset.price) {
+                            return true;
+                        }
                     }
                 }
             }
@@ -67,7 +70,7 @@ module Services {
 
         setPlayerPosition(player: Model.Player, boardFieldIndex: number) {
             player.position = this.game.board.fields[boardFieldIndex];
-            var previousFields = this.game.board.fields.filter(b => b.occupiedBy != null && b.occupiedBy.filter(ocb => ocb == player.playerName).length > 0);
+            var previousFields = this.game.board.fields.filter(b => b.occupiedBy != null && b.occupiedBy.filter(ocb => ocb === player.playerName).length > 0);
             if (previousFields && previousFields.length > 0) {
                 var previousField = previousFields[0];
                 previousField.occupiedBy.splice(previousField.occupiedBy.indexOf(player.playerName));
@@ -80,6 +83,17 @@ module Services {
             this.game.state = Model.GameState.ThrowDice;
             this.lastDiceResult1 = 1;
             this.lastDiceResult2 = 0;
+        }
+
+        buy() {
+            if (this.canBuy) {
+                var asset = this.getCurrentPlayerPosition().asset;
+                if (asset) {
+                    var player = this.game.players.filter(p => p.playerName === this.getCurrentPlayer())[0];
+                    player.money -= asset.price;
+                    asset.setOwner(this.getCurrentPlayer());
+                }
+            }
         }
 
         getCurrentPlayerPosition(): Model.BoardField {
@@ -99,6 +113,45 @@ module Services {
             return player.position;
         }
 
+        // process visit of a field owned by another player
+        processOwnedFieldVisit(): Model.ProcessResult {
+            var result = new Model.ProcessResult();
+            var asset = this.getCurrentPlayerPosition().asset;
+            var priceToPay = 0;
+            if (!asset.mortgage) {
+                if (asset.hotel) {
+                    priceToPay = asset.priceRentHotel;
+                } else if (asset.houses > 0) {
+                    priceToPay = asset.priceRentHouse[asset.houses - 1];
+                }
+
+                // for the rest of the scenarios, we need to find out the number of owned assets in a group
+                var numOwnedInGroup = this.game.board.fields.filter(f => {
+                     return f.type === Model.BoardFieldType.Asset && f.asset.group === asset.group && !f.asset.unowned && f.asset.owner === asset.owner;
+                }).length;
+                if (asset.group === Model.AssetGroup.Railway) {
+                    priceToPay = asset.priceRent[numOwnedInGroup - 1];
+                } else if (asset.group === Model.AssetGroup.Utility) {
+                    priceToPay = asset.priceMultiplierUtility[numOwnedInGroup - 1] * (this.lastDiceResult1 + this.lastDiceResult2);
+                } else if (asset.group !== Model.AssetGroup.None) {
+                    priceToPay = asset.priceRent[numOwnedInGroup - 1];
+                }
+
+                var player = this.game.players.filter(p => p.playerName === this.getCurrentPlayer())[0];
+                if (player.money < priceToPay) {
+                    // TODO: player can not pay
+                    result.moneyShortage = priceToPay - player.money;
+                    return result;
+                }
+                player.money -= priceToPay;
+                var ownerPlayer = this.game.players.filter(p => p.playerName === asset.owner)[0];
+                ownerPlayer.money += priceToPay;
+                result.message = "Paid rent of " + priceToPay + " to " + ownerPlayer.playerName + ".";
+            }
+
+            return result;
+        }
+
         private initPlayers() {
             var settings = this.settingsService.loadSettings();
             var colors: string[] = ["Red", "Green", "Yellow", "Blue"];
@@ -111,7 +164,7 @@ module Services {
                 this.game.players.push(player);
                 this.setPlayerPosition(player, 0);
             }
-        }        
+        }
     }
 
     monopolyApp.service("gameService", GameService);

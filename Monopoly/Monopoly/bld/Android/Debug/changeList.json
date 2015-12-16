@@ -47,6 +47,7 @@
     "scripts\\typings\\cordova\\plugins\\WebSQL.d.ts",
     "scripts\\typings\\cordova\\plugins\\FileSystem.d.ts",
     "scripts\\typings\\angularjs\\angular-cookies.d.ts",
+    "scripts\\game\\model\\processResult.ts",
     "scripts\\typings\\angular-ui-bootstrap\\angular-ui-bootstrap.d.ts",
     "scripts\\game\\model\\asset.ts",
     "scripts\\monopolyApp\\controllers\\mainMenuCtrl.ts",
@@ -966,9 +967,7 @@
     "www\\app\\js\\modules\\monopolyApp.js",
     "scripts\\angular-messages.js",
     "scripts\\i18n\\angular-locale_pt-pt.js",
-    "www\\app\\views\\game.html~RF432d48.TMP",
-    "www\\app\\views\\game.html~RF439fa9.TMP",
-    "scripts\\monopolyApp\\controllers\\gameCtrl.ts~RF44b2db.TMP"
+    "www\\app\\views\\game.html~RF3b083b.TMP"
   ],
   "deletedFilesIos": [],
   "addedPluginsIos": [],
@@ -977,9 +976,7 @@
     "www\\scripts\\appBundle.js.map",
     "www\\scripts\\appBundle.js",
     "www\\app\\views\\game.html",
-    "www\\app\\views\\game.html~RF432d48.TMP",
-    "www\\app\\views\\game.html~RF439fa9.TMP",
-    "scripts\\monopolyApp\\controllers\\gameCtrl.ts~RF44b2db.TMP"
+    "www\\app\\views\\game.html~RF3b083b.TMP"
   ],
   "deletedFiles": [],
   "addedPlugins": [],
