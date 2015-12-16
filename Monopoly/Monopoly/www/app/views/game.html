@@ -1,4 +1,4 @@
-﻿<div>Let's play, {{gameController.currentPlayer}}!</div>
+﻿<div id="header" style="position: relative; z-index: 5; background-color: lightblue; width:100%">Your move, {{gameController.currentPlayer}}!</div>
 <canvas id="renderCanvas"></canvas>
 <div id="titleDeed" style="position: fixed; top: 10%; left: 30%; width: 40%; height: 80%; background-color: white; border: 2px; border-color: black; border-radius: 3px" ng-show="gameController.availableActions.buy">
     <table style="width: 100%">
@@ -10,7 +10,10 @@
         </tr>
     </table>
 </div>
-<div id="messageOverlay" style="position: fixed; top: 15%; left: 10%; width: 80%; text-align: center; display: none; color: blue; font-size: 14px; font-weight: bold; text-shadow: 2px 2px 1px #FFFFFF;"></div>
+<div style="position: fixed; top: 15%; left: 10%; width: 80%;">
+    <div id="messageOverlay" style="position: relative; display: none; color: red; font-size: 16px; font-weight: bold; width: 100%; text-align: center; z-index: 1" class="shadow-basic"></div>    
+</div>
+
 <div id="commandPanel" style="position: fixed; bottom: 0px; left: 0px; width: 100%">
     <button ng-disabled="!gameController.availableActions.throwDice" ng-click="gameController.throwDice()">Throw dice</button>
     <button ng-show="gameController.availableActions.buy" ng-click="gameController.buy()">Buy</button>

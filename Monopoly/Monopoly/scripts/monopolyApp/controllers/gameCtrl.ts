@@ -164,7 +164,15 @@ module MonopolyApp.controllers {
         }
 
         private showMessage(message: string) {
-            $("#messageOverlay").html(message).show().fadeOut(4000, () => { this.messages.push(message); });
+            var overlayOffset = Math.floor(jQuery(window).height() * 0.15);
+            $("#messageOverlay").html(message).show().animate({
+                top: `-=${overlayOffset}px`,
+                opacity: 0
+            }, 5000, () => {
+                $("#messageOverlay").hide();
+                $("#messageOverlay").css({ opacity: 1, top: 0 });
+                this.messages.push(message);
+            });
         }
     }
 

@@ -1003,7 +1003,15 @@ var MonopolyApp;
             };
             GameController.prototype.showMessage = function (message) {
                 var _this = this;
-                $("#messageOverlay").html(message).show().fadeOut(4000, function () { _this.messages.push(message); });
+                var overlayOffset = Math.floor(jQuery(window).height() * 0.15);
+                $("#messageOverlay").html(message).show().animate({
+                    top: "-=" + overlayOffset + "px",
+                    opacity: 0
+                }, 5000, function () {
+                    $("#messageOverlay").hide();
+                    $("#messageOverlay").css({ opacity: 1, top: 0 });
+                    _this.messages.push(message);
+                });
             };
             GameController.$inject = ["$state", "gameService", "drawingService"];
             return GameController;

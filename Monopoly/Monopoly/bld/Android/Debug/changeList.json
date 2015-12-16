@@ -967,7 +967,10 @@
     "www\\app\\js\\modules\\monopolyApp.js",
     "scripts\\angular-messages.js",
     "scripts\\i18n\\angular-locale_pt-pt.js",
-    "www\\app\\views\\game.html~RF3b083b.TMP"
+    "www\\css\\index.css~RF967e75.TMP",
+    "scripts\\monopolyApp\\controllers\\gameCtrl.ts~RFb00531.TMP",
+    "scripts\\monopolyApp\\controllers\\gameCtrl.ts~RFb084cc.TMP",
+    "scripts\\monopolyApp\\controllers\\gameCtrl.ts~RFb212d7.TMP"
   ],
   "deletedFilesIos": [],
   "addedPluginsIos": [],
@@ -975,8 +978,8 @@
   "changedFiles": [
     "www\\scripts\\appBundle.js.map",
     "www\\scripts\\appBundle.js",
-    "www\\app\\views\\game.html",
-    "www\\app\\views\\game.html~RF3b083b.TMP"
+    "scripts\\monopolyApp\\controllers\\gameCtrl.ts~RFb212d7.TMP",
+    "www\\app\\views\\game.html"
   ],
   "deletedFiles": [],
   "addedPlugins": [],
