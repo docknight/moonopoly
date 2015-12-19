@@ -1,5 +1,5 @@
 ﻿<div id="header" style="position: relative; z-index: 5; background-color: lightblue; width:100%">Your move, {{gameController.currentPlayer}}!</div>
-<canvas id="renderCanvas"></canvas>
+<canvas id="renderCanvas" ng-swipe-left="gameController.handleSwipe(true)" ng-swipe-right="gameController.handleSwipe(false)"></canvas>
 <div id="titleDeed" style="position: fixed; top: 10%; left: 30%; width: 40%; height: 80%; background-color: white; border: 2px; border-color: black; border-radius: 3px" ng-show="gameController.availableActions.buy">
     <table style="width: 100%">
         <tr>
@@ -18,4 +18,8 @@
     <button ng-disabled="!gameController.availableActions.throwDice" ng-click="gameController.throwDice()">Throw dice</button>
     <button ng-show="gameController.availableActions.buy" ng-click="gameController.buy()">Buy</button>
     <button ng-disabled="!gameController.availableActions.endTurn" ng-click="gameController.endTurn()">End turn</button>
+    <button ng-disabled="!gameController.availableActions.manage" ng-click="gameController.manage()">Manage</button>
+</div>
+<div id="manageCommandPanel" style="position: fixed; bottom: 0px; left: 0px; width: 100%; display: none">
+    <button ng-click="gameController.returnFromManage()">Return</button>    
 </div>

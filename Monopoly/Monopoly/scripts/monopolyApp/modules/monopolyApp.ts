@@ -3,4 +3,4 @@
 //    var app = angular.module("angularWithTS", ['ngRoute']);
 //    app.config(angularWithTS.Routes.configureRoutes);
 //})() 
-var monopolyApp = angular.module('monopolyApp', ['ui.router', 'ui.bootstrap']);
+var monopolyApp = angular.module('monopolyApp', ['ui.router', 'ui.bootstrap', 'ngTouch']);

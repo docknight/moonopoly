@@ -484,6 +484,7 @@ var Model;
         GameState[GameState["ThrowDice"] = 1] = "ThrowDice";
         GameState[GameState["Move"] = 2] = "Move";
         GameState[GameState["Process"] = 3] = "Process";
+        GameState[GameState["Manage"] = 4] = "Manage"; // the game is paused and the player is managing his assets
     })(Model.GameState || (Model.GameState = {}));
     var GameState = Model.GameState;
     ;
@@ -508,6 +509,13 @@ var Model;
             enumerable: true,
             configurable: true
         });
+        Game.prototype.getState = function () {
+            return this.state;
+        };
+        Game.prototype.setState = function (state) {
+            this.previousState = this.state;
+            this.state = state;
+        };
         Game.prototype.advanceToNextPlayer = function () {
             var _this = this;
             if (this._currentPlayer === "") {
@@ -522,6 +530,12 @@ var Model;
             }
             else {
                 this._currentPlayer = this.players[0].playerName;
+            }
+        };
+        Game.prototype.setPreviousState = function () {
+            if (this.previousState) {
+                this.state = this.previousState;
+                this.previousState = undefined;
             }
         };
         return Game;
@@ -564,7 +578,7 @@ var Model;
 //    var app = angular.module("angularWithTS", ['ngRoute']);
 //    app.config(angularWithTS.Routes.configureRoutes);
 //})() 
-var monopolyApp = angular.module('monopolyApp', ['ui.router', 'ui.bootstrap']);
+var monopolyApp = angular.module('monopolyApp', ['ui.router', 'ui.bootstrap', 'ngTouch']);
 /// <reference path="../interfaces/serviceInterfaces.ts" />
 /// <reference path="../../../scripts/typings/angularjs/angular.d.ts" />
 /// <reference path="../../monopolyApp/modules/monopolyApp.ts" />
@@ -606,6 +620,50 @@ var Services;
         };
         DrawingService.prototype.animatePlayerMove = function (oldPositionIndex, newPosition, playerModel) {
             this.positionPlayer(playerModel);
+        };
+        DrawingService.prototype.setGameCameraPosition = function (camera) {
+            camera.position.x = 0;
+            camera.position.y = 5;
+            camera.position.z = -10;
+            camera.setTarget(BABYLON.Vector3.Zero());
+        };
+        DrawingService.prototype.setManageCameraPosition = function (camera, group) {
+            if (!this.boardGroupLeftCoordinate) {
+                this.initBoardGroupCoordinates();
+            }
+            var groupLeftCoordinate = this.boardGroupLeftCoordinate[group];
+            var groupRightCoordinate = this.boardGroupRightCoordinate[group];
+            var groupQuadrant = Math.floor((group - 1) / 2);
+            var centerVector = BABYLON.Vector3.Center(new BABYLON.Vector3(groupLeftCoordinate.x, 0, groupLeftCoordinate.z), new BABYLON.Vector3(groupRightCoordinate.x, 0, groupRightCoordinate.z));
+            camera.setTarget(centerVector);
+            camera.target = centerVector;
+            if (groupQuadrant === 0) {
+                //camera.position.x = centerVector.x;
+                //camera.position.y = 2;
+                //camera.position.z = -7;
+                camera.setPosition(new BABYLON.Vector3(centerVector.x, 2, -7));
+            }
+            if (groupQuadrant === 1) {
+                //camera.position.x = -7;
+                //camera.position.y = 2;
+                //camera.position.z = centerVector.z;
+                camera.setPosition(new BABYLON.Vector3(-7, 2, centerVector.z));
+            }
+            if (groupQuadrant === 2) {
+                //camera.position.x = centerVector.x;
+                //camera.position.y = 2;
+                //camera.position.z = 7;
+                camera.setPosition(new BABYLON.Vector3(centerVector.x, 2, 7));
+            }
+            if (groupQuadrant === 3) {
+                //camera.position.x = 7;
+                //camera.position.y = 2;
+                //camera.position.z = centerVector.z;
+                camera.setPosition(new BABYLON.Vector3(7, 2, centerVector.z));
+            }
+            //camera.setTarget(new BABYLON.Vector3(3, 0, -this.boardSize / 2 + this.boardFieldHeight / 2));               
+            //camera.setTarget(centerVector);
+            //camera.target = centerVector;
         };
         DrawingService.prototype.initQuadrantStartingCoordinates = function () {
             this.quadrantStartingCoordinate = [];
@@ -653,6 +711,30 @@ var Services;
             else {
                 return -1;
             }
+        };
+        DrawingService.prototype.initBoardGroupCoordinates = function () {
+            this.boardGroupLeftCoordinate = [];
+            this.boardGroupRightCoordinate = [];
+            var group;
+            for (group = Model.AssetGroup.First; group <= Model.AssetGroup.Eighth; group++) {
+                var groupBoardFields = this.gameService.getGroupBoardFields(group);
+                var groupBoardPositions = $.map(groupBoardFields, function (f, i) { return f.index; });
+                var position = Math.max.apply(this, groupBoardPositions);
+                var leftCoordinate = this.getPositionCoordinate(position);
+                position = Math.min.apply(this, groupBoardPositions);
+                var rightCoordinate = this.getPositionCoordinate(position);
+                this.boardGroupLeftCoordinate[group] = leftCoordinate;
+                this.boardGroupRightCoordinate[group] = rightCoordinate;
+            }
+        };
+        DrawingService.prototype.getPositionCoordinate = function (position) {
+            var fieldQuadrant = Math.floor(position / (this.boardFieldsInQuadrant - 1));
+            var fieldQuadrantOffset = position % (this.boardFieldsInQuadrant - 1);
+            var coordinate = new MonopolyApp.Viewmodels.Coordinate();
+            coordinate.x = this.quadrantStartingCoordinate[fieldQuadrant].x;
+            coordinate.z = this.quadrantStartingCoordinate[fieldQuadrant].z;
+            coordinate[this.getQuadrantRunningCoordinate(fieldQuadrant)] += fieldQuadrantOffset * this.boardFieldWidth * this.getQuadrantRunningDirection(fieldQuadrant);
+            return coordinate;
         };
         DrawingService.$inject = ["$http", "gameService"];
         return DrawingService;
@@ -704,7 +786,7 @@ var Services;
         GameService.prototype.endTurn = function () {
             if (this.canEndTurn) {
                 this.game.advanceToNextPlayer();
-                this.game.state = Model.GameState.BeginTurn;
+                this.game.setState(Model.GameState.BeginTurn);
             }
         };
         GameService.prototype.getCurrentPlayer = function () {
@@ -719,7 +801,7 @@ var Services;
         });
         Object.defineProperty(GameService.prototype, "canThrowDice", {
             get: function () {
-                if (this.game.state === Model.GameState.BeginTurn) {
+                if (this.game.getState() === Model.GameState.BeginTurn) {
                     return true;
                 }
                 return false;
@@ -729,7 +811,7 @@ var Services;
         });
         Object.defineProperty(GameService.prototype, "canEndTurn", {
             get: function () {
-                if (this.game.state !== Model.GameState.BeginTurn) {
+                if (this.game.getState() !== Model.GameState.BeginTurn) {
                     return true;
                 }
                 return false;
@@ -740,7 +822,7 @@ var Services;
         Object.defineProperty(GameService.prototype, "canBuy", {
             get: function () {
                 var _this = this;
-                if (this.game.state === Model.GameState.Process) {
+                if (this.game.getState() === Model.GameState.Process) {
                     var currentPosition = this.getCurrentPlayerPosition();
                     if (currentPosition.type === Model.BoardFieldType.Asset) {
                         if (currentPosition.asset.unowned) {
@@ -756,6 +838,16 @@ var Services;
             enumerable: true,
             configurable: true
         });
+        Object.defineProperty(GameService.prototype, "canManage", {
+            get: function () {
+                if (this.game.getState() === Model.GameState.Move) {
+                    return false;
+                }
+                return true;
+            },
+            enumerable: true,
+            configurable: true
+        });
         GameService.prototype.setPlayerPosition = function (player, boardFieldIndex) {
             player.position = this.game.board.fields[boardFieldIndex];
             var previousFields = this.game.board.fields.filter(function (b) { return b.occupiedBy != null && b.occupiedBy.filter(function (ocb) { return ocb === player.playerName; }).length > 0; });
@@ -766,7 +858,7 @@ var Services;
             player.position.occupiedBy.push(player.playerName);
         };
         GameService.prototype.throwDice = function () {
-            this.game.state = Model.GameState.ThrowDice;
+            this.game.setState(Model.GameState.ThrowDice);
             this.lastDiceResult1 = 1;
             this.lastDiceResult2 = 0;
         };
@@ -781,6 +873,38 @@ var Services;
                 }
             }
         };
+        GameService.prototype.manage = function () {
+            if (this.canManage) {
+                this.game.setState(Model.GameState.Manage);
+                this.currentManageGroup = Model.AssetGroup.First;
+            }
+            else {
+                this.currentManageGroup = undefined;
+            }
+            return this.currentManageGroup;
+        };
+        GameService.prototype.manageFocusChange = function (left) {
+            if (this.game.getState() === Model.GameState.Manage) {
+                if (left) {
+                    this.currentManageGroup -= 1;
+                    if (this.currentManageGroup < Model.AssetGroup.First) {
+                        this.currentManageGroup = Model.AssetGroup.Eighth;
+                    }
+                }
+                else {
+                    this.currentManageGroup += 1;
+                    if (this.currentManageGroup > Model.AssetGroup.Eighth) {
+                        this.currentManageGroup = Model.AssetGroup.First;
+                    }
+                }
+            }
+            return this.currentManageGroup;
+        };
+        GameService.prototype.returnFromManage = function () {
+            if (this.game.getState() === Model.GameState.Manage) {
+                this.game.setPreviousState();
+            }
+        };
         GameService.prototype.getCurrentPlayerPosition = function () {
             var _this = this;
             var player = this.game.players.filter(function (p) { return p.playerName === _this.getCurrentPlayer(); })[0];
@@ -788,14 +912,14 @@ var Services;
         };
         GameService.prototype.moveCurrentPlayer = function () {
             var _this = this;
-            this.game.state = Model.GameState.Move;
+            this.game.setState(Model.GameState.Move);
             var player = this.game.players.filter(function (p) { return p.playerName === _this.getCurrentPlayer(); })[0];
             var currentPositionIndex = player.position.index;
             var newPositionIndex = Math.floor((currentPositionIndex + this.lastDiceResult1 + this.lastDiceResult2) % 40);
             player.position = this.game.board.fields[newPositionIndex];
             this.game.board.fields[currentPositionIndex].occupiedBy.splice(this.game.board.fields[currentPositionIndex].occupiedBy.indexOf(player.playerName), 1);
             player.position.occupiedBy.push(player.playerName);
-            this.game.state = Model.GameState.Process;
+            this.game.setState(Model.GameState.Process);
             return player.position;
         };
         // process visit of a field owned by another player
@@ -837,6 +961,9 @@ var Services;
             }
             return result;
         };
+        GameService.prototype.getGroupBoardFields = function (assetGroup) {
+            return this.game.board.fields.filter(function (f) { return f.type === Model.BoardFieldType.Asset && f.asset.group === assetGroup; });
+        };
         GameService.prototype.initPlayers = function () {
             var settings = this.settingsService.loadSettings();
             var colors = ["Red", "Green", "Yellow", "Blue"];
@@ -865,7 +992,7 @@ var MonopolyApp;
     var controllers;
     (function (controllers) {
         var GameController = (function () {
-            function GameController(stateService, gameService, drawingService) {
+            function GameController(stateService, swipeService, gameService, drawingService) {
                 this.stateService = stateService;
                 this.gameService = gameService;
                 this.drawingService = drawingService;
@@ -874,6 +1001,8 @@ var MonopolyApp;
                 this.availableActions = new MonopolyApp.Viewmodels.AvailableActions();
                 this.setAvailableActions();
                 this.messages = [];
+                //$("#renderCanvas").on("swipeleft", () => this.handleSwipe(true));
+                //$("#renderCanvas").on("swiperight", () => this.handleSwipe(false));
             }
             Object.defineProperty(GameController.prototype, "currentPlayer", {
                 get: function () {
@@ -906,6 +1035,23 @@ var MonopolyApp;
                 this.gameService.buy();
                 this.setAvailableActions();
             };
+            GameController.prototype.manage = function () {
+                this.manageMode = true;
+                var focusedAssetGroup = this.gameService.manage();
+                this.drawingService.setManageCameraPosition(this.manageCamera, focusedAssetGroup);
+                this.scene.activeCamera = this.manageCamera;
+                this.setAvailableActions();
+                $("#commandPanel").hide();
+                $("#manageCommandPanel").show();
+            };
+            GameController.prototype.returnFromManage = function () {
+                this.manageMode = false;
+                this.scene.activeCamera = this.gameCamera;
+                this.gameService.returnFromManage();
+                this.setAvailableActions();
+                $("#manageCommandPanel").hide();
+                $("#commandPanel").show();
+            };
             GameController.prototype.endTurn = function () {
                 if (this.gameService.canEndTurn) {
                     this.gameService.endTurn();
@@ -915,9 +1061,9 @@ var MonopolyApp;
             GameController.prototype.createScene = function () {
                 var canvas = document.getElementById("renderCanvas");
                 var engine = new BABYLON.Engine(canvas, true);
-                var scene = this.createBoard(engine, canvas);
+                var theScene = this.createBoard(engine, canvas);
                 engine.runRenderLoop(function () {
-                    scene.render();
+                    theScene.render();
                 });
                 window.addEventListener("resize", function () {
                     engine.resize();
@@ -930,22 +1076,23 @@ var MonopolyApp;
             GameController.prototype.createBoard = function (engine, canvas) {
                 var _this = this;
                 // This creates a basic Babylon Scene object (non-mesh)
-                var scene = new BABYLON.Scene(engine);
+                this.scene = new BABYLON.Scene(engine);
                 // This creates and positions a free camera (non-mesh)
-                var camera = new BABYLON.FreeCamera("camera1", new BABYLON.Vector3(0, 5, -10), scene);
-                // This targets the camera to scene origin
-                camera.setTarget(BABYLON.Vector3.Zero());
+                this.gameCamera = new BABYLON.FreeCamera("camera1", BABYLON.Vector3.Zero(), this.scene);
+                this.drawingService.setGameCameraPosition(this.gameCamera);
+                this.manageCamera = new BABYLON.ArcRotateCamera("camera2", 0, 0, 0, BABYLON.Vector3.Zero(), this.scene);
+                this.scene.activeCamera = this.gameCamera;
                 // This attaches the camera to the canvas
-                camera.attachControl(canvas, true);
+                //this.gameCamera.attachControl(canvas, true);
                 // This creates a light, aiming 0,1,0 - to the sky (non-mesh)
-                var light = new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(0, 1, 0), scene);
+                var light = new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(0, 1, 0), this.scene);
                 // Default intensity is 1. Let's dim the light a small amount
                 light.intensity = 1;
                 // Our built-in 'ground' shape. Params: name, width, depth, subdivs, scene
-                var board = BABYLON.Mesh.CreateGround("ground1", this.drawingService.boardSize, this.drawingService.boardSize, 2, scene);
-                var boardMaterial = new BABYLON.StandardMaterial("boardTexture", scene);
-                boardMaterial.emissiveTexture = new BABYLON.Texture("images/Gameboard.png", scene);
-                boardMaterial.diffuseTexture = new BABYLON.Texture("images/Gameboard.png", scene);
+                var board = BABYLON.Mesh.CreateGround("ground1", this.drawingService.boardSize, this.drawingService.boardSize, 2, this.scene);
+                var boardMaterial = new BABYLON.StandardMaterial("boardTexture", this.scene);
+                boardMaterial.emissiveTexture = new BABYLON.Texture("images/Gameboard.png", this.scene);
+                boardMaterial.diffuseTexture = new BABYLON.Texture("images/Gameboard.png", this.scene);
                 board.material = boardMaterial;
                 this.players = [];
                 var meshLoads = [];
@@ -955,7 +1102,7 @@ var MonopolyApp;
                     var d = $.Deferred();
                     meshLoads.push(d);
                     var that = _this;
-                    BABYLON.SceneLoader.ImportMesh(null, "meshes/", "character.babylon", scene, function (newMeshes, particleSystems) {
+                    BABYLON.SceneLoader.ImportMesh(null, "meshes/", "character.babylon", _this.scene, function (newMeshes, particleSystems) {
                         if (newMeshes != null) {
                             var mesh = newMeshes[0];
                             playerModel.mesh = mesh;
@@ -965,7 +1112,7 @@ var MonopolyApp;
                     _this.players.push(playerModel);
                 });
                 $.when.apply($, meshLoads).done(this.setupPlayerPositions);
-                return scene;
+                return this.scene;
             };
             GameController.prototype.setupPlayerPositions = function (that) {
                 that.players.forEach(function (playerModel) {
@@ -976,6 +1123,7 @@ var MonopolyApp;
                 this.availableActions.endTurn = this.gameService.canEndTurn;
                 this.availableActions.throwDice = this.gameService.canThrowDice;
                 this.availableActions.buy = this.gameService.canBuy;
+                this.availableActions.manage = this.gameService.canManage;
             };
             GameController.prototype.animateMove = function (oldPosition, newPosition) {
                 var _this = this;
@@ -1013,7 +1161,13 @@ var MonopolyApp;
                     _this.messages.push(message);
                 });
             };
-            GameController.$inject = ["$state", "gameService", "drawingService"];
+            GameController.prototype.handleSwipe = function (left) {
+                if (this.manageMode) {
+                    var focusedAssetGroup = this.gameService.manageFocusChange(left);
+                    this.drawingService.setManageCameraPosition(this.manageCamera, focusedAssetGroup);
+                }
+            };
+            GameController.$inject = ["$state", "$swipe", "gameService", "drawingService"];
             return GameController;
         })();
         controllers.GameController = GameController;
@@ -1097,7 +1251,13 @@ var MonopolyApp;
     var Viewmodels;
     (function (Viewmodels) {
         var Coordinate = (function () {
-            function Coordinate() {
+            function Coordinate(x, z) {
+                if (x) {
+                    this.x = x;
+                }
+                if (z) {
+                    this.z = z;
+                }
             }
             return Coordinate;
         })();

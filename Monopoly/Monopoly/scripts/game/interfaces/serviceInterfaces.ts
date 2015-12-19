@@ -8,6 +8,7 @@
         canThrowDice: boolean;
         canEndTurn: boolean;
         canBuy: boolean;
+        canManage: boolean;
         initGame();
         getCurrentPlayer(): string;
         endTurn();
@@ -16,10 +17,16 @@
         moveCurrentPlayer(): Model.BoardField;
         buy();
         processOwnedFieldVisit(): Model.ProcessResult;
+        manage(): Model.AssetGroup;
+        manageFocusChange(left: boolean): Model.AssetGroup;
+        returnFromManage();
+        getGroupBoardFields(assetGroup: Model.AssetGroup): Array<Model.BoardField>;
     }
     export interface IDrawingService {
         boardSize: number;
         positionPlayer(playerModel: MonopolyApp.Viewmodels.Player);
         animatePlayerMove(oldPositionIndex: Model.BoardField, newPosition: Model.BoardField, playerModel: MonopolyApp.Viewmodels.Player);
+        setGameCameraPosition(camera: BABYLON.FreeCamera);
+        setManageCameraPosition(camera: BABYLON.ArcRotateCamera, group: Model.AssetGroup);
     }
 }

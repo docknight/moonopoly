@@ -966,20 +966,14 @@
     "scripts\\i18n\\angular-locale_en-pw.js",
     "www\\app\\js\\modules\\monopolyApp.js",
     "scripts\\angular-messages.js",
-    "scripts\\i18n\\angular-locale_pt-pt.js",
-    "www\\css\\index.css~RF967e75.TMP",
-    "scripts\\monopolyApp\\controllers\\gameCtrl.ts~RFb00531.TMP",
-    "scripts\\monopolyApp\\controllers\\gameCtrl.ts~RFb084cc.TMP",
-    "scripts\\monopolyApp\\controllers\\gameCtrl.ts~RFb212d7.TMP"
+    "scripts\\i18n\\angular-locale_pt-pt.js"
   ],
   "deletedFilesIos": [],
   "addedPluginsIos": [],
   "deletedPluginsIos": [],
   "changedFiles": [
     "www\\scripts\\appBundle.js.map",
-    "www\\scripts\\appBundle.js",
-    "scripts\\monopolyApp\\controllers\\gameCtrl.ts~RFb212d7.TMP",
-    "www\\app\\views\\game.html"
+    "www\\scripts\\appBundle.js"
   ],
   "deletedFiles": [],
   "addedPlugins": [],

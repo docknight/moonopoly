@@ -7,9 +7,13 @@ module MonopolyApp.controllers {
         stateService: angular.ui.IStateService;
         gameService: Interfaces.IGameService;
         drawingService: Interfaces.IDrawingService;
-        static $inject = ["$state", "gameService", "drawingService"];
+        static $inject = ["$state", "$swipe", "gameService", "drawingService"];
 
         private players: Array<Viewmodels.Player>;
+        private scene: BABYLON.Scene;
+        private gameCamera: BABYLON.FreeCamera;
+        private manageCamera: BABYLON.ArcRotateCamera;
+        private manageMode : boolean;
 
         availableActions: Viewmodels.AvailableActions;
         assetToBuy: Model.Asset; // asset currently available for purchase
@@ -23,7 +27,7 @@ module MonopolyApp.controllers {
             return this.players;
         }
 
-        constructor(stateService: angular.ui.IStateService, gameService: Interfaces.IGameService, drawingService: Interfaces.IDrawingService) {
+        constructor(stateService: angular.ui.IStateService, swipeService: any, gameService: Interfaces.IGameService, drawingService: Interfaces.IDrawingService) {
             this.stateService = stateService;
             this.gameService = gameService;
             this.drawingService = drawingService;
@@ -32,6 +36,8 @@ module MonopolyApp.controllers {
             this.availableActions = new Viewmodels.AvailableActions();
             this.setAvailableActions();
             this.messages = [];
+            //$("#renderCanvas").on("swipeleft", () => this.handleSwipe(true));
+            //$("#renderCanvas").on("swiperight", () => this.handleSwipe(false));
         }
 
         initGame() {
@@ -54,6 +60,25 @@ module MonopolyApp.controllers {
             this.setAvailableActions();
         }
 
+        manage() {
+            this.manageMode = true;
+            var focusedAssetGroup = this.gameService.manage();
+            this.drawingService.setManageCameraPosition(this.manageCamera, focusedAssetGroup);
+            this.scene.activeCamera = this.manageCamera;
+            this.setAvailableActions();
+            $("#commandPanel").hide();
+            $("#manageCommandPanel").show();
+        }
+
+        returnFromManage() {
+            this.manageMode = false;
+            this.scene.activeCamera = this.gameCamera;
+            this.gameService.returnFromManage();
+            this.setAvailableActions();
+            $("#manageCommandPanel").hide();
+            $("#commandPanel").show();            
+        }
+
         endTurn() {
             if (this.gameService.canEndTurn) {
                 this.gameService.endTurn();
@@ -64,9 +89,9 @@ module MonopolyApp.controllers {
         private createScene() {
             var canvas = <HTMLCanvasElement>document.getElementById("renderCanvas");
             var engine = new BABYLON.Engine(canvas, true);
-            var scene = this.createBoard(engine, canvas);
+            var theScene = this.createBoard(engine, canvas);
             engine.runRenderLoop(function () {
-                scene.render();
+                theScene.render();
             });
             window.addEventListener("resize", function () {
                 engine.resize();
@@ -80,28 +105,28 @@ module MonopolyApp.controllers {
 
         private createBoard(engine, canvas) {
             // This creates a basic Babylon Scene object (non-mesh)
-            var scene = new BABYLON.Scene(engine);
+            this.scene = new BABYLON.Scene(engine);
 
             // This creates and positions a free camera (non-mesh)
-            var camera = new BABYLON.FreeCamera("camera1", new BABYLON.Vector3(0, 5, -10), scene);
-
-            // This targets the camera to scene origin
-            camera.setTarget(BABYLON.Vector3.Zero());
+            this.gameCamera = new BABYLON.FreeCamera("camera1", BABYLON.Vector3.Zero(), this.scene);
+            this.drawingService.setGameCameraPosition(this.gameCamera);
+            this.manageCamera = new BABYLON.ArcRotateCamera("camera2", 0,0,0,BABYLON.Vector3.Zero(), this.scene);
+            this.scene.activeCamera = this.gameCamera;
 
             // This attaches the camera to the canvas
-            camera.attachControl(canvas, true);
+            //this.gameCamera.attachControl(canvas, true);
 
             // This creates a light, aiming 0,1,0 - to the sky (non-mesh)
-            var light = new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(0, 1, 0), scene);
+            var light = new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(0, 1, 0), this.scene);
 
             // Default intensity is 1. Let's dim the light a small amount
             light.intensity = 1;
 
             // Our built-in 'ground' shape. Params: name, width, depth, subdivs, scene
-            var board = BABYLON.Mesh.CreateGround("ground1", this.drawingService.boardSize, this.drawingService.boardSize, 2, scene);
-            var boardMaterial = new BABYLON.StandardMaterial("boardTexture", scene);
-            boardMaterial.emissiveTexture = new BABYLON.Texture("images/Gameboard.png", scene);
-            boardMaterial.diffuseTexture = new BABYLON.Texture("images/Gameboard.png", scene);
+            var board = BABYLON.Mesh.CreateGround("ground1", this.drawingService.boardSize, this.drawingService.boardSize, 2, this.scene);
+            var boardMaterial = new BABYLON.StandardMaterial("boardTexture", this.scene);
+            boardMaterial.emissiveTexture = new BABYLON.Texture("images/Gameboard.png", this.scene);
+            boardMaterial.diffuseTexture = new BABYLON.Texture("images/Gameboard.png", this.scene);
             board.material = boardMaterial;
 
             this.players = [];
@@ -112,7 +137,7 @@ module MonopolyApp.controllers {
                 var d = $.Deferred();
                 meshLoads.push(d);
                 var that = this;
-                BABYLON.SceneLoader.ImportMesh(null, "meshes/", "character.babylon", scene, function (newMeshes, particleSystems) {
+                BABYLON.SceneLoader.ImportMesh(null, "meshes/", "character.babylon", this.scene, function (newMeshes, particleSystems) {
                     if (newMeshes != null) {
                         var mesh = newMeshes[0];
                         playerModel.mesh = mesh;
@@ -122,7 +147,7 @@ module MonopolyApp.controllers {
                 this.players.push(playerModel);
             });
             $.when.apply($, meshLoads).done(this.setupPlayerPositions);
-            return scene;
+            return this.scene;
         }
 
         private setupPlayerPositions(that: GameController) {
@@ -135,6 +160,7 @@ module MonopolyApp.controllers {
             this.availableActions.endTurn = this.gameService.canEndTurn;
             this.availableActions.throwDice = this.gameService.canThrowDice;
             this.availableActions.buy = this.gameService.canBuy;
+            this.availableActions.manage = this.gameService.canManage;
         }
 
         private animateMove(oldPosition: Model.BoardField, newPosition: Model.BoardField) {
@@ -173,6 +199,13 @@ module MonopolyApp.controllers {
                 $("#messageOverlay").css({ opacity: 1, top: 0 });
                 this.messages.push(message);
             });
+        }
+
+        private handleSwipe(left: boolean) {
+            if (this.manageMode) {
+                var focusedAssetGroup = this.gameService.manageFocusChange(left);
+                this.drawingService.setManageCameraPosition(this.manageCamera, focusedAssetGroup);
+            }
         }
     }
 

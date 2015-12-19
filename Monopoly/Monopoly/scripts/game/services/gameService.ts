@@ -11,6 +11,7 @@ module Services {
         private game: Model.Game;
         private lastDiceResult1: number;
         private lastDiceResult2: number;
+        private currentManageGroup: Model.AssetGroup;
 
         static $inject = ["$http", "settingsService"];
         constructor($http: ng.IHttpService, settingsService: Interfaces.ISettingsService) {
@@ -27,7 +28,7 @@ module Services {
         endTurn() {
             if (this.canEndTurn) {
                 this.game.advanceToNextPlayer();
-                this.game.state = Model.GameState.BeginTurn;
+                this.game.setState(Model.GameState.BeginTurn);
             }
         }
 
@@ -40,21 +41,21 @@ module Services {
         }
 
         get canThrowDice() {
-            if (this.game.state === Model.GameState.BeginTurn) {
+            if (this.game.getState() === Model.GameState.BeginTurn) {
                 return true;
             }
             return false;
         }
 
         get canEndTurn() {
-            if (this.game.state !== Model.GameState.BeginTurn) {
+            if (this.game.getState() !== Model.GameState.BeginTurn) {
                 return true;
             }
             return false;
         }
 
         get canBuy() {
-            if (this.game.state === Model.GameState.Process) {
+            if (this.game.getState() === Model.GameState.Process) {
                 var currentPosition = this.getCurrentPlayerPosition();
                 if (currentPosition.type === Model.BoardFieldType.Asset) {
                     if (currentPosition.asset.unowned) {
@@ -66,6 +67,14 @@ module Services {
                 }
             }
             return false;
+        }
+
+        get canManage(): boolean {
+            if (this.game.getState() === Model.GameState.Move) {
+                return false;
+            }
+
+            return true;
         }
 
         setPlayerPosition(player: Model.Player, boardFieldIndex: number) {
@@ -80,7 +89,7 @@ module Services {
         }
 
         throwDice() {
-            this.game.state = Model.GameState.ThrowDice;
+            this.game.setState(Model.GameState.ThrowDice);
             this.lastDiceResult1 = 1;
             this.lastDiceResult2 = 0;
         }
@@ -96,20 +105,55 @@ module Services {
             }
         }
 
+        manage(): Model.AssetGroup {
+            if (this.canManage) {
+                this.game.setState(Model.GameState.Manage);
+                this.currentManageGroup = Model.AssetGroup.First;
+            } else {
+                this.currentManageGroup = undefined;
+            }
+
+            return this.currentManageGroup;
+        }
+
+        manageFocusChange(left: boolean): Model.AssetGroup {
+            if (this.game.getState() === Model.GameState.Manage) {
+                if (left) {
+                    this.currentManageGroup -= 1;
+                    if (this.currentManageGroup < Model.AssetGroup.First) {
+                        this.currentManageGroup = Model.AssetGroup.Eighth;
+                    }                    
+                } else {
+                    this.currentManageGroup += 1;
+                    if (this.currentManageGroup > Model.AssetGroup.Eighth) {
+                        this.currentManageGroup = Model.AssetGroup.First;
+                    }
+                }
+            }
+
+            return this.currentManageGroup;
+        }
+
+        returnFromManage() {
+            if (this.game.getState() === Model.GameState.Manage) {
+                this.game.setPreviousState();
+            }
+        }
+
         getCurrentPlayerPosition(): Model.BoardField {
             var player = this.game.players.filter(p => p.playerName === this.getCurrentPlayer())[0];
             return player.position;
         }
 
         moveCurrentPlayer(): Model.BoardField {
-            this.game.state = Model.GameState.Move;
+            this.game.setState(Model.GameState.Move);
             var player = this.game.players.filter(p => p.playerName === this.getCurrentPlayer())[0];
             var currentPositionIndex = player.position.index;
             var newPositionIndex = Math.floor((currentPositionIndex + this.lastDiceResult1 + this.lastDiceResult2) % 40);
             player.position = this.game.board.fields[newPositionIndex];
             this.game.board.fields[currentPositionIndex].occupiedBy.splice(this.game.board.fields[currentPositionIndex].occupiedBy.indexOf(player.playerName), 1);
             player.position.occupiedBy.push(player.playerName);
-            this.game.state = Model.GameState.Process;
+            this.game.setState(Model.GameState.Process);
             return player.position;
         }
 
@@ -150,6 +194,10 @@ module Services {
             }
 
             return result;
+        }
+
+        getGroupBoardFields(assetGroup: Model.AssetGroup): Array<Model.BoardField> {
+            return this.game.board.fields.filter(f => f.type === Model.BoardFieldType.Asset && f.asset.group === assetGroup);
         }
 
         private initPlayers() {

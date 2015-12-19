@@ -3,5 +3,6 @@
         throwDice: boolean;
         endTurn: boolean;
         buy: boolean;
+        manage: boolean;
     }
 }
