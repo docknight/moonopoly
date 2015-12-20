@@ -12,6 +12,9 @@ module Services {
         private boardFieldWidth: number;
         private boardFieldHeight: number;
         private boardFieldEdgeWidth: number;
+        private highlightMeshes: BABYLON.Mesh[];
+        private highlightLight: BABYLON.SpotLight;
+        private groundMeshName = "board";
 
         static $inject = ["$http", "gameService"];
         constructor($http: ng.IHttpService, gameService: Interfaces.IGameService) {
@@ -57,7 +60,7 @@ module Services {
             camera.setTarget(BABYLON.Vector3.Zero());
         }
 
-        setManageCameraPosition(camera: BABYLON.ArcRotateCamera, group: Model.AssetGroup) {
+        setManageCameraPosition(camera: BABYLON.ArcRotateCamera, group: Model.AssetGroup, scene: BABYLON.Scene) {
             if (!this.boardGroupLeftCoordinate) {
                 this.initBoardGroupCoordinates();
             }
@@ -79,6 +82,30 @@ module Services {
             if (groupQuadrant === 3) {
                 camera.setPosition(new BABYLON.Vector3(7, 2, centerVector.z));
             }
+
+            this.highlightGroupFields(group, groupQuadrant, centerVector, scene);
+        }
+
+        returnFromManage(scene: BABYLON.Scene) {
+            this.cleanupHighlights(scene);
+        }
+
+        pickBoardElement(scene: BABYLON.Scene): number {
+            var pickResult = scene.pick(scene.pointerX, scene.pointerY);
+            if (pickResult.hit) {
+                if (pickResult.pickedMesh && pickResult.pickedMesh.name === this.groundMeshName) {
+                    return this.getBoardElementAt(pickResult.pickedPoint);
+                }
+            }
+            return undefined;
+        }
+
+        createBoard(scene: BABYLON.Scene) {
+            var board = BABYLON.Mesh.CreateGround(this.groundMeshName, this.boardSize, this.boardSize, 2, scene);
+            var boardMaterial = new BABYLON.StandardMaterial("boardTexture", scene);
+            boardMaterial.emissiveTexture = new BABYLON.Texture("images/Gameboard.png", scene);
+            boardMaterial.diffuseTexture = new BABYLON.Texture("images/Gameboard.png", scene);
+            board.material = boardMaterial;
         }
 
         private initQuadrantStartingCoordinates() {
@@ -142,14 +169,104 @@ module Services {
             }
         }
 
-        private getPositionCoordinate(position: number): MonopolyApp.Viewmodels.Coordinate {
+        // returns the coordinate of top center of the board field with a given index
+        private getPositionCoordinate(position: number, returnTopLeftCorner?: boolean): MonopolyApp.Viewmodels.Coordinate {
             var fieldQuadrant = Math.floor(position / (this.boardFieldsInQuadrant - 1));
             var fieldQuadrantOffset = position % (this.boardFieldsInQuadrant - 1);
             var coordinate = new MonopolyApp.Viewmodels.Coordinate();
             coordinate.x = this.quadrantStartingCoordinate[fieldQuadrant].x;
             coordinate.z = this.quadrantStartingCoordinate[fieldQuadrant].z;
             coordinate[this.getQuadrantRunningCoordinate(fieldQuadrant)] += fieldQuadrantOffset * this.boardFieldWidth * this.getQuadrantRunningDirection(fieldQuadrant);
+            if (!returnTopLeftCorner) {
+                coordinate[this.getQuadrantRunningCoordinate(fieldQuadrant)] += (fieldQuadrantOffset === 0 ? this.boardFieldWidth : this.boardFieldWidth / 2) * -this.getQuadrantRunningDirection(fieldQuadrant);
+            }
             return coordinate;
+        }
+
+        private highlightGroupFields(assetGroup: Model.AssetGroup, groupQuadrantIndex: number, groupCenter: BABYLON.Vector3, scene: BABYLON.Scene) {
+            this.cleanupHighlights(scene);
+            var meshes = [];
+            var mat = new BABYLON.StandardMaterial("mat1", scene);
+            mat.alpha = 1.0;
+            mat.diffuseColor = new BABYLON.Color3(0.5, 0.1, 0);
+            mat.emissiveColor = new BABYLON.Color3(0.7, 0.7, 0);
+            this.highlightLight = new BABYLON.SpotLight("Spot0", new BABYLON.Vector3(groupCenter.x, 10, groupCenter.z), new BABYLON.Vector3(0, -1, 0), 0.8, 2, scene);
+            this.highlightLight.diffuse = new BABYLON.Color3(1, 0, 0);
+            this.highlightLight.specular = new BABYLON.Color3(1, 1, 1);
+
+            var groupBoardFields = this.gameService.getGroupBoardFields(assetGroup);
+            var groupBoardPositions = $.map(groupBoardFields, (f, i) => f.index);
+            var highlightBoxWidth = 0.03;
+            var cornerLength = 0.05;
+            var that = this;
+            groupBoardPositions.forEach(position => {
+                var arcPath = [];
+                for (var i = 0; i <= 180; i++) {
+                    var radian = i * 0.0174532925;
+                    arcPath.push(new BABYLON.Vector3(Math.cos(radian) * highlightBoxWidth, Math.sin(radian) * highlightBoxWidth, 0));
+                }
+                arcPath[arcPath.length - 1].y = 0;
+
+                var path2 = [];
+                path2.push(new BABYLON.Vector3(0, 0, -cornerLength));
+                path2.push(new BABYLON.Vector3(0, 0, -that.boardFieldHeight + cornerLength));
+                path2.push(new BABYLON.Vector3(0 + cornerLength, 0, -that.boardFieldHeight));
+                path2.push(new BABYLON.Vector3(that.boardFieldWidth - cornerLength, 0, -that.boardFieldHeight));
+                path2.push(new BABYLON.Vector3(that.boardFieldWidth, 0, -that.boardFieldHeight + cornerLength));
+                path2.push(new BABYLON.Vector3(that.boardFieldWidth, 0, -cornerLength));
+                path2.push(new BABYLON.Vector3(that.boardFieldWidth - cornerLength, 0, 0));
+                path2.push(new BABYLON.Vector3(cornerLength, 0, 0));
+                path2.push(new BABYLON.Vector3(0, 0, -cornerLength));
+                path2.push(new BABYLON.Vector3(0, 0, -cornerLength * 3));
+                var extruded = BABYLON.Mesh.ExtrudeShape("extruded", arcPath, path2, 1, 0, 0, scene);
+                if (groupQuadrantIndex === 1) {
+                    extruded.rotation.y = Math.PI / 2;
+                } else if (groupQuadrantIndex === 2) {
+                    extruded.rotation.y = Math.PI;
+                } else if (groupQuadrantIndex === 3) {
+                    extruded.rotation.y = Math.PI*3/2;
+                }
+
+                var topLeft = this.getPositionCoordinate(position, true);
+                extruded.position.x = topLeft.x;
+                extruded.position.z = topLeft.z;
+                extruded.material = mat;
+                meshes.push(extruded);
+            });
+
+            this.highlightMeshes = meshes;
+        }
+
+        private cleanupHighlights(scene: BABYLON.Scene) {
+            if (this.highlightMeshes) {
+                this.highlightMeshes.forEach(mesh => {
+                    scene.removeMesh(mesh);
+                    mesh.dispose();
+                });
+                this.highlightMeshes = undefined;
+            }
+            if (this.highlightLight) {
+                scene.removeLight(this.highlightLight);
+                this.highlightLight.dispose();
+                this.highlightLight = undefined;
+            }
+        }
+
+        private getBoardElementAt(pickedPoint: BABYLON.Vector3): number {
+            var boardFieldIndex: number;
+            this.quadrantStartingCoordinate.forEach((quadrant, index) => {
+                var topRightCorner = quadrant[this.getQuadrantRunningCoordinate(index)] + this.boardFieldEdgeWidth * this.getQuadrantRunningDirection(index) * -1;
+                var topLeftCorner = topRightCorner + (this.boardSize - this.boardFieldEdgeWidth) * this.getQuadrantRunningDirection(index);
+                var heightCoordinate = this.getQuadrantRunningCoordinate(index) === "x" ? "z" : "x";
+                var heightDirection = index === 0 || index === 1 ? -1 : 1;
+                if (pickedPoint[this.getQuadrantRunningCoordinate(index)] < topRightCorner && pickedPoint[this.getQuadrantRunningCoordinate(index)] > topLeftCorner &&
+                    pickedPoint[heightCoordinate] < quadrant[heightCoordinate] && pickedPoint[heightCoordinate] > quadrant[heightCoordinate] + this.boardFieldHeight * heightDirection) {
+                    var quadrantOffset = pickedPoint[this.getQuadrantRunningCoordinate(index)] > topRightCorner + this.boardFieldEdgeWidth * this.getQuadrantRunningDirection(index) ? 0 :
+                        Math.ceil(Math.abs((pickedPoint[this.getQuadrantRunningCoordinate(index)] - (topRightCorner + this.boardFieldEdgeWidth * this.getQuadrantRunningDirection(index))) / this.boardFieldWidth));
+                    boardFieldIndex = index * (this.boardFieldsInQuadrant - 1) + quadrantOffset;
+                }
+            }, this);
+            return boardFieldIndex;
         }
     }
 

@@ -966,7 +966,9 @@
     "scripts\\i18n\\angular-locale_en-pw.js",
     "www\\app\\js\\modules\\monopolyApp.js",
     "scripts\\angular-messages.js",
-    "scripts\\i18n\\angular-locale_pt-pt.js"
+    "scripts\\i18n\\angular-locale_pt-pt.js",
+    "scripts\\monopolyApp\\controllers\\gameCtrl.ts~RF12c2293.TMP",
+    "scripts\\monopolyApp\\controllers\\gameCtrl.ts~RF1303ae3.TMP"
   ],
   "deletedFilesIos": [],
   "addedPluginsIos": [],

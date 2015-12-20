@@ -587,6 +587,7 @@ var Services;
     var DrawingService = (function () {
         function DrawingService($http, gameService) {
             this.boardFieldsInQuadrant = 11;
+            this.groundMeshName = "board";
             this.httpService = $http;
             this.gameService = gameService;
             this.boardFieldWidth = this.boardSize / (this.boardFieldsInQuadrant + 2); // assuming the corner fields are double the width of the rest of the fields
@@ -627,7 +628,7 @@ var Services;
             camera.position.z = -10;
             camera.setTarget(BABYLON.Vector3.Zero());
         };
-        DrawingService.prototype.setManageCameraPosition = function (camera, group) {
+        DrawingService.prototype.setManageCameraPosition = function (camera, group, scene) {
             if (!this.boardGroupLeftCoordinate) {
                 this.initBoardGroupCoordinates();
             }
@@ -638,32 +639,37 @@ var Services;
             camera.setTarget(centerVector);
             camera.target = centerVector;
             if (groupQuadrant === 0) {
-                //camera.position.x = centerVector.x;
-                //camera.position.y = 2;
-                //camera.position.z = -7;
                 camera.setPosition(new BABYLON.Vector3(centerVector.x, 2, -7));
             }
             if (groupQuadrant === 1) {
-                //camera.position.x = -7;
-                //camera.position.y = 2;
-                //camera.position.z = centerVector.z;
                 camera.setPosition(new BABYLON.Vector3(-7, 2, centerVector.z));
             }
             if (groupQuadrant === 2) {
-                //camera.position.x = centerVector.x;
-                //camera.position.y = 2;
-                //camera.position.z = 7;
                 camera.setPosition(new BABYLON.Vector3(centerVector.x, 2, 7));
             }
             if (groupQuadrant === 3) {
-                //camera.position.x = 7;
-                //camera.position.y = 2;
-                //camera.position.z = centerVector.z;
                 camera.setPosition(new BABYLON.Vector3(7, 2, centerVector.z));
             }
-            //camera.setTarget(new BABYLON.Vector3(3, 0, -this.boardSize / 2 + this.boardFieldHeight / 2));               
-            //camera.setTarget(centerVector);
-            //camera.target = centerVector;
+            this.highlightGroupFields(group, groupQuadrant, centerVector, scene);
+        };
+        DrawingService.prototype.returnFromManage = function (scene) {
+            this.cleanupHighlights(scene);
+        };
+        DrawingService.prototype.pickBoardElement = function (scene) {
+            var pickResult = scene.pick(scene.pointerX, scene.pointerY);
+            if (pickResult.hit) {
+                if (pickResult.pickedMesh && pickResult.pickedMesh.name === this.groundMeshName) {
+                    return this.getBoardElementAt(pickResult.pickedPoint);
+                }
+            }
+            return undefined;
+        };
+        DrawingService.prototype.createBoard = function (scene) {
+            var board = BABYLON.Mesh.CreateGround(this.groundMeshName, this.boardSize, this.boardSize, 2, scene);
+            var boardMaterial = new BABYLON.StandardMaterial("boardTexture", scene);
+            boardMaterial.emissiveTexture = new BABYLON.Texture("images/Gameboard.png", scene);
+            boardMaterial.diffuseTexture = new BABYLON.Texture("images/Gameboard.png", scene);
+            board.material = boardMaterial;
         };
         DrawingService.prototype.initQuadrantStartingCoordinates = function () {
             this.quadrantStartingCoordinate = [];
@@ -727,14 +733,101 @@ var Services;
                 this.boardGroupRightCoordinate[group] = rightCoordinate;
             }
         };
-        DrawingService.prototype.getPositionCoordinate = function (position) {
+        // returns the coordinate of top center of the board field with a given index
+        DrawingService.prototype.getPositionCoordinate = function (position, returnTopLeftCorner) {
             var fieldQuadrant = Math.floor(position / (this.boardFieldsInQuadrant - 1));
             var fieldQuadrantOffset = position % (this.boardFieldsInQuadrant - 1);
             var coordinate = new MonopolyApp.Viewmodels.Coordinate();
             coordinate.x = this.quadrantStartingCoordinate[fieldQuadrant].x;
             coordinate.z = this.quadrantStartingCoordinate[fieldQuadrant].z;
             coordinate[this.getQuadrantRunningCoordinate(fieldQuadrant)] += fieldQuadrantOffset * this.boardFieldWidth * this.getQuadrantRunningDirection(fieldQuadrant);
+            if (!returnTopLeftCorner) {
+                coordinate[this.getQuadrantRunningCoordinate(fieldQuadrant)] += (fieldQuadrantOffset === 0 ? this.boardFieldWidth : this.boardFieldWidth / 2) * -this.getQuadrantRunningDirection(fieldQuadrant);
+            }
             return coordinate;
+        };
+        DrawingService.prototype.highlightGroupFields = function (assetGroup, groupQuadrantIndex, groupCenter, scene) {
+            var _this = this;
+            this.cleanupHighlights(scene);
+            var meshes = [];
+            var mat = new BABYLON.StandardMaterial("mat1", scene);
+            mat.alpha = 1.0;
+            mat.diffuseColor = new BABYLON.Color3(0.5, 0.1, 0);
+            mat.emissiveColor = new BABYLON.Color3(0.7, 0.7, 0);
+            this.highlightLight = new BABYLON.SpotLight("Spot0", new BABYLON.Vector3(groupCenter.x, 10, groupCenter.z), new BABYLON.Vector3(0, -1, 0), 0.8, 2, scene);
+            this.highlightLight.diffuse = new BABYLON.Color3(1, 0, 0);
+            this.highlightLight.specular = new BABYLON.Color3(1, 1, 1);
+            var groupBoardFields = this.gameService.getGroupBoardFields(assetGroup);
+            var groupBoardPositions = $.map(groupBoardFields, function (f, i) { return f.index; });
+            var highlightBoxWidth = 0.03;
+            var cornerLength = 0.05;
+            var that = this;
+            groupBoardPositions.forEach(function (position) {
+                var arcPath = [];
+                for (var i = 0; i <= 180; i++) {
+                    var radian = i * 0.0174532925;
+                    arcPath.push(new BABYLON.Vector3(Math.cos(radian) * highlightBoxWidth, Math.sin(radian) * highlightBoxWidth, 0));
+                }
+                arcPath[arcPath.length - 1].y = 0;
+                var path2 = [];
+                path2.push(new BABYLON.Vector3(0, 0, -cornerLength));
+                path2.push(new BABYLON.Vector3(0, 0, -that.boardFieldHeight + cornerLength));
+                path2.push(new BABYLON.Vector3(0 + cornerLength, 0, -that.boardFieldHeight));
+                path2.push(new BABYLON.Vector3(that.boardFieldWidth - cornerLength, 0, -that.boardFieldHeight));
+                path2.push(new BABYLON.Vector3(that.boardFieldWidth, 0, -that.boardFieldHeight + cornerLength));
+                path2.push(new BABYLON.Vector3(that.boardFieldWidth, 0, -cornerLength));
+                path2.push(new BABYLON.Vector3(that.boardFieldWidth - cornerLength, 0, 0));
+                path2.push(new BABYLON.Vector3(cornerLength, 0, 0));
+                path2.push(new BABYLON.Vector3(0, 0, -cornerLength));
+                path2.push(new BABYLON.Vector3(0, 0, -cornerLength * 3));
+                var extruded = BABYLON.Mesh.ExtrudeShape("extruded", arcPath, path2, 1, 0, 0, scene);
+                if (groupQuadrantIndex === 1) {
+                    extruded.rotation.y = Math.PI / 2;
+                }
+                else if (groupQuadrantIndex === 2) {
+                    extruded.rotation.y = Math.PI;
+                }
+                else if (groupQuadrantIndex === 3) {
+                    extruded.rotation.y = Math.PI * 3 / 2;
+                }
+                var topLeft = _this.getPositionCoordinate(position, true);
+                extruded.position.x = topLeft.x;
+                extruded.position.z = topLeft.z;
+                extruded.material = mat;
+                meshes.push(extruded);
+            });
+            this.highlightMeshes = meshes;
+        };
+        DrawingService.prototype.cleanupHighlights = function (scene) {
+            if (this.highlightMeshes) {
+                this.highlightMeshes.forEach(function (mesh) {
+                    scene.removeMesh(mesh);
+                    mesh.dispose();
+                });
+                this.highlightMeshes = undefined;
+            }
+            if (this.highlightLight) {
+                scene.removeLight(this.highlightLight);
+                this.highlightLight.dispose();
+                this.highlightLight = undefined;
+            }
+        };
+        DrawingService.prototype.getBoardElementAt = function (pickedPoint) {
+            var _this = this;
+            var boardFieldIndex;
+            this.quadrantStartingCoordinate.forEach(function (quadrant, index) {
+                var topRightCorner = quadrant[_this.getQuadrantRunningCoordinate(index)] + _this.boardFieldEdgeWidth * _this.getQuadrantRunningDirection(index) * -1;
+                var topLeftCorner = topRightCorner + (_this.boardSize - _this.boardFieldEdgeWidth) * _this.getQuadrantRunningDirection(index);
+                var heightCoordinate = _this.getQuadrantRunningCoordinate(index) === "x" ? "z" : "x";
+                var heightDirection = index === 0 || index === 1 ? -1 : 1;
+                if (pickedPoint[_this.getQuadrantRunningCoordinate(index)] < topRightCorner && pickedPoint[_this.getQuadrantRunningCoordinate(index)] > topLeftCorner &&
+                    pickedPoint[heightCoordinate] < quadrant[heightCoordinate] && pickedPoint[heightCoordinate] > quadrant[heightCoordinate] + _this.boardFieldHeight * heightDirection) {
+                    var quadrantOffset = pickedPoint[_this.getQuadrantRunningCoordinate(index)] > topRightCorner + _this.boardFieldEdgeWidth * _this.getQuadrantRunningDirection(index) ? 0 :
+                        Math.ceil(Math.abs((pickedPoint[_this.getQuadrantRunningCoordinate(index)] - (topRightCorner + _this.boardFieldEdgeWidth * _this.getQuadrantRunningDirection(index))) / _this.boardFieldWidth));
+                    boardFieldIndex = index * (_this.boardFieldsInQuadrant - 1) + quadrantOffset;
+                }
+            }, this);
+            return boardFieldIndex;
         };
         DrawingService.$inject = ["$http", "gameService"];
         return DrawingService;
@@ -992,7 +1085,8 @@ var MonopolyApp;
     var controllers;
     (function (controllers) {
         var GameController = (function () {
-            function GameController(stateService, swipeService, gameService, drawingService) {
+            function GameController(stateService, swipeService, scope, gameService, drawingService) {
+                this.scope = scope;
                 this.stateService = stateService;
                 this.gameService = gameService;
                 this.drawingService = drawingService;
@@ -1037,17 +1131,24 @@ var MonopolyApp;
             };
             GameController.prototype.manage = function () {
                 this.manageMode = true;
-                var focusedAssetGroup = this.gameService.manage();
-                this.drawingService.setManageCameraPosition(this.manageCamera, focusedAssetGroup);
+                this.focusedAssetGroup = this.gameService.manage();
+                this.drawingService.setManageCameraPosition(this.manageCamera, this.focusedAssetGroup, this.scene);
                 this.scene.activeCamera = this.manageCamera;
+                //var canvas = <HTMLCanvasElement>document.getElementById("renderCanvas");
+                //this.manageCamera.attachControl(canvas, true);
                 this.setAvailableActions();
                 $("#commandPanel").hide();
                 $("#manageCommandPanel").show();
+                $(window).on("click", null, this, this.handleClickEvent);
             };
             GameController.prototype.returnFromManage = function () {
                 this.manageMode = false;
+                $(window).off("click", this.handleClickEvent);
                 this.scene.activeCamera = this.gameCamera;
                 this.gameService.returnFromManage();
+                this.drawingService.returnFromManage(this.scene);
+                //var canvas = <HTMLCanvasElement>document.getElementById("renderCanvas");
+                //this.manageCamera.detachControl(canvas);
                 this.setAvailableActions();
                 $("#manageCommandPanel").hide();
                 $("#commandPanel").show();
@@ -1089,11 +1190,7 @@ var MonopolyApp;
                 // Default intensity is 1. Let's dim the light a small amount
                 light.intensity = 1;
                 // Our built-in 'ground' shape. Params: name, width, depth, subdivs, scene
-                var board = BABYLON.Mesh.CreateGround("ground1", this.drawingService.boardSize, this.drawingService.boardSize, 2, this.scene);
-                var boardMaterial = new BABYLON.StandardMaterial("boardTexture", this.scene);
-                boardMaterial.emissiveTexture = new BABYLON.Texture("images/Gameboard.png", this.scene);
-                boardMaterial.diffuseTexture = new BABYLON.Texture("images/Gameboard.png", this.scene);
-                board.material = boardMaterial;
+                this.drawingService.createBoard(this.scene);
                 this.players = [];
                 var meshLoads = [];
                 this.gameService.players.forEach(function (player) {
@@ -1163,11 +1260,36 @@ var MonopolyApp;
             };
             GameController.prototype.handleSwipe = function (left) {
                 if (this.manageMode) {
-                    var focusedAssetGroup = this.gameService.manageFocusChange(left);
-                    this.drawingService.setManageCameraPosition(this.manageCamera, focusedAssetGroup);
+                    this.focusedAssetGroup = this.gameService.manageFocusChange(left);
+                    this.drawingService.setManageCameraPosition(this.manageCamera, this.focusedAssetGroup, this.scene);
                 }
             };
-            GameController.$inject = ["$state", "$swipe", "gameService", "drawingService"];
+            GameController.prototype.handleClickEvent = function (eventObject) {
+                var data = [];
+                for (var _i = 1; _i < arguments.length; _i++) {
+                    data[_i - 1] = arguments[_i];
+                }
+                var thisInstance = eventObject.data;
+                if (thisInstance.manageMode) {
+                    var boardFieldIndex = thisInstance.drawingService.pickBoardElement(thisInstance.scene);
+                    if (boardFieldIndex) {
+                        var groupFields = thisInstance.gameService.getGroupBoardFields(thisInstance.focusedAssetGroup);
+                        var clickedFields = groupFields.filter(function (f) { return f.index === boardFieldIndex; });
+                        if (clickedFields.length > 0) {
+                            // user clicked a field that is currently focused - show its details
+                            thisInstance.scope.$apply(function () {
+                                thisInstance.manageField(clickedFields[0].asset);
+                            });
+                        }
+                    }
+                }
+            };
+            GameController.prototype.manageField = function (asset) {
+                this.assetToManage = asset;
+                $("#assetManagement").show();
+                //this.scope.$apply();
+            };
+            GameController.$inject = ["$state", "$swipe", "$scope", "gameService", "drawingService"];
             return GameController;
         })();
         controllers.GameController = GameController;

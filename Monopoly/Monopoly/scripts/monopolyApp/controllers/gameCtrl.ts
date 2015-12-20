@@ -4,19 +4,22 @@
 /// <reference path="../../../scripts/game/model/game.ts" />
 module MonopolyApp.controllers {
     export class GameController {
+        scope: angular.IScope;
         stateService: angular.ui.IStateService;
         gameService: Interfaces.IGameService;
         drawingService: Interfaces.IDrawingService;
-        static $inject = ["$state", "$swipe", "gameService", "drawingService"];
+        static $inject = ["$state", "$swipe", "$scope", "gameService", "drawingService"];
 
         private players: Array<Viewmodels.Player>;
         private scene: BABYLON.Scene;
         private gameCamera: BABYLON.FreeCamera;
         private manageCamera: BABYLON.ArcRotateCamera;
-        private manageMode : boolean;
+        private manageMode: boolean;
+        private focusedAssetGroup: Model.AssetGroup; // currently focused asset group in manage mode
 
         availableActions: Viewmodels.AvailableActions;
         assetToBuy: Model.Asset; // asset currently available for purchase
+        assetToManage: Model.Asset; // asset currently being managed
         messages: Array<string>;
 
         get currentPlayer(): string {
@@ -27,7 +30,8 @@ module MonopolyApp.controllers {
             return this.players;
         }
 
-        constructor(stateService: angular.ui.IStateService, swipeService: any, gameService: Interfaces.IGameService, drawingService: Interfaces.IDrawingService) {
+        constructor(stateService: angular.ui.IStateService, swipeService: any, scope: angular.IScope, gameService: Interfaces.IGameService, drawingService: Interfaces.IDrawingService) {
+            this.scope = scope;
             this.stateService = stateService;
             this.gameService = gameService;
             this.drawingService = drawingService;
@@ -62,18 +66,25 @@ module MonopolyApp.controllers {
 
         manage() {
             this.manageMode = true;
-            var focusedAssetGroup = this.gameService.manage();
-            this.drawingService.setManageCameraPosition(this.manageCamera, focusedAssetGroup);
+            this.focusedAssetGroup = this.gameService.manage();
+            this.drawingService.setManageCameraPosition(this.manageCamera, this.focusedAssetGroup, this.scene);
             this.scene.activeCamera = this.manageCamera;
+            //var canvas = <HTMLCanvasElement>document.getElementById("renderCanvas");
+            //this.manageCamera.attachControl(canvas, true);
             this.setAvailableActions();
             $("#commandPanel").hide();
             $("#manageCommandPanel").show();
+            $(window).on("click", null, this, this.handleClickEvent);
         }
 
         returnFromManage() {
             this.manageMode = false;
+            $(window).off("click", this.handleClickEvent);
             this.scene.activeCamera = this.gameCamera;
             this.gameService.returnFromManage();
+            this.drawingService.returnFromManage(this.scene);
+            //var canvas = <HTMLCanvasElement>document.getElementById("renderCanvas");
+            //this.manageCamera.detachControl(canvas);
             this.setAvailableActions();
             $("#manageCommandPanel").hide();
             $("#commandPanel").show();            
@@ -123,11 +134,7 @@ module MonopolyApp.controllers {
             light.intensity = 1;
 
             // Our built-in 'ground' shape. Params: name, width, depth, subdivs, scene
-            var board = BABYLON.Mesh.CreateGround("ground1", this.drawingService.boardSize, this.drawingService.boardSize, 2, this.scene);
-            var boardMaterial = new BABYLON.StandardMaterial("boardTexture", this.scene);
-            boardMaterial.emissiveTexture = new BABYLON.Texture("images/Gameboard.png", this.scene);
-            boardMaterial.diffuseTexture = new BABYLON.Texture("images/Gameboard.png", this.scene);
-            board.material = boardMaterial;
+            this.drawingService.createBoard(this.scene);
 
             this.players = [];
             var meshLoads = [];
@@ -203,9 +210,32 @@ module MonopolyApp.controllers {
 
         private handleSwipe(left: boolean) {
             if (this.manageMode) {
-                var focusedAssetGroup = this.gameService.manageFocusChange(left);
-                this.drawingService.setManageCameraPosition(this.manageCamera, focusedAssetGroup);
+                this.focusedAssetGroup = this.gameService.manageFocusChange(left);
+                this.drawingService.setManageCameraPosition(this.manageCamera, this.focusedAssetGroup, this.scene);
             }
+        }
+
+        private handleClickEvent(eventObject: JQueryEventObject, ...data: any[]) {
+            var thisInstance = eventObject.data;
+            if (thisInstance.manageMode) {
+                var boardFieldIndex = thisInstance.drawingService.pickBoardElement(thisInstance.scene);
+                if (boardFieldIndex) {
+                    var groupFields = thisInstance.gameService.getGroupBoardFields(thisInstance.focusedAssetGroup);
+                    var clickedFields = groupFields.filter(f => f.index === boardFieldIndex);
+                    if (clickedFields.length > 0) {
+                        // user clicked a field that is currently focused - show its details
+                        thisInstance.scope.$apply(() => {
+                            thisInstance.manageField(clickedFields[0].asset);
+                        });
+                    }
+                }
+            }
+        }
+
+        private manageField(asset: Model.Asset) {
+            this.assetToManage = asset;
+            $("#assetManagement").show();
+            //this.scope.$apply();
         }
     }
 

@@ -27,6 +27,9 @@
         positionPlayer(playerModel: MonopolyApp.Viewmodels.Player);
         animatePlayerMove(oldPositionIndex: Model.BoardField, newPosition: Model.BoardField, playerModel: MonopolyApp.Viewmodels.Player);
         setGameCameraPosition(camera: BABYLON.FreeCamera);
-        setManageCameraPosition(camera: BABYLON.ArcRotateCamera, group: Model.AssetGroup);
+        setManageCameraPosition(camera: BABYLON.ArcRotateCamera, group: Model.AssetGroup, scene: BABYLON.Scene);
+        returnFromManage(scene: BABYLON.Scene);
+        pickBoardElement(scene: BABYLON.Scene): number;
+        createBoard(scene: BABYLON.Scene);
     }
 }
