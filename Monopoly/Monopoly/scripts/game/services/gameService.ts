@@ -94,15 +94,18 @@ module Services {
             this.lastDiceResult2 = 0;
         }
 
-        buy() {
+        buy(): boolean {
             if (this.canBuy) {
                 var asset = this.getCurrentPlayerPosition().asset;
                 if (asset) {
                     var player = this.game.players.filter(p => p.playerName === this.getCurrentPlayer())[0];
                     player.money -= asset.price;
                     asset.setOwner(this.getCurrentPlayer());
+                    return true;
                 }
             }
+
+            return false;
         }
 
         manage(): Model.AssetGroup {
@@ -208,7 +211,7 @@ module Services {
                 player.playerName = i === 0 ? settings.playerName : "Computer " + i;
                 player.human = i === 0;
                 player.money = 1500;
-                player.color = colors[i];
+                player.color = i;
                 this.game.players.push(player);
                 this.setPlayerPosition(player, 0);
             }

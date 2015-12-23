@@ -1,4 +1,6 @@
 ﻿module Model {
+    export enum PlayerColor { Red, Blue, Green, Yellow };
+
     export class Player {
         constructor() {
             this.playerName = "";
@@ -6,7 +8,7 @@
         }
         playerName: string;
         human: boolean;
-        color: string;
+        color: PlayerColor;
         money: number;
         position: BoardField;
     }

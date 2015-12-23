@@ -6,11 +6,13 @@ module MonopolyApp.controllers {
     export class GameController {
         scope: angular.IScope;
         stateService: angular.ui.IStateService;
+        timeoutService: angular.ITimeoutService;
         gameService: Interfaces.IGameService;
         drawingService: Interfaces.IDrawingService;
-        static $inject = ["$state", "$swipe", "$scope", "gameService", "drawingService"];
+        static $inject = ["$state", "$swipe", "$scope", "$timeout", "gameService", "drawingService"];
 
         private players: Array<Viewmodels.Player>;
+        private boardFields: Array<Viewmodels.BoardField>;
         private scene: BABYLON.Scene;
         private gameCamera: BABYLON.FreeCamera;
         private manageCamera: BABYLON.ArcRotateCamera;
@@ -30,9 +32,10 @@ module MonopolyApp.controllers {
             return this.players;
         }
 
-        constructor(stateService: angular.ui.IStateService, swipeService: any, scope: angular.IScope, gameService: Interfaces.IGameService, drawingService: Interfaces.IDrawingService) {
+        constructor(stateService: angular.ui.IStateService, swipeService: any, scope: angular.IScope, timeoutService: angular.ITimeoutService ,gameService: Interfaces.IGameService, drawingService: Interfaces.IDrawingService) {
             this.scope = scope;
             this.stateService = stateService;
+            this.timeoutService = timeoutService;
             this.gameService = gameService;
             this.drawingService = drawingService;
             this.initGame();
@@ -60,31 +63,41 @@ module MonopolyApp.controllers {
         }
 
         buy() {
-            this.gameService.buy();
+            var bought = this.gameService.buy();
+            if (bought) {
+                var boardField = this.gameService.getCurrentPlayerPosition();
+                this.drawingService.setBoardFieldOwner(this.boardFields.filter(f => f.index === boardField.index)[0], boardField.asset, this.scene);
+            }
             this.setAvailableActions();
         }
 
         manage() {
-            this.manageMode = true;
-            this.focusedAssetGroup = this.gameService.manage();
-            this.drawingService.setManageCameraPosition(this.manageCamera, this.focusedAssetGroup, this.scene);
-            this.scene.activeCamera = this.manageCamera;
-            //var canvas = <HTMLCanvasElement>document.getElementById("renderCanvas");
-            //this.manageCamera.attachControl(canvas, true);
-            this.setAvailableActions();
-            $("#commandPanel").hide();
-            $("#manageCommandPanel").show();
-            $(window).on("click", null, this, this.handleClickEvent);
+            if (!this.manageMode) {
+                this.manageMode = true;
+                this.focusedAssetGroup = this.gameService.manage();
+                this.drawingService.setManageCameraPosition(this.manageCamera, this.focusedAssetGroup, this.scene);
+                this.scene.activeCamera = this.manageCamera;
+                //var canvas = <HTMLCanvasElement>document.getElementById("renderCanvas");
+                //this.manageCamera.attachControl(canvas, true);
+                this.setAvailableActions();
+                $("#commandPanel").hide();
+                $("#manageCommandPanel").show();
+                //var that = this;
+                //this.timeoutService(() => { $(window).on("click", null, that, that.handleClickEvent); }, 1000, false);
+                //this.scope.$evalAsync(() => { $(window).on("click", null, that, that.handleClickEvent); });
+                $(window).on("click", null, this, this.handleClickEvent);
+            }
         }
 
         returnFromManage() {
             this.manageMode = false;
             $(window).off("click", this.handleClickEvent);
+            this.closeAssetManagementWindow();            
             this.scene.activeCamera = this.gameCamera;
             this.gameService.returnFromManage();
             this.drawingService.returnFromManage(this.scene);
             //var canvas = <HTMLCanvasElement>document.getElementById("renderCanvas");
-            //this.manageCamera.detachControl(canvas);
+            //this.manageCamera.detachControl(canvas);            
             this.setAvailableActions();
             $("#manageCommandPanel").hide();
             $("#commandPanel").show();            
@@ -95,6 +108,10 @@ module MonopolyApp.controllers {
                 this.gameService.endTurn();
                 this.setAvailableActions();
             }
+        }
+
+        closeAssetManagementWindow() {
+            $("#assetManagement").hide();
         }
 
         private createScene() {
@@ -154,7 +171,25 @@ module MonopolyApp.controllers {
                 this.players.push(playerModel);
             });
             $.when.apply($, meshLoads).done(this.setupPlayerPositions);
+            this.setupBoardFields();
             return this.scene;
+        }
+
+        private setupBoardFields() {
+            this.boardFields = [];
+            for (var i = 0; i < 40; i++) {
+                var boardField = new Viewmodels.BoardField();
+                boardField.index = i;
+                this.boardFields.push(boardField);
+            }
+            for (var assetGroup = Model.AssetGroup.First; assetGroup <= Model.AssetGroup.Eighth; assetGroup++) {
+                var groupBoardFields = this.gameService.getGroupBoardFields(assetGroup);
+                groupBoardFields.forEach(groupBoardField => {
+                    if (!groupBoardField.asset.unowned) {
+                        this.drawingService.setBoardFieldOwner(this.boardFields.filter(f => f.index === groupBoardField.index)[0], groupBoardField.asset, this.scene);
+                    }
+                });
+            }
         }
 
         private setupPlayerPositions(that: GameController) {
@@ -235,7 +270,6 @@ module MonopolyApp.controllers {
         private manageField(asset: Model.Asset) {
             this.assetToManage = asset;
             $("#assetManagement").show();
-            //this.scope.$apply();
         }
     }
 

@@ -15,7 +15,7 @@
         throwDice();
         getCurrentPlayerPosition(): Model.BoardField;
         moveCurrentPlayer(): Model.BoardField;
-        buy();
+        buy(): boolean;
         processOwnedFieldVisit(): Model.ProcessResult;
         manage(): Model.AssetGroup;
         manageFocusChange(left: boolean): Model.AssetGroup;
@@ -31,5 +31,6 @@
         returnFromManage(scene: BABYLON.Scene);
         pickBoardElement(scene: BABYLON.Scene): number;
         createBoard(scene: BABYLON.Scene);
+        setBoardFieldOwner(boardField: MonopolyApp.Viewmodels.BoardField, asset: Model.Asset, scene: BABYLON.Scene);
     }
 }

@@ -58,7 +58,7 @@
         }
 
         setPreviousState() {
-            if (this.previousState) {
+            if (this.previousState !== undefined) {
                 this.state = this.previousState;
                 this.previousState = undefined;
             }

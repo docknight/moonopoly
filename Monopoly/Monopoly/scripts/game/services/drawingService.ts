@@ -108,6 +108,40 @@ module Services {
             board.material = boardMaterial;
         }
 
+        setBoardFieldOwner(boardField: MonopolyApp.Viewmodels.BoardField, asset: Model.Asset, scene: BABYLON.Scene) {
+            if (boardField.ownerMesh) {
+                scene.removeMesh(boardField.ownerMesh);
+                boardField.ownerMesh.dispose();
+            }
+
+            var fieldQuadrant = Math.floor(boardField.index / (this.boardFieldsInQuadrant - 1));
+            var playerColor = this.gameService.players.filter(p => p.playerName === this.gameService.getCurrentPlayer())[0].color;
+            var topCenter = this.getPositionCoordinate(boardField.index);
+            var heightCoordinate = this.getQuadrantRunningCoordinate(fieldQuadrant) === "x" ? "z" : "x";
+            var heightDirection = fieldQuadrant === 0 || fieldQuadrant === 1 ? -1 : 1;
+            var bottomCenter = new MonopolyApp.Viewmodels.Coordinate(topCenter.x, topCenter.z);
+            bottomCenter[heightCoordinate] += this.boardFieldHeight * 1.2 * heightDirection;
+
+            boardField.ownerMesh = BABYLON.Mesh.CreateBox("ownerbox_" + boardField.index, this.boardFieldWidth * 0.8, scene);
+            var mat = new BABYLON.StandardMaterial("ownerboxmaterial_" + boardField.index, scene);
+            mat.alpha = 1.0;
+            mat.diffuseColor = this.getColor(playerColor, true);
+            mat.emissiveColor = this.getColor(playerColor, false);
+            mat.specularColor = new BABYLON.Color3(0.9, 0.9, 0.9);
+            boardField.ownerMesh.material = mat;
+            boardField.ownerMesh.position.x = bottomCenter.x;
+            boardField.ownerMesh.position.z = bottomCenter.z;
+            boardField.ownerMesh.scaling.y = 0.2;
+            boardField.ownerMesh.scaling.z = 0.2;
+            if (fieldQuadrant === 1) {
+                boardField.ownerMesh.rotation.y = Math.PI / 2;
+            } else if (fieldQuadrant === 2) {
+                boardField.ownerMesh.rotation.y = Math.PI;
+            } else if (fieldQuadrant === 3) {
+                boardField.ownerMesh.rotation.y = Math.PI * 3 / 2;
+            }
+        }
+
         private initQuadrantStartingCoordinates() {
             this.quadrantStartingCoordinate = [];
             var firstQuadrantStartingCoordinate = new MonopolyApp.Viewmodels.Coordinate();
@@ -267,6 +301,20 @@ module Services {
                 }
             }, this);
             return boardFieldIndex;
+        }
+
+        private getColor(playerColor: Model.PlayerColor, diffuse: boolean): BABYLON.Color3 {
+            if (playerColor === Model.PlayerColor.Blue) {
+                return diffuse ? new BABYLON.Color3(0.3, 0.3, 1) : new BABYLON.Color3(0.1, 0, 0.7);
+            } else if (playerColor === Model.PlayerColor.Red) {
+                return diffuse ? new BABYLON.Color3(1, 0.3, 0.3) : new BABYLON.Color3(0.7, 0, 0.1);
+            } else if (playerColor === Model.PlayerColor.Green) {
+                return diffuse ? new BABYLON.Color3(0.3, 1, 0.3) : new BABYLON.Color3(0.1, 0.7, 0);
+            } else if (playerColor === Model.PlayerColor.Yellow) {
+                return diffuse ? new BABYLON.Color3(1, 1, 0.3) : new BABYLON.Color3(0.7, 0.7, 0.1);
+            }
+
+            return BABYLON.Color3.White();
         }
     }
 

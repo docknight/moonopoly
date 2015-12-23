@@ -533,7 +533,7 @@ var Model;
             }
         };
         Game.prototype.setPreviousState = function () {
-            if (this.previousState) {
+            if (this.previousState !== undefined) {
                 this.state = this.previousState;
                 this.previousState = undefined;
             }
@@ -544,6 +544,14 @@ var Model;
 })(Model || (Model = {}));
 var Model;
 (function (Model) {
+    (function (PlayerColor) {
+        PlayerColor[PlayerColor["Red"] = 0] = "Red";
+        PlayerColor[PlayerColor["Blue"] = 1] = "Blue";
+        PlayerColor[PlayerColor["Green"] = 2] = "Green";
+        PlayerColor[PlayerColor["Yellow"] = 3] = "Yellow";
+    })(Model.PlayerColor || (Model.PlayerColor = {}));
+    var PlayerColor = Model.PlayerColor;
+    ;
     var Player = (function () {
         function Player() {
             this.playerName = "";
@@ -670,6 +678,40 @@ var Services;
             boardMaterial.emissiveTexture = new BABYLON.Texture("images/Gameboard.png", scene);
             boardMaterial.diffuseTexture = new BABYLON.Texture("images/Gameboard.png", scene);
             board.material = boardMaterial;
+        };
+        DrawingService.prototype.setBoardFieldOwner = function (boardField, asset, scene) {
+            var _this = this;
+            if (boardField.ownerMesh) {
+                scene.removeMesh(boardField.ownerMesh);
+                boardField.ownerMesh.dispose();
+            }
+            var fieldQuadrant = Math.floor(boardField.index / (this.boardFieldsInQuadrant - 1));
+            var playerColor = this.gameService.players.filter(function (p) { return p.playerName === _this.gameService.getCurrentPlayer(); })[0].color;
+            var topCenter = this.getPositionCoordinate(boardField.index);
+            var heightCoordinate = this.getQuadrantRunningCoordinate(fieldQuadrant) === "x" ? "z" : "x";
+            var heightDirection = fieldQuadrant === 0 || fieldQuadrant === 1 ? -1 : 1;
+            var bottomCenter = new MonopolyApp.Viewmodels.Coordinate(topCenter.x, topCenter.z);
+            bottomCenter[heightCoordinate] += this.boardFieldHeight * 1.2 * heightDirection;
+            boardField.ownerMesh = BABYLON.Mesh.CreateBox("ownerbox_" + boardField.index, this.boardFieldWidth * 0.8, scene);
+            var mat = new BABYLON.StandardMaterial("ownerboxmaterial_" + boardField.index, scene);
+            mat.alpha = 1.0;
+            mat.diffuseColor = this.getColor(playerColor, true);
+            mat.emissiveColor = this.getColor(playerColor, false);
+            mat.specularColor = new BABYLON.Color3(0.9, 0.9, 0.9);
+            boardField.ownerMesh.material = mat;
+            boardField.ownerMesh.position.x = bottomCenter.x;
+            boardField.ownerMesh.position.z = bottomCenter.z;
+            boardField.ownerMesh.scaling.y = 0.2;
+            boardField.ownerMesh.scaling.z = 0.2;
+            if (fieldQuadrant === 1) {
+                boardField.ownerMesh.rotation.y = Math.PI / 2;
+            }
+            else if (fieldQuadrant === 2) {
+                boardField.ownerMesh.rotation.y = Math.PI;
+            }
+            else if (fieldQuadrant === 3) {
+                boardField.ownerMesh.rotation.y = Math.PI * 3 / 2;
+            }
         };
         DrawingService.prototype.initQuadrantStartingCoordinates = function () {
             this.quadrantStartingCoordinate = [];
@@ -829,6 +871,21 @@ var Services;
             }, this);
             return boardFieldIndex;
         };
+        DrawingService.prototype.getColor = function (playerColor, diffuse) {
+            if (playerColor === Model.PlayerColor.Blue) {
+                return diffuse ? new BABYLON.Color3(0.3, 0.3, 1) : new BABYLON.Color3(0.1, 0, 0.7);
+            }
+            else if (playerColor === Model.PlayerColor.Red) {
+                return diffuse ? new BABYLON.Color3(1, 0.3, 0.3) : new BABYLON.Color3(0.7, 0, 0.1);
+            }
+            else if (playerColor === Model.PlayerColor.Green) {
+                return diffuse ? new BABYLON.Color3(0.3, 1, 0.3) : new BABYLON.Color3(0.1, 0.7, 0);
+            }
+            else if (playerColor === Model.PlayerColor.Yellow) {
+                return diffuse ? new BABYLON.Color3(1, 1, 0.3) : new BABYLON.Color3(0.7, 0.7, 0.1);
+            }
+            return BABYLON.Color3.White();
+        };
         DrawingService.$inject = ["$http", "gameService"];
         return DrawingService;
     })();
@@ -963,8 +1020,10 @@ var Services;
                     var player = this.game.players.filter(function (p) { return p.playerName === _this.getCurrentPlayer(); })[0];
                     player.money -= asset.price;
                     asset.setOwner(this.getCurrentPlayer());
+                    return true;
                 }
             }
+            return false;
         };
         GameService.prototype.manage = function () {
             if (this.canManage) {
@@ -1065,7 +1124,7 @@ var Services;
                 player.playerName = i === 0 ? settings.playerName : "Computer " + i;
                 player.human = i === 0;
                 player.money = 1500;
-                player.color = colors[i];
+                player.color = i;
                 this.game.players.push(player);
                 this.setPlayerPosition(player, 0);
             }
@@ -1085,9 +1144,10 @@ var MonopolyApp;
     var controllers;
     (function (controllers) {
         var GameController = (function () {
-            function GameController(stateService, swipeService, scope, gameService, drawingService) {
+            function GameController(stateService, swipeService, scope, timeoutService, gameService, drawingService) {
                 this.scope = scope;
                 this.stateService = stateService;
+                this.timeoutService = timeoutService;
                 this.gameService = gameService;
                 this.drawingService = drawingService;
                 this.initGame();
@@ -1126,29 +1186,39 @@ var MonopolyApp;
                 }
             };
             GameController.prototype.buy = function () {
-                this.gameService.buy();
+                var bought = this.gameService.buy();
+                if (bought) {
+                    var boardField = this.gameService.getCurrentPlayerPosition();
+                    this.drawingService.setBoardFieldOwner(this.boardFields.filter(function (f) { return f.index === boardField.index; })[0], boardField.asset, this.scene);
+                }
                 this.setAvailableActions();
             };
             GameController.prototype.manage = function () {
-                this.manageMode = true;
-                this.focusedAssetGroup = this.gameService.manage();
-                this.drawingService.setManageCameraPosition(this.manageCamera, this.focusedAssetGroup, this.scene);
-                this.scene.activeCamera = this.manageCamera;
-                //var canvas = <HTMLCanvasElement>document.getElementById("renderCanvas");
-                //this.manageCamera.attachControl(canvas, true);
-                this.setAvailableActions();
-                $("#commandPanel").hide();
-                $("#manageCommandPanel").show();
-                $(window).on("click", null, this, this.handleClickEvent);
+                if (!this.manageMode) {
+                    this.manageMode = true;
+                    this.focusedAssetGroup = this.gameService.manage();
+                    this.drawingService.setManageCameraPosition(this.manageCamera, this.focusedAssetGroup, this.scene);
+                    this.scene.activeCamera = this.manageCamera;
+                    //var canvas = <HTMLCanvasElement>document.getElementById("renderCanvas");
+                    //this.manageCamera.attachControl(canvas, true);
+                    this.setAvailableActions();
+                    $("#commandPanel").hide();
+                    $("#manageCommandPanel").show();
+                    //var that = this;
+                    //this.timeoutService(() => { $(window).on("click", null, that, that.handleClickEvent); }, 1000, false);
+                    //this.scope.$evalAsync(() => { $(window).on("click", null, that, that.handleClickEvent); });
+                    $(window).on("click", null, this, this.handleClickEvent);
+                }
             };
             GameController.prototype.returnFromManage = function () {
                 this.manageMode = false;
                 $(window).off("click", this.handleClickEvent);
+                this.closeAssetManagementWindow();
                 this.scene.activeCamera = this.gameCamera;
                 this.gameService.returnFromManage();
                 this.drawingService.returnFromManage(this.scene);
                 //var canvas = <HTMLCanvasElement>document.getElementById("renderCanvas");
-                //this.manageCamera.detachControl(canvas);
+                //this.manageCamera.detachControl(canvas);            
                 this.setAvailableActions();
                 $("#manageCommandPanel").hide();
                 $("#commandPanel").show();
@@ -1158,6 +1228,9 @@ var MonopolyApp;
                     this.gameService.endTurn();
                     this.setAvailableActions();
                 }
+            };
+            GameController.prototype.closeAssetManagementWindow = function () {
+                $("#assetManagement").hide();
             };
             GameController.prototype.createScene = function () {
                 var canvas = document.getElementById("renderCanvas");
@@ -1209,7 +1282,25 @@ var MonopolyApp;
                     _this.players.push(playerModel);
                 });
                 $.when.apply($, meshLoads).done(this.setupPlayerPositions);
+                this.setupBoardFields();
                 return this.scene;
+            };
+            GameController.prototype.setupBoardFields = function () {
+                var _this = this;
+                this.boardFields = [];
+                for (var i = 0; i < 40; i++) {
+                    var boardField = new MonopolyApp.Viewmodels.BoardField();
+                    boardField.index = i;
+                    this.boardFields.push(boardField);
+                }
+                for (var assetGroup = Model.AssetGroup.First; assetGroup <= Model.AssetGroup.Eighth; assetGroup++) {
+                    var groupBoardFields = this.gameService.getGroupBoardFields(assetGroup);
+                    groupBoardFields.forEach(function (groupBoardField) {
+                        if (!groupBoardField.asset.unowned) {
+                            _this.drawingService.setBoardFieldOwner(_this.boardFields.filter(function (f) { return f.index === groupBoardField.index; })[0], groupBoardField.asset, _this.scene);
+                        }
+                    });
+                }
             };
             GameController.prototype.setupPlayerPositions = function (that) {
                 that.players.forEach(function (playerModel) {
@@ -1287,9 +1378,8 @@ var MonopolyApp;
             GameController.prototype.manageField = function (asset) {
                 this.assetToManage = asset;
                 $("#assetManagement").show();
-                //this.scope.$apply();
             };
-            GameController.$inject = ["$state", "$swipe", "$scope", "gameService", "drawingService"];
+            GameController.$inject = ["$state", "$swipe", "$scope", "$timeout", "gameService", "drawingService"];
             return GameController;
         })();
         controllers.GameController = GameController;
@@ -1366,6 +1456,18 @@ var MonopolyApp;
             return AvailableActions;
         })();
         Viewmodels.AvailableActions = AvailableActions;
+    })(Viewmodels = MonopolyApp.Viewmodels || (MonopolyApp.Viewmodels = {}));
+})(MonopolyApp || (MonopolyApp = {}));
+var MonopolyApp;
+(function (MonopolyApp) {
+    var Viewmodels;
+    (function (Viewmodels) {
+        var BoardField = (function () {
+            function BoardField() {
+            }
+            return BoardField;
+        })();
+        Viewmodels.BoardField = BoardField;
     })(Viewmodels = MonopolyApp.Viewmodels || (MonopolyApp.Viewmodels = {}));
 })(MonopolyApp || (MonopolyApp = {}));
 var MonopolyApp;
