@@ -50,5 +50,10 @@
     <button ng-disabled="!gameController.availableActions.manage" ng-click="gameController.manage()">Manage</button>
 </div>
 <div id="manageCommandPanel" style="position: fixed; bottom: 0px; left: 0px; width: 100%; display: none">
-    <button ng-click="gameController.returnFromManage()">Return</button>    
+    <button ng-click="gameController.returnFromManage()">Return</button>
 </div>
+<div id="actionButtonPanel" style="position: fixed; bottom: 10%; left: 30%; width: 40%;" ng-show="gameController.actionButtonsVisible">
+    <a ng-click="gameController.executeConfirmAction({})"><img style="width: 30px; height:30px" src="../../images/CheckMark.png"/></a>
+    <a ng-click="gameController.executeCancelAction({})"><img style="width: 30px; height:30px" src="../../images/Cancel.png" /></a>    
+</div>
+

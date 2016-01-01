@@ -12,6 +12,7 @@ module Services {
         private lastDiceResult1: number;
         private lastDiceResult2: number;
         private currentManageGroup: Model.AssetGroup;
+        private uncommittedHousesPrice: number; // price sum of currently uncommitted house deals
 
         static $inject = ["$http", "settingsService"];
         constructor($http: ng.IHttpService, settingsService: Interfaces.ISettingsService) {
@@ -23,6 +24,7 @@ module Services {
             this.game = new Model.Game();
             this.initPlayers();
             this.game.advanceToNextPlayer();
+            this.uncommittedHousesPrice = 0;
         }
 
         endTurn() {
@@ -201,6 +203,146 @@ module Services {
 
         getGroupBoardFields(assetGroup: Model.AssetGroup): Array<Model.BoardField> {
             return this.game.board.fields.filter(f => f.type === Model.BoardFieldType.Asset && f.asset.group === assetGroup);
+        }
+
+        getBoardFieldGroup(boardFieldIndex: number): Model.AssetGroup {
+            var fields = this.game.board.fields.filter(f => f.type === Model.BoardFieldType.Asset && f.index == boardFieldIndex);
+            if (fields && fields.length > 0) {
+                return fields[0].asset.group;
+            } else {
+                return undefined;
+            }
+        }
+
+        hasMonopoly(player: string, assetGroup: Model.AssetGroup): boolean {
+            var monopoly = true;
+            // temporarily
+            return monopoly;
+            if (assetGroup < Model.AssetGroup.First || assetGroup > Model.AssetGroup.Eighth) {
+                monopoly = false;
+            }
+
+            var groupFields = this.getGroupBoardFields(assetGroup);
+            groupFields.forEach(field => {
+                if (field.asset.unowned || field.asset.owner !== this.getCurrentPlayer()) {
+                    monopoly = false;
+                }
+            });
+
+            return monopoly;
+        }
+
+        addHousePreview(playerName: string, position: number): boolean {
+            var boardField = this.game.board.fields.filter(f => f.index === position)[0];
+            if (!boardField.asset || !this.hasMonopoly(playerName, boardField.asset.group) || boardField.asset.hotel) {
+                return false;
+            }
+
+            // first, check if the player has the money to afford the upgrade
+            var groupBoardFields = this.getGroupBoardFields(boardField.asset.group);
+            var requiredMoney = 0;
+            var houseCount = boardField.asset.houses + 1;
+            requiredMoney += houseCount === 5 ? boardField.asset.priceHotel : boardField.asset.priceHouse;
+            groupBoardFields.forEach(field => {
+                if (field.index !== boardField.index) {
+                    var neighbourHouseCount = field.asset.houses;
+                    while (neighbourHouseCount < houseCount - 1) {
+                        neighbourHouseCount++;
+                        requiredMoney += field.asset.priceHouse;
+                    }
+                }
+            });
+            var player = this.game.players.filter(p => p.playerName === playerName)[0];
+            if (requiredMoney > player.money) {
+                return false;
+            }
+
+            // next, perform the upgrade
+            if (houseCount <= 4) {
+                boardField.asset.addHouse();
+            } else {
+                boardField.asset.addHotel();
+            }
+            groupBoardFields.forEach(field => {
+                if (field.index !== boardField.index) {
+                    var neighbourHouseCount = field.asset.houses;
+                    while (neighbourHouseCount < houseCount - 1) {
+                        neighbourHouseCount++;
+                        field.asset.addHouse();
+                    }
+                }
+            });
+            this.uncommittedHousesPrice += requiredMoney;
+
+            return true;
+        }
+
+        removeHousePreview(playerName: string, position: number): boolean {
+            var boardField = this.game.board.fields.filter(f => f.index === position)[0];
+            if (!boardField.asset || !this.hasMonopoly(playerName, boardField.asset.group) || (!boardField.asset.houses && !boardField.asset.hotel)) {
+                return false;
+            }
+
+            var groupBoardFields = this.getGroupBoardFields(boardField.asset.group);
+            var sellPrice = 0;
+            var houseCount = boardField.asset.houses - 1;
+            var player = this.game.players.filter(p => p.playerName === playerName)[0];
+
+            // next, perform the upgrade
+            if (houseCount < 0) {
+                boardField.asset.removeHotel();
+                sellPrice += boardField.asset.priceHotel / 2;
+                houseCount = 4;
+            } else {
+                boardField.asset.removeHouse();
+                sellPrice += boardField.asset.priceHouse / 2;
+            }
+            groupBoardFields.forEach(field => {
+                if (field.index !== boardField.index) {
+                    var neighbourHouseCount = field.asset.hotel ? 5 : field.asset.houses;
+                    while (neighbourHouseCount > houseCount + 1) {
+                        if (neighbourHouseCount === 5) {
+                            field.asset.removeHotel();
+                            sellPrice += boardField.asset.priceHotel / 2;
+                        } else {
+                            field.asset.removeHouse();
+                            sellPrice += boardField.asset.priceHouse / 2;
+                        }
+                        neighbourHouseCount--;
+                    }
+                }
+            });
+            this.uncommittedHousesPrice -= sellPrice;
+
+            return true;
+        }
+
+        commitHouseOrHotel(playerName: string, assetGroup: Model.AssetGroup): boolean {
+            if (!this.hasMonopoly(playerName, assetGroup)) {
+                return false;
+            }    
+            var boardFields = this.game.board.fields.filter(f => f.type === Model.BoardFieldType.Asset && f.asset.group === assetGroup);
+            var that = this;
+            boardFields.forEach(boardField => {
+                boardField.asset.commitHouseOrHotel();
+            });
+            var player = that.game.players.filter(p => p.playerName === playerName)[0];
+            player.money -= that.uncommittedHousesPrice;
+            that.uncommittedHousesPrice = 0;
+            return true;
+        }
+
+        rollbackHouseOrHotel(playerName: string, assetGroup: Model.AssetGroup): boolean {
+            if (!this.hasMonopoly(playerName, assetGroup)) {
+                return false;
+            }
+            var boardFields = this.game.board.fields.filter(f => f.type === Model.BoardFieldType.Asset && f.asset.group === assetGroup);
+            var that = this;
+            boardFields.forEach(boardField => {
+                boardField.asset.rollbackHouseOrHotel();
+            });
+            that.uncommittedHousesPrice = 0;
+            return true;
         }
 
         private initPlayers() {

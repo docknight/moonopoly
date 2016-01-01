@@ -5,14 +5,18 @@
         private _unowned: boolean;
         private _owner: string;
         private _houses: number;
+        private _uncommittedHouses: number;
         private _hotel: boolean;
+        private _uncommittedHotel: boolean;
         private _mortgage: boolean;
 
         constructor() {
             this._unowned = true;
             this._mortgage = false;
             this._houses = 0;
+            this._uncommittedHouses = 0;
             this._hotel = false;
+            this._uncommittedHotel = undefined;
             this.priceRent = [];
             this.priceRentHouse = [];
             this.priceMultiplierUtility = [];
@@ -38,10 +42,16 @@
         }
 
         get houses(): number {
-            return this._houses;
+            if (this.hotel) {
+                return 0;
+            }
+            return this._houses + this._uncommittedHouses;
         }
 
         get hotel(): boolean {
+            if (this._uncommittedHotel !== undefined) {
+                return this._uncommittedHotel;
+            }
             return this._hotel;
         }
 
@@ -49,13 +59,42 @@
             return this._mortgage;
         }
 
-        placeHouse() {
-            this._houses++;
+        // add a house in a preview mode
+        addHouse() {
+            this._uncommittedHouses++;
         }
 
-        placeHotel() {
-            this._houses = 0;
-            this._hotel = true;
+        // add a hotel in a preview mode
+        addHotel() {
+            this._uncommittedHotel = true;
+        }
+
+        // add a house in a preview mode
+        removeHouse() {
+            this._uncommittedHouses--;
+        }
+
+        // add a hotel in a preview mode
+        removeHotel() {
+            this._uncommittedHotel = false;
+            this._uncommittedHouses = 4;
+        }
+
+        commitHouseOrHotel() {
+            this._houses += this._uncommittedHouses;
+            this._uncommittedHouses = 0;
+            if (this._uncommittedHotel !== undefined) {
+                this.hotel = this._uncommittedHotel;
+            }
+            this._uncommittedHotel = undefined;
+            if (this.hotel) {
+                this.houses = 0;
+            }
+        }
+
+        rollbackHouseOrHotel() {
+            this._uncommittedHouses = 0;
+            this._uncommittedHotel = undefined;
         }
 
         putUnderMortgage() {

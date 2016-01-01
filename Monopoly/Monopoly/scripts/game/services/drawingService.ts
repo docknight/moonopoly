@@ -14,6 +14,13 @@ module Services {
         private boardFieldEdgeWidth: number;
         private highlightMeshes: BABYLON.Mesh[];
         private highlightLight: BABYLON.SpotLight;
+        private houseMeshTemplate: BABYLON.AbstractMesh; // "template" for houses
+        private houseButtonMeshTemplate: BABYLON.Mesh; // "template" for house buttons
+        private houseRemoveButtonMeshTemplate: BABYLON.Mesh; // "template" for removing house buttons
+        private houseButtonMeshes: BABYLON.AbstractMesh[]; // meshes of currently available house buttons
+        private houseRemoveButtonMeshes: BABYLON.AbstractMesh[]; // meshes of currently available house remove buttons
+        private houseButtonMaterial: BABYLON.StandardMaterial;
+        private houseRemoveButtonMaterial: BABYLON.StandardMaterial;
         private groundMeshName = "board";
 
         static $inject = ["$http", "gameService"];
@@ -83,19 +90,33 @@ module Services {
                 camera.setPosition(new BABYLON.Vector3(7, 2, centerVector.z));
             }
 
+            this.cleanupHouseButtons(scene);
             this.highlightGroupFields(group, groupQuadrant, centerVector, scene);
         }
 
         returnFromManage(scene: BABYLON.Scene) {
             this.cleanupHighlights(scene);
+            this.cleanupHouseButtons(scene);
         }
 
-        pickBoardElement(scene: BABYLON.Scene): number {
-            var pickResult = scene.pick(scene.pointerX, scene.pointerY);
+        pickBoardElement(scene: BABYLON.Scene, coords?: any): MonopolyApp.Viewmodels.PickedObject {
+            var pickResult = scene.pick(coords ? coords.x : scene.pointerX, coords ? coords.y : scene.pointerY);
             if (pickResult.hit) {
+                var pickedObject = new MonopolyApp.Viewmodels.PickedObject();
+                pickedObject.pickedMesh = pickResult.pickedMesh;
                 if (pickResult.pickedMesh && pickResult.pickedMesh.name === this.groundMeshName) {
-                    return this.getBoardElementAt(pickResult.pickedPoint);
+                    pickedObject.pickedObjectType = MonopolyApp.Viewmodels.PickedObjectType.BoardField;
+                    pickedObject.position = this.getBoardElementAt(pickResult.pickedPoint);
                 }
+                if (pickResult.pickedMesh && pickResult.pickedMesh.name.substring(0, 12) === "houseButton_") {
+                    pickedObject.pickedObjectType = MonopolyApp.Viewmodels.PickedObjectType.AddHouse;
+                    pickedObject.position = Number(pickResult.pickedMesh.name.substring(12));
+                }
+                if (pickResult.pickedMesh && pickResult.pickedMesh.name.substring(0, 18) === "houseRemoveButton_") {
+                    pickedObject.pickedObjectType = MonopolyApp.Viewmodels.PickedObjectType.RemoveHouse;
+                    pickedObject.position = Number(pickResult.pickedMesh.name.substring(18));
+                }
+                return pickedObject;
             }
             return undefined;
         }
@@ -140,6 +161,182 @@ module Services {
             } else if (fieldQuadrant === 3) {
                 boardField.ownerMesh.rotation.y = Math.PI * 3 / 2;
             }
+        }
+
+        setBoardFieldHouses(viewBoardField: MonopolyApp.Viewmodels.BoardField, houses: number, hotel: boolean, scene: BABYLON.Scene) {
+            if (viewBoardField.hotelMesh) {
+                scene.removeMesh(viewBoardField.hotelMesh);
+                viewBoardField.hotelMesh.dispose();
+            }
+            if (viewBoardField.houseMeshes && viewBoardField.houseMeshes.length > 0) {
+                viewBoardField.houseMeshes.forEach(h => {
+                    scene.removeMesh(h);
+                    h.dispose();                    
+                });
+            }
+
+            var topLeftCorner = this.getPositionCoordinate(viewBoardField.index, hotel ? false : true);
+            var houseSize = 0.165;
+            var boardFieldQuadrant = Math.floor(viewBoardField.index / (this.boardFieldsInQuadrant - 1));
+            var runningCoordinate = this.getQuadrantRunningCoordinate(boardFieldQuadrant);
+            var heightCoordinate = this.getQuadrantRunningCoordinate(boardFieldQuadrant) === "x" ? "z" : "x";
+            var heightDirection = boardFieldQuadrant === 0 || boardFieldQuadrant === 1 ? -1 : 1;
+            if (!hotel) {
+                topLeftCorner[runningCoordinate] += (houseSize / 2) * 1.15 * this.getQuadrantRunningDirection(boardFieldQuadrant) * -1;
+            }
+            topLeftCorner[heightCoordinate] += (houseSize / 2) * 1.3 * heightDirection;
+            if ((houses && houses > 0) || hotel) {
+                viewBoardField.houseMeshes = [];
+                while ((houses > 0) || hotel) {
+                    var houseMesh = BABYLON.Mesh.CreateBox(hotel ? `hotel_${viewBoardField.index}` : `house_${viewBoardField.index}_${houses}`, houseSize, scene);
+                    houseMesh.scaling = new BABYLON.Vector3(1, 0.5, 1);
+                    if (hotel) {
+                        houseMesh.scaling[runningCoordinate] = 2;
+                    }
+                    houseMesh.position = new BABYLON.Vector3(topLeftCorner.x, 0, topLeftCorner.z);
+                    if (!hotel) {
+                        houseMesh.position[runningCoordinate] += (houses - 1) * houseSize * 1.15 * this.getQuadrantRunningDirection(boardFieldQuadrant) * -1;
+                    }
+                    viewBoardField.houseMeshes.push(houseMesh);                    
+                    if (hotel) {
+                        hotel = false;
+                        houses = 0;
+                    } else {
+                        houses--;
+                    }
+                }
+            }     
+        }
+
+        loadMeshes(players: MonopolyApp.Viewmodels.Player[], scene: BABYLON.Scene, gameController: MonopolyApp.controllers.GameController): JQueryDeferred<{}>[] {
+            var meshLoads = [];
+            this.gameService.players.forEach((player) => {
+                var playerModel = new MonopolyApp.Viewmodels.Player();
+                playerModel.name = player.playerName;
+                var d = $.Deferred();
+                meshLoads.push(d);
+                BABYLON.SceneLoader.ImportMesh(null, "meshes/", "character.babylon", scene, function (newMeshes, particleSystems) {
+                    if (newMeshes != null) {
+                        var mesh = newMeshes[0];
+                        playerModel.mesh = mesh;
+                        d.resolve(gameController);
+                    }
+                });
+                players.push(playerModel);
+            });      
+            
+            var d = $.Deferred();
+            meshLoads.push(d);
+            BABYLON.SceneLoader.ImportMesh(null, "meshes/", "house2.babylon", scene, (newMeshes, particleSystems) => {
+                if (newMeshes != null) {
+                    var mesh = newMeshes[0];
+                    var mat = new BABYLON.StandardMaterial("house", scene);
+                    //mat.alpha = 0;
+                    mat.ambientColor = new BABYLON.Color3(0.1098, 0.6392, 0.102);
+                    mat.diffuseColor = new BABYLON.Color3(0.1098, 0.6392, 0.102);
+                    mat.specularColor = new BABYLON.Color3(0.5, 0.5, 0.5);
+                    mesh.material = mat;
+                    mesh.position.x = 5;
+                    mesh.position.z = -5;
+                    mesh.visibility = 0;
+                    this.houseMeshTemplate = mesh;
+                    d.resolve(gameController);
+                }
+            });
+
+            this.houseButtonMeshTemplate = BABYLON.Mesh.CreateGround("houseButton", 0.3, 0.3, 2, scene, true);
+            this.houseButtonMaterial = new BABYLON.StandardMaterial("houseButtonTexture", scene);
+            this.houseButtonMaterial.diffuseTexture = new BABYLON.Texture("images/House3.png", scene);
+            this.houseButtonMaterial.diffuseTexture.hasAlpha = true;
+            this.houseButtonMaterial.useAlphaFromDiffuseTexture = true;
+            var houseButtonMeshTemplateMaterial = new BABYLON.StandardMaterial("houseButtonTemplateTexture", scene);
+            houseButtonMeshTemplateMaterial.alpha = 0;
+            this.houseButtonMeshTemplate.material = houseButtonMeshTemplateMaterial;
+            this.houseButtonMeshTemplate.position.y = 0.01;
+            //this.houseButtonMeshTemplate.visibility = 0;
+            scene.removeMesh(this.houseButtonMeshTemplate);
+
+            this.houseRemoveButtonMeshTemplate = BABYLON.Mesh.CreateGround("houseRemoveButton", 0.3, 0.3, 2, scene);
+            this.houseRemoveButtonMaterial = new BABYLON.StandardMaterial("houseRemoveButtonTexture", scene);
+            this.houseRemoveButtonMaterial.diffuseTexture = new BABYLON.Texture("images/House-remove.png", scene);
+            this.houseRemoveButtonMaterial.diffuseTexture.hasAlpha = true;
+            this.houseRemoveButtonMaterial.useAlphaFromDiffuseTexture = true;
+            var houseRemoveButtonMeshTemplateMaterial = new BABYLON.StandardMaterial("houseRemoveButtonTemplateTexture", scene);
+            houseRemoveButtonMeshTemplateMaterial.alpha = 0;
+            this.houseRemoveButtonMeshTemplate.material = houseRemoveButtonMeshTemplateMaterial;
+            this.houseRemoveButtonMeshTemplate.position.y = 0.01;
+            //this.houseButtonMeshTemplate.visibility = 0;
+            scene.removeMesh(this.houseRemoveButtonMeshTemplate);
+
+            return meshLoads;
+        }
+
+        showHouseButtons(focusedAssetGroup: Model.AssetGroup, scene: BABYLON.Scene) {
+            this.cleanupHouseButtons(scene);
+            var groupBoardFields = this.gameService.getGroupBoardFields(focusedAssetGroup);
+            var groupBoardPositions = $.map(groupBoardFields, (f, i) => f.index);
+            var that = this;
+            groupBoardPositions.forEach(position => {
+                var topLeft = that.getPositionCoordinate(position, true);
+                var boardFieldQuadrant = Math.floor(position / (that.boardFieldsInQuadrant - 1));
+                var runningCoordinate = that.getQuadrantRunningCoordinate(boardFieldQuadrant);
+                var heightCoordinate = that.getQuadrantRunningCoordinate(boardFieldQuadrant) === "x" ? "z" : "x";
+                var heightDirection = boardFieldQuadrant === 0 || boardFieldQuadrant === 1 ? -1 : 1;
+                var houseButtonMesh = that.houseButtonMeshTemplate.clone(`houseButton_${position}`);
+                houseButtonMesh.material = that.houseButtonMaterial;
+                scene.addMesh(houseButtonMesh);
+                houseButtonMesh.position[runningCoordinate] = topLeft[runningCoordinate] + (0.5 * this.getQuadrantRunningDirection(boardFieldQuadrant) * -1);
+                houseButtonMesh.position[heightCoordinate] = topLeft[heightCoordinate] + (that.boardFieldHeight - 0.2) * heightDirection;
+                //houseButtonMesh.actionManager = new BABYLON.ActionManager(scene);
+                //houseButtonMesh.actionManager.registerAction(new BABYLON.InterpolateValueAction(BABYLON.ActionManager.OnPointerOverTrigger, houseButtonMesh, "scaling", new BABYLON.Vector3(1.5, 1, 1.5), 100));
+                //houseButtonMesh.actionManager.registerAction(new BABYLON.InterpolateValueAction(BABYLON.ActionManager.OnPointerOutTrigger, houseButtonMesh, "scaling", new BABYLON.Vector3(1, 1, 1), 100));
+                that.houseButtonMeshes.push(houseButtonMesh);
+
+                var houseRemoveButtonMesh = that.houseRemoveButtonMeshTemplate.clone(`houseRemoveButton_${position}`);
+                houseRemoveButtonMesh.material = that.houseRemoveButtonMaterial;
+                scene.addMesh(houseRemoveButtonMesh);
+                houseRemoveButtonMesh.position[runningCoordinate] = topLeft[runningCoordinate] + (0.2 * that.getQuadrantRunningDirection(boardFieldQuadrant) * -1);
+                houseRemoveButtonMesh.position[heightCoordinate] = topLeft[heightCoordinate] + (that.boardFieldHeight - 0.2) * heightDirection;
+                houseRemoveButtonMesh.actionManager = new BABYLON.ActionManager(scene);
+                that.houseRemoveButtonMeshes.push(houseRemoveButtonMesh);
+                if (boardFieldQuadrant === 1) {
+                    houseButtonMesh.rotation.y = Math.PI / 2;
+                    houseRemoveButtonMesh.rotation.y = Math.PI / 2;
+                } else if (boardFieldQuadrant === 2) {
+                    houseButtonMesh.rotation.y = Math.PI;
+                    houseRemoveButtonMesh.rotation.y = Math.PI;
+                } else if (boardFieldQuadrant === 3) {
+                    houseButtonMesh.rotation.y = Math.PI * 3 / 2;
+                    houseRemoveButtonMesh.rotation.y = Math.PI * 3 / 2;
+                }
+            });
+        }
+
+        onSwipeMove(scene: BABYLON.Scene, coords: any) {
+            if (this.houseButtonMeshes && this.houseButtonMeshes.length > 0) {
+                var pickedObject = this.pickBoardElement(scene, coords);
+                if (pickedObject && pickedObject.pickedObjectType === MonopolyApp.Viewmodels.PickedObjectType.AddHouse) {
+                    pickedObject.pickedMesh.scaling = new BABYLON.Vector3(1.5, 1, 1.5);
+                } else {
+                    this.houseButtonMeshes.forEach(m => {
+                        if (m.scaling.x > 1) {
+                            m.scaling = new BABYLON.Vector3(1, 1, 1);
+                        }
+                    });
+                }
+            }
+        }
+
+        onSwipeEnd(scene: BABYLON.Scene, coords: any): MonopolyApp.Viewmodels.PickedObject {
+            var pickedObject = this.pickBoardElement(scene, coords);
+            if (pickedObject && pickedObject.pickedObjectType === MonopolyApp.Viewmodels.PickedObjectType.AddHouse) {
+                pickedObject.pickedMesh.scaling = new BABYLON.Vector3(1, 1, 1);                
+            }
+            return pickedObject;
+        }
+
+        showActionButtons() {
+            // sdf
         }
 
         private initQuadrantStartingCoordinates() {
@@ -315,6 +512,23 @@ module Services {
             }
 
             return BABYLON.Color3.White();
+        }
+
+        private cleanupHouseButtons(scene: BABYLON.Scene) {
+            if (this.houseButtonMeshes && this.houseButtonMeshes.length > 0) {
+                this.houseButtonMeshes.forEach(mesh => {
+                    scene.removeMesh(mesh);
+                    mesh.dispose();
+                });
+            }
+            this.houseButtonMeshes = [];
+            if (this.houseRemoveButtonMeshes && this.houseRemoveButtonMeshes.length > 0) {
+                this.houseRemoveButtonMeshes.forEach(mesh => {
+                    scene.removeMesh(mesh);
+                    mesh.dispose();
+                });
+            }
+            this.houseRemoveButtonMeshes = [];
         }
     }
 

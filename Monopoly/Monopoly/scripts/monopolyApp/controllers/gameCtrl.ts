@@ -9,6 +9,7 @@ module MonopolyApp.controllers {
         timeoutService: angular.ITimeoutService;
         gameService: Interfaces.IGameService;
         drawingService: Interfaces.IDrawingService;
+        swipeService: any;
         static $inject = ["$state", "$swipe", "$scope", "$timeout", "gameService", "drawingService"];
 
         private players: Array<Viewmodels.Player>;
@@ -18,11 +19,15 @@ module MonopolyApp.controllers {
         private manageCamera: BABYLON.ArcRotateCamera;
         private manageMode: boolean;
         private focusedAssetGroup: Model.AssetGroup; // currently focused asset group in manage mode
+        private swipeInProgress: boolean;
+        private confirmButtonCallback: (data: any) => void; // callbacks currently assigned to action buttons
+        private cancelButtonCallback: (data: any) => void;
 
         availableActions: Viewmodels.AvailableActions;
         assetToBuy: Model.Asset; // asset currently available for purchase
         assetToManage: Model.Asset; // asset currently being managed
         messages: Array<string>;
+        actionButtonsVisible: boolean;
 
         get currentPlayer(): string {
             return this.gameService.getCurrentPlayer();
@@ -38,13 +43,17 @@ module MonopolyApp.controllers {
             this.timeoutService = timeoutService;
             this.gameService = gameService;
             this.drawingService = drawingService;
+            this.swipeService = swipeService;
             this.initGame();
             this.createScene();
             this.availableActions = new Viewmodels.AvailableActions();
             this.setAvailableActions();
             this.messages = [];
-            //$("#renderCanvas").on("swipeleft", () => this.handleSwipe(true));
-            //$("#renderCanvas").on("swiperight", () => this.handleSwipe(false));
+            this.swipeService.bind($("#renderCanvas"), {
+                'move': (coords) => { this.swipeMove(coords); },
+                'end': (coords, event) => { this.swipeEnd(coords, event); },
+                'cancel': (event) => { this.swipeCancel(event); }
+            });
         }
 
         initGame() {
@@ -75,7 +84,7 @@ module MonopolyApp.controllers {
             if (!this.manageMode) {
                 this.manageMode = true;
                 this.focusedAssetGroup = this.gameService.manage();
-                this.drawingService.setManageCameraPosition(this.manageCamera, this.focusedAssetGroup, this.scene);
+                this.setupManageHighlight();
                 this.scene.activeCamera = this.manageCamera;
                 //var canvas = <HTMLCanvasElement>document.getElementById("renderCanvas");
                 //this.manageCamera.attachControl(canvas, true);
@@ -99,6 +108,7 @@ module MonopolyApp.controllers {
             //var canvas = <HTMLCanvasElement>document.getElementById("renderCanvas");
             //this.manageCamera.detachControl(canvas);            
             this.setAvailableActions();
+            this.actionButtonsVisible = false;
             $("#manageCommandPanel").hide();
             $("#commandPanel").show();            
         }
@@ -112,6 +122,14 @@ module MonopolyApp.controllers {
 
         closeAssetManagementWindow() {
             $("#assetManagement").hide();
+        }
+
+        executeConfirmAction(data: any) {
+            this.confirmButtonCallback(data);
+        }
+
+        executeCancelAction(data: any) {
+            this.cancelButtonCallback(data);
         }
 
         private createScene() {
@@ -154,22 +172,7 @@ module MonopolyApp.controllers {
             this.drawingService.createBoard(this.scene);
 
             this.players = [];
-            var meshLoads = [];
-            this.gameService.players.forEach((player) => {
-                var playerModel = new Viewmodels.Player();
-                playerModel.name = player.playerName;
-                var d = $.Deferred();
-                meshLoads.push(d);
-                var that = this;
-                BABYLON.SceneLoader.ImportMesh(null, "meshes/", "character.babylon", this.scene, function (newMeshes, particleSystems) {
-                    if (newMeshes != null) {
-                        var mesh = newMeshes[0];
-                        playerModel.mesh = mesh;
-                        d.resolve(that);
-                    }
-                });
-                this.players.push(playerModel);
-            });
+            var meshLoads = this.drawingService.loadMeshes(this.players, this.scene, this);
             $.when.apply($, meshLoads).done(this.setupPlayerPositions);
             this.setupBoardFields();
             return this.scene;
@@ -246,23 +249,38 @@ module MonopolyApp.controllers {
         private handleSwipe(left: boolean) {
             if (this.manageMode) {
                 this.focusedAssetGroup = this.gameService.manageFocusChange(left);
+                this.setupManageHighlight();
                 this.drawingService.setManageCameraPosition(this.manageCamera, this.focusedAssetGroup, this.scene);
+                if (this.gameService.hasMonopoly(this.gameService.getCurrentPlayer(), this.focusedAssetGroup)) {
+                    this.drawingService.showHouseButtons(this.focusedAssetGroup, this.scene);
+                }
             }
         }
 
+        private setupManageHighlight() {
+            this.drawingService.setManageCameraPosition(this.manageCamera, this.focusedAssetGroup, this.scene);
+            if (this.gameService.hasMonopoly(this.gameService.getCurrentPlayer(), this.focusedAssetGroup)) {
+                this.drawingService.showHouseButtons(this.focusedAssetGroup, this.scene);
+            }            
+        }
+
         private handleClickEvent(eventObject: JQueryEventObject, ...data: any[]) {
-            var thisInstance = eventObject.data;
-            if (thisInstance.manageMode) {
-                var boardFieldIndex = thisInstance.drawingService.pickBoardElement(thisInstance.scene);
-                if (boardFieldIndex) {
+            var thisInstance = <GameController>eventObject.data;
+            if (thisInstance.manageMode && !thisInstance.swipeInProgress) {
+                var pickedObject = thisInstance.drawingService.pickBoardElement(thisInstance.scene);
+                if (pickedObject && pickedObject.pickedObjectType === Viewmodels.PickedObjectType.BoardField) {
                     var groupFields = thisInstance.gameService.getGroupBoardFields(thisInstance.focusedAssetGroup);
-                    var clickedFields = groupFields.filter(f => f.index === boardFieldIndex);
+                    var clickedFields = groupFields.filter(f => f.index === pickedObject.position);
                     if (clickedFields.length > 0) {
                         // user clicked a field that is currently focused - show its details
                         thisInstance.scope.$apply(() => {
                             thisInstance.manageField(clickedFields[0].asset);
                         });
                     }
+                } else if (pickedObject && pickedObject.pickedObjectType === Viewmodels.PickedObjectType.AddHouse) {
+                    thisInstance.addHousePreview(pickedObject.position);
+                } else if (pickedObject && pickedObject.pickedObjectType === Viewmodels.PickedObjectType.RemoveHouse) {
+                    thisInstance.removeHousePreview(pickedObject.position);
                 }
             }
         }
@@ -270,6 +288,82 @@ module MonopolyApp.controllers {
         private manageField(asset: Model.Asset) {
             this.assetToManage = asset;
             $("#assetManagement").show();
+        }
+
+        private swipeMove(coords: any) {
+            this.swipeInProgress = true;
+            if (this.manageMode) {
+                this.drawingService.onSwipeMove(this.scene, coords);
+            }
+        }
+
+        private swipeEnd(coords: any, event: any) {
+            if (!this.swipeInProgress) {
+                return;
+            }
+            if (this.manageMode) {
+                var pickedObject = this.drawingService.onSwipeEnd(this.scene, coords);
+                if (pickedObject && pickedObject.pickedObjectType === Viewmodels.PickedObjectType.AddHouse) {
+                    //this.addHousePreview(pickedObject.position);
+                }
+            }
+            this.timeoutService(() => this.swipeInProgress = false, 100, false);
+        }
+
+        private swipeCancel(event: any) {
+            this.swipeInProgress = false;
+        }
+
+        private addHousePreview(position: number) {
+            if (this.gameService.addHousePreview(this.gameService.getCurrentPlayer(), position)) {
+                var assetGroup = this.gameService.getBoardFieldGroup(position);
+                this.refreshBoardFieldGroupHouses(assetGroup);
+                this.setupActionButtons(this.commitHouses, this.rollbackHouses);
+            }
+        }
+
+        private removeHousePreview(position: number) {
+            if (this.gameService.removeHousePreview(this.gameService.getCurrentPlayer(), position)) {
+                var assetGroup = this.gameService.getBoardFieldGroup(position);
+                this.refreshBoardFieldGroupHouses(assetGroup);
+                this.setupActionButtons(this.commitHouses, this.rollbackHouses);
+            }
+        }
+
+        private setupActionButtons(confirmCallback: (data: any) => void, cancelCallback: (data: any) => void) {
+            this.confirmButtonCallback = confirmCallback;
+            this.cancelButtonCallback = cancelCallback;
+            this.drawingService.showActionButtons();
+            var that = this;
+            this.scope.$apply(() => {
+                that.actionButtonsVisible = true;
+            });
+            
+        }
+
+        private refreshBoardFieldGroupHouses(assetGroup: Model.AssetGroup) {
+            var fields = this.gameService.getGroupBoardFields(assetGroup);
+
+            var fieldIndexes = $.map(fields, f => f.index);
+            var viewGroupBoardFields = this.boardFields.filter(viewBoardField => $.inArray(viewBoardField.index, fieldIndexes) >= 0);
+            var that = this;
+            viewGroupBoardFields.forEach(f => {
+                var asset = fields.filter(field => f.index === field.index)[0].asset;
+                that.drawingService.setBoardFieldHouses(f, asset.houses, asset.hotel, that.scene);
+            });
+            
+        }
+
+        private commitHouses(data: any) {
+            this.gameService.commitHouseOrHotel(this.gameService.getCurrentPlayer(), this.focusedAssetGroup);
+            this.actionButtonsVisible = false;
+        }
+
+        private rollbackHouses(data: any) {
+            this.gameService.rollbackHouseOrHotel(this.gameService.getCurrentPlayer(), this.focusedAssetGroup)
+            this.actionButtonsVisible = false;
+            this.refreshBoardFieldGroupHouses(this.focusedAssetGroup);
+            return;
         }
     }
 

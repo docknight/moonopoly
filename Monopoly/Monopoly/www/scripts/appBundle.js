@@ -83,7 +83,9 @@ var Model;
             this._unowned = true;
             this._mortgage = false;
             this._houses = 0;
+            this._uncommittedHouses = 0;
             this._hotel = false;
+            this._uncommittedHotel = undefined;
             this.priceRent = [];
             this.priceRentHouse = [];
             this.priceMultiplierUtility = [];
@@ -104,13 +106,19 @@ var Model;
         });
         Object.defineProperty(Asset.prototype, "houses", {
             get: function () {
-                return this._houses;
+                if (this.hotel) {
+                    return 0;
+                }
+                return this._houses + this._uncommittedHouses;
             },
             enumerable: true,
             configurable: true
         });
         Object.defineProperty(Asset.prototype, "hotel", {
             get: function () {
+                if (this._uncommittedHotel !== undefined) {
+                    return this._uncommittedHotel;
+                }
                 return this._hotel;
             },
             enumerable: true,
@@ -123,12 +131,37 @@ var Model;
             enumerable: true,
             configurable: true
         });
-        Asset.prototype.placeHouse = function () {
-            this._houses++;
+        // add a house in a preview mode
+        Asset.prototype.addHouse = function () {
+            this._uncommittedHouses++;
         };
-        Asset.prototype.placeHotel = function () {
-            this._houses = 0;
-            this._hotel = true;
+        // add a hotel in a preview mode
+        Asset.prototype.addHotel = function () {
+            this._uncommittedHotel = true;
+        };
+        // add a house in a preview mode
+        Asset.prototype.removeHouse = function () {
+            this._uncommittedHouses--;
+        };
+        // add a hotel in a preview mode
+        Asset.prototype.removeHotel = function () {
+            this._uncommittedHotel = false;
+            this._uncommittedHouses = 4;
+        };
+        Asset.prototype.commitHouseOrHotel = function () {
+            this._houses += this._uncommittedHouses;
+            this._uncommittedHouses = 0;
+            if (this._uncommittedHotel !== undefined) {
+                this.hotel = this._uncommittedHotel;
+            }
+            this._uncommittedHotel = undefined;
+            if (this.hotel) {
+                this.houses = 0;
+            }
+        };
+        Asset.prototype.rollbackHouseOrHotel = function () {
+            this._uncommittedHouses = 0;
+            this._uncommittedHotel = undefined;
         };
         Asset.prototype.putUnderMortgage = function () {
             this._mortgage = true;
@@ -658,17 +691,31 @@ var Services;
             if (groupQuadrant === 3) {
                 camera.setPosition(new BABYLON.Vector3(7, 2, centerVector.z));
             }
+            this.cleanupHouseButtons(scene);
             this.highlightGroupFields(group, groupQuadrant, centerVector, scene);
         };
         DrawingService.prototype.returnFromManage = function (scene) {
             this.cleanupHighlights(scene);
+            this.cleanupHouseButtons(scene);
         };
-        DrawingService.prototype.pickBoardElement = function (scene) {
-            var pickResult = scene.pick(scene.pointerX, scene.pointerY);
+        DrawingService.prototype.pickBoardElement = function (scene, coords) {
+            var pickResult = scene.pick(coords ? coords.x : scene.pointerX, coords ? coords.y : scene.pointerY);
             if (pickResult.hit) {
+                var pickedObject = new MonopolyApp.Viewmodels.PickedObject();
+                pickedObject.pickedMesh = pickResult.pickedMesh;
                 if (pickResult.pickedMesh && pickResult.pickedMesh.name === this.groundMeshName) {
-                    return this.getBoardElementAt(pickResult.pickedPoint);
+                    pickedObject.pickedObjectType = MonopolyApp.Viewmodels.PickedObjectType.BoardField;
+                    pickedObject.position = this.getBoardElementAt(pickResult.pickedPoint);
                 }
+                if (pickResult.pickedMesh && pickResult.pickedMesh.name.substring(0, 12) === "houseButton_") {
+                    pickedObject.pickedObjectType = MonopolyApp.Viewmodels.PickedObjectType.AddHouse;
+                    pickedObject.position = Number(pickResult.pickedMesh.name.substring(12));
+                }
+                if (pickResult.pickedMesh && pickResult.pickedMesh.name.substring(0, 18) === "houseRemoveButton_") {
+                    pickedObject.pickedObjectType = MonopolyApp.Viewmodels.PickedObjectType.RemoveHouse;
+                    pickedObject.position = Number(pickResult.pickedMesh.name.substring(18));
+                }
+                return pickedObject;
             }
             return undefined;
         };
@@ -712,6 +759,176 @@ var Services;
             else if (fieldQuadrant === 3) {
                 boardField.ownerMesh.rotation.y = Math.PI * 3 / 2;
             }
+        };
+        DrawingService.prototype.setBoardFieldHouses = function (viewBoardField, houses, hotel, scene) {
+            if (viewBoardField.hotelMesh) {
+                scene.removeMesh(viewBoardField.hotelMesh);
+                viewBoardField.hotelMesh.dispose();
+            }
+            if (viewBoardField.houseMeshes && viewBoardField.houseMeshes.length > 0) {
+                viewBoardField.houseMeshes.forEach(function (h) {
+                    scene.removeMesh(h);
+                    h.dispose();
+                });
+            }
+            var topLeftCorner = this.getPositionCoordinate(viewBoardField.index, hotel ? false : true);
+            var houseSize = 0.165;
+            var boardFieldQuadrant = Math.floor(viewBoardField.index / (this.boardFieldsInQuadrant - 1));
+            var runningCoordinate = this.getQuadrantRunningCoordinate(boardFieldQuadrant);
+            var heightCoordinate = this.getQuadrantRunningCoordinate(boardFieldQuadrant) === "x" ? "z" : "x";
+            var heightDirection = boardFieldQuadrant === 0 || boardFieldQuadrant === 1 ? -1 : 1;
+            if (!hotel) {
+                topLeftCorner[runningCoordinate] += (houseSize / 2) * 1.15 * this.getQuadrantRunningDirection(boardFieldQuadrant) * -1;
+            }
+            topLeftCorner[heightCoordinate] += (houseSize / 2) * 1.3 * heightDirection;
+            if ((houses && houses > 0) || hotel) {
+                viewBoardField.houseMeshes = [];
+                while ((houses > 0) || hotel) {
+                    var houseMesh = BABYLON.Mesh.CreateBox(hotel ? "hotel_" + viewBoardField.index : "house_" + viewBoardField.index + "_" + houses, houseSize, scene);
+                    houseMesh.scaling = new BABYLON.Vector3(1, 0.5, 1);
+                    if (hotel) {
+                        houseMesh.scaling[runningCoordinate] = 2;
+                    }
+                    houseMesh.position = new BABYLON.Vector3(topLeftCorner.x, 0, topLeftCorner.z);
+                    if (!hotel) {
+                        houseMesh.position[runningCoordinate] += (houses - 1) * houseSize * 1.15 * this.getQuadrantRunningDirection(boardFieldQuadrant) * -1;
+                    }
+                    viewBoardField.houseMeshes.push(houseMesh);
+                    if (hotel) {
+                        hotel = false;
+                        houses = 0;
+                    }
+                    else {
+                        houses--;
+                    }
+                }
+            }
+        };
+        DrawingService.prototype.loadMeshes = function (players, scene, gameController) {
+            var _this = this;
+            var meshLoads = [];
+            this.gameService.players.forEach(function (player) {
+                var playerModel = new MonopolyApp.Viewmodels.Player();
+                playerModel.name = player.playerName;
+                var d = $.Deferred();
+                meshLoads.push(d);
+                BABYLON.SceneLoader.ImportMesh(null, "meshes/", "character.babylon", scene, function (newMeshes, particleSystems) {
+                    if (newMeshes != null) {
+                        var mesh = newMeshes[0];
+                        playerModel.mesh = mesh;
+                        d.resolve(gameController);
+                    }
+                });
+                players.push(playerModel);
+            });
+            var d = $.Deferred();
+            meshLoads.push(d);
+            BABYLON.SceneLoader.ImportMesh(null, "meshes/", "house2.babylon", scene, function (newMeshes, particleSystems) {
+                if (newMeshes != null) {
+                    var mesh = newMeshes[0];
+                    var mat = new BABYLON.StandardMaterial("house", scene);
+                    //mat.alpha = 0;
+                    mat.ambientColor = new BABYLON.Color3(0.1098, 0.6392, 0.102);
+                    mat.diffuseColor = new BABYLON.Color3(0.1098, 0.6392, 0.102);
+                    mat.specularColor = new BABYLON.Color3(0.5, 0.5, 0.5);
+                    mesh.material = mat;
+                    mesh.position.x = 5;
+                    mesh.position.z = -5;
+                    mesh.visibility = 0;
+                    _this.houseMeshTemplate = mesh;
+                    d.resolve(gameController);
+                }
+            });
+            this.houseButtonMeshTemplate = BABYLON.Mesh.CreateGround("houseButton", 0.3, 0.3, 2, scene, true);
+            this.houseButtonMaterial = new BABYLON.StandardMaterial("houseButtonTexture", scene);
+            this.houseButtonMaterial.diffuseTexture = new BABYLON.Texture("images/House3.png", scene);
+            this.houseButtonMaterial.diffuseTexture.hasAlpha = true;
+            this.houseButtonMaterial.useAlphaFromDiffuseTexture = true;
+            var houseButtonMeshTemplateMaterial = new BABYLON.StandardMaterial("houseButtonTemplateTexture", scene);
+            houseButtonMeshTemplateMaterial.alpha = 0;
+            this.houseButtonMeshTemplate.material = houseButtonMeshTemplateMaterial;
+            this.houseButtonMeshTemplate.position.y = 0.01;
+            //this.houseButtonMeshTemplate.visibility = 0;
+            scene.removeMesh(this.houseButtonMeshTemplate);
+            this.houseRemoveButtonMeshTemplate = BABYLON.Mesh.CreateGround("houseRemoveButton", 0.3, 0.3, 2, scene);
+            this.houseRemoveButtonMaterial = new BABYLON.StandardMaterial("houseRemoveButtonTexture", scene);
+            this.houseRemoveButtonMaterial.diffuseTexture = new BABYLON.Texture("images/House-remove.png", scene);
+            this.houseRemoveButtonMaterial.diffuseTexture.hasAlpha = true;
+            this.houseRemoveButtonMaterial.useAlphaFromDiffuseTexture = true;
+            var houseRemoveButtonMeshTemplateMaterial = new BABYLON.StandardMaterial("houseRemoveButtonTemplateTexture", scene);
+            houseRemoveButtonMeshTemplateMaterial.alpha = 0;
+            this.houseRemoveButtonMeshTemplate.material = houseRemoveButtonMeshTemplateMaterial;
+            this.houseRemoveButtonMeshTemplate.position.y = 0.01;
+            //this.houseButtonMeshTemplate.visibility = 0;
+            scene.removeMesh(this.houseRemoveButtonMeshTemplate);
+            return meshLoads;
+        };
+        DrawingService.prototype.showHouseButtons = function (focusedAssetGroup, scene) {
+            var _this = this;
+            this.cleanupHouseButtons(scene);
+            var groupBoardFields = this.gameService.getGroupBoardFields(focusedAssetGroup);
+            var groupBoardPositions = $.map(groupBoardFields, function (f, i) { return f.index; });
+            var that = this;
+            groupBoardPositions.forEach(function (position) {
+                var topLeft = that.getPositionCoordinate(position, true);
+                var boardFieldQuadrant = Math.floor(position / (that.boardFieldsInQuadrant - 1));
+                var runningCoordinate = that.getQuadrantRunningCoordinate(boardFieldQuadrant);
+                var heightCoordinate = that.getQuadrantRunningCoordinate(boardFieldQuadrant) === "x" ? "z" : "x";
+                var heightDirection = boardFieldQuadrant === 0 || boardFieldQuadrant === 1 ? -1 : 1;
+                var houseButtonMesh = that.houseButtonMeshTemplate.clone("houseButton_" + position);
+                houseButtonMesh.material = that.houseButtonMaterial;
+                scene.addMesh(houseButtonMesh);
+                houseButtonMesh.position[runningCoordinate] = topLeft[runningCoordinate] + (0.5 * _this.getQuadrantRunningDirection(boardFieldQuadrant) * -1);
+                houseButtonMesh.position[heightCoordinate] = topLeft[heightCoordinate] + (that.boardFieldHeight - 0.2) * heightDirection;
+                //houseButtonMesh.actionManager = new BABYLON.ActionManager(scene);
+                //houseButtonMesh.actionManager.registerAction(new BABYLON.InterpolateValueAction(BABYLON.ActionManager.OnPointerOverTrigger, houseButtonMesh, "scaling", new BABYLON.Vector3(1.5, 1, 1.5), 100));
+                //houseButtonMesh.actionManager.registerAction(new BABYLON.InterpolateValueAction(BABYLON.ActionManager.OnPointerOutTrigger, houseButtonMesh, "scaling", new BABYLON.Vector3(1, 1, 1), 100));
+                that.houseButtonMeshes.push(houseButtonMesh);
+                var houseRemoveButtonMesh = that.houseRemoveButtonMeshTemplate.clone("houseRemoveButton_" + position);
+                houseRemoveButtonMesh.material = that.houseRemoveButtonMaterial;
+                scene.addMesh(houseRemoveButtonMesh);
+                houseRemoveButtonMesh.position[runningCoordinate] = topLeft[runningCoordinate] + (0.2 * that.getQuadrantRunningDirection(boardFieldQuadrant) * -1);
+                houseRemoveButtonMesh.position[heightCoordinate] = topLeft[heightCoordinate] + (that.boardFieldHeight - 0.2) * heightDirection;
+                houseRemoveButtonMesh.actionManager = new BABYLON.ActionManager(scene);
+                that.houseRemoveButtonMeshes.push(houseRemoveButtonMesh);
+                if (boardFieldQuadrant === 1) {
+                    houseButtonMesh.rotation.y = Math.PI / 2;
+                    houseRemoveButtonMesh.rotation.y = Math.PI / 2;
+                }
+                else if (boardFieldQuadrant === 2) {
+                    houseButtonMesh.rotation.y = Math.PI;
+                    houseRemoveButtonMesh.rotation.y = Math.PI;
+                }
+                else if (boardFieldQuadrant === 3) {
+                    houseButtonMesh.rotation.y = Math.PI * 3 / 2;
+                    houseRemoveButtonMesh.rotation.y = Math.PI * 3 / 2;
+                }
+            });
+        };
+        DrawingService.prototype.onSwipeMove = function (scene, coords) {
+            if (this.houseButtonMeshes && this.houseButtonMeshes.length > 0) {
+                var pickedObject = this.pickBoardElement(scene, coords);
+                if (pickedObject && pickedObject.pickedObjectType === MonopolyApp.Viewmodels.PickedObjectType.AddHouse) {
+                    pickedObject.pickedMesh.scaling = new BABYLON.Vector3(1.5, 1, 1.5);
+                }
+                else {
+                    this.houseButtonMeshes.forEach(function (m) {
+                        if (m.scaling.x > 1) {
+                            m.scaling = new BABYLON.Vector3(1, 1, 1);
+                        }
+                    });
+                }
+            }
+        };
+        DrawingService.prototype.onSwipeEnd = function (scene, coords) {
+            var pickedObject = this.pickBoardElement(scene, coords);
+            if (pickedObject && pickedObject.pickedObjectType === MonopolyApp.Viewmodels.PickedObjectType.AddHouse) {
+                pickedObject.pickedMesh.scaling = new BABYLON.Vector3(1, 1, 1);
+            }
+            return pickedObject;
+        };
+        DrawingService.prototype.showActionButtons = function () {
+            // sdf
         };
         DrawingService.prototype.initQuadrantStartingCoordinates = function () {
             this.quadrantStartingCoordinate = [];
@@ -886,6 +1103,22 @@ var Services;
             }
             return BABYLON.Color3.White();
         };
+        DrawingService.prototype.cleanupHouseButtons = function (scene) {
+            if (this.houseButtonMeshes && this.houseButtonMeshes.length > 0) {
+                this.houseButtonMeshes.forEach(function (mesh) {
+                    scene.removeMesh(mesh);
+                    mesh.dispose();
+                });
+            }
+            this.houseButtonMeshes = [];
+            if (this.houseRemoveButtonMeshes && this.houseRemoveButtonMeshes.length > 0) {
+                this.houseRemoveButtonMeshes.forEach(function (mesh) {
+                    scene.removeMesh(mesh);
+                    mesh.dispose();
+                });
+            }
+            this.houseRemoveButtonMeshes = [];
+        };
         DrawingService.$inject = ["$http", "gameService"];
         return DrawingService;
     })();
@@ -932,6 +1165,7 @@ var Services;
             this.game = new Model.Game();
             this.initPlayers();
             this.game.advanceToNextPlayer();
+            this.uncommittedHousesPrice = 0;
         };
         GameService.prototype.endTurn = function () {
             if (this.canEndTurn) {
@@ -1116,6 +1350,138 @@ var Services;
         GameService.prototype.getGroupBoardFields = function (assetGroup) {
             return this.game.board.fields.filter(function (f) { return f.type === Model.BoardFieldType.Asset && f.asset.group === assetGroup; });
         };
+        GameService.prototype.getBoardFieldGroup = function (boardFieldIndex) {
+            var fields = this.game.board.fields.filter(function (f) { return f.type === Model.BoardFieldType.Asset && f.index == boardFieldIndex; });
+            if (fields && fields.length > 0) {
+                return fields[0].asset.group;
+            }
+            else {
+                return undefined;
+            }
+        };
+        GameService.prototype.hasMonopoly = function (player, assetGroup) {
+            var _this = this;
+            var monopoly = true;
+            // temporarily
+            return monopoly;
+            if (assetGroup < Model.AssetGroup.First || assetGroup > Model.AssetGroup.Eighth) {
+                monopoly = false;
+            }
+            var groupFields = this.getGroupBoardFields(assetGroup);
+            groupFields.forEach(function (field) {
+                if (field.asset.unowned || field.asset.owner !== _this.getCurrentPlayer()) {
+                    monopoly = false;
+                }
+            });
+            return monopoly;
+        };
+        GameService.prototype.addHousePreview = function (playerName, position) {
+            var boardField = this.game.board.fields.filter(function (f) { return f.index === position; })[0];
+            if (!boardField.asset || !this.hasMonopoly(playerName, boardField.asset.group) || boardField.asset.hotel) {
+                return false;
+            }
+            // first, check if the player has the money to afford the upgrade
+            var groupBoardFields = this.getGroupBoardFields(boardField.asset.group);
+            var requiredMoney = 0;
+            var houseCount = boardField.asset.houses + 1;
+            requiredMoney += houseCount === 5 ? boardField.asset.priceHotel : boardField.asset.priceHouse;
+            groupBoardFields.forEach(function (field) {
+                if (field.index !== boardField.index) {
+                    var neighbourHouseCount = field.asset.houses;
+                    while (neighbourHouseCount < houseCount - 1) {
+                        neighbourHouseCount++;
+                        requiredMoney += field.asset.priceHouse;
+                    }
+                }
+            });
+            var player = this.game.players.filter(function (p) { return p.playerName === playerName; })[0];
+            if (requiredMoney > player.money) {
+                return false;
+            }
+            // next, perform the upgrade
+            if (houseCount <= 4) {
+                boardField.asset.addHouse();
+            }
+            else {
+                boardField.asset.addHotel();
+            }
+            groupBoardFields.forEach(function (field) {
+                if (field.index !== boardField.index) {
+                    var neighbourHouseCount = field.asset.houses;
+                    while (neighbourHouseCount < houseCount - 1) {
+                        neighbourHouseCount++;
+                        field.asset.addHouse();
+                    }
+                }
+            });
+            this.uncommittedHousesPrice += requiredMoney;
+            return true;
+        };
+        GameService.prototype.removeHousePreview = function (playerName, position) {
+            var boardField = this.game.board.fields.filter(function (f) { return f.index === position; })[0];
+            if (!boardField.asset || !this.hasMonopoly(playerName, boardField.asset.group) || (!boardField.asset.houses && !boardField.asset.hotel)) {
+                return false;
+            }
+            var groupBoardFields = this.getGroupBoardFields(boardField.asset.group);
+            var sellPrice = 0;
+            var houseCount = boardField.asset.houses - 1;
+            var player = this.game.players.filter(function (p) { return p.playerName === playerName; })[0];
+            // next, perform the upgrade
+            if (houseCount < 0) {
+                boardField.asset.removeHotel();
+                sellPrice += boardField.asset.priceHotel / 2;
+                houseCount = 4;
+            }
+            else {
+                boardField.asset.removeHouse();
+                sellPrice += boardField.asset.priceHouse / 2;
+            }
+            groupBoardFields.forEach(function (field) {
+                if (field.index !== boardField.index) {
+                    var neighbourHouseCount = field.asset.hotel ? 5 : field.asset.houses;
+                    while (neighbourHouseCount > houseCount + 1) {
+                        if (neighbourHouseCount === 5) {
+                            field.asset.removeHotel();
+                            sellPrice += boardField.asset.priceHotel / 2;
+                        }
+                        else {
+                            field.asset.removeHouse();
+                            sellPrice += boardField.asset.priceHouse / 2;
+                        }
+                        neighbourHouseCount--;
+                    }
+                }
+            });
+            this.uncommittedHousesPrice -= sellPrice;
+            return true;
+        };
+        GameService.prototype.commitHouseOrHotel = function (playerName, assetGroup) {
+            if (!this.hasMonopoly(playerName, assetGroup)) {
+                return false;
+            }
+            var boardFields = this.game.board.fields.filter(function (f) { return f.type === Model.BoardFieldType.Asset && f.asset.group === assetGroup; });
+            var that = this;
+            boardFields.forEach(function (boardField) {
+                boardField.asset.commitHouseOrHotel();
+            });
+            var player = that.game.players.filter(function (p) { return p.playerName === playerName; })[0];
+            player.money -= that.uncommittedHousesPrice;
+            that.uncommittedHousesPrice = 0;
+            return true;
+        };
+        GameService.prototype.rollbackHouseOrHotel = function (playerName, assetGroup) {
+            if (!this.hasMonopoly(playerName, assetGroup)) {
+                return false;
+            }
+            var boardFields = this.game.board.fields.filter(function (f) { return f.type === Model.BoardFieldType.Asset && f.asset.group === assetGroup; });
+            var that = this;
+            boardFields.forEach(function (boardField) {
+                boardField.asset.rollbackHouseOrHotel();
+            });
+            that.uncommittedHousesPrice = 0;
+            console.log("ROLLBACK!");
+            return true;
+        };
         GameService.prototype.initPlayers = function () {
             var settings = this.settingsService.loadSettings();
             var colors = ["Red", "Green", "Yellow", "Blue"];
@@ -1145,18 +1511,23 @@ var MonopolyApp;
     (function (controllers) {
         var GameController = (function () {
             function GameController(stateService, swipeService, scope, timeoutService, gameService, drawingService) {
+                var _this = this;
                 this.scope = scope;
                 this.stateService = stateService;
                 this.timeoutService = timeoutService;
                 this.gameService = gameService;
                 this.drawingService = drawingService;
+                this.swipeService = swipeService;
                 this.initGame();
                 this.createScene();
                 this.availableActions = new MonopolyApp.Viewmodels.AvailableActions();
                 this.setAvailableActions();
                 this.messages = [];
-                //$("#renderCanvas").on("swipeleft", () => this.handleSwipe(true));
-                //$("#renderCanvas").on("swiperight", () => this.handleSwipe(false));
+                this.swipeService.bind($("#renderCanvas"), {
+                    'move': function (coords) { _this.swipeMove(coords); },
+                    'end': function (coords, event) { _this.swipeEnd(coords, event); },
+                    'cancel': function (event) { _this.swipeCancel(event); }
+                });
             }
             Object.defineProperty(GameController.prototype, "currentPlayer", {
                 get: function () {
@@ -1197,7 +1568,7 @@ var MonopolyApp;
                 if (!this.manageMode) {
                     this.manageMode = true;
                     this.focusedAssetGroup = this.gameService.manage();
-                    this.drawingService.setManageCameraPosition(this.manageCamera, this.focusedAssetGroup, this.scene);
+                    this.setupManageHighlight();
                     this.scene.activeCamera = this.manageCamera;
                     //var canvas = <HTMLCanvasElement>document.getElementById("renderCanvas");
                     //this.manageCamera.attachControl(canvas, true);
@@ -1220,6 +1591,7 @@ var MonopolyApp;
                 //var canvas = <HTMLCanvasElement>document.getElementById("renderCanvas");
                 //this.manageCamera.detachControl(canvas);            
                 this.setAvailableActions();
+                this.actionButtonsVisible = false;
                 $("#manageCommandPanel").hide();
                 $("#commandPanel").show();
             };
@@ -1231,6 +1603,12 @@ var MonopolyApp;
             };
             GameController.prototype.closeAssetManagementWindow = function () {
                 $("#assetManagement").hide();
+            };
+            GameController.prototype.executeConfirmAction = function (data) {
+                this.confirmButtonCallback(data);
+            };
+            GameController.prototype.executeCancelAction = function (data) {
+                this.cancelButtonCallback(data);
             };
             GameController.prototype.createScene = function () {
                 var canvas = document.getElementById("renderCanvas");
@@ -1248,7 +1626,6 @@ var MonopolyApp;
                 });
             };
             GameController.prototype.createBoard = function (engine, canvas) {
-                var _this = this;
                 // This creates a basic Babylon Scene object (non-mesh)
                 this.scene = new BABYLON.Scene(engine);
                 // This creates and positions a free camera (non-mesh)
@@ -1265,22 +1642,7 @@ var MonopolyApp;
                 // Our built-in 'ground' shape. Params: name, width, depth, subdivs, scene
                 this.drawingService.createBoard(this.scene);
                 this.players = [];
-                var meshLoads = [];
-                this.gameService.players.forEach(function (player) {
-                    var playerModel = new MonopolyApp.Viewmodels.Player();
-                    playerModel.name = player.playerName;
-                    var d = $.Deferred();
-                    meshLoads.push(d);
-                    var that = _this;
-                    BABYLON.SceneLoader.ImportMesh(null, "meshes/", "character.babylon", _this.scene, function (newMeshes, particleSystems) {
-                        if (newMeshes != null) {
-                            var mesh = newMeshes[0];
-                            playerModel.mesh = mesh;
-                            d.resolve(that);
-                        }
-                    });
-                    _this.players.push(playerModel);
-                });
+                var meshLoads = this.drawingService.loadMeshes(this.players, this.scene, this);
                 $.when.apply($, meshLoads).done(this.setupPlayerPositions);
                 this.setupBoardFields();
                 return this.scene;
@@ -1352,7 +1714,17 @@ var MonopolyApp;
             GameController.prototype.handleSwipe = function (left) {
                 if (this.manageMode) {
                     this.focusedAssetGroup = this.gameService.manageFocusChange(left);
+                    this.setupManageHighlight();
                     this.drawingService.setManageCameraPosition(this.manageCamera, this.focusedAssetGroup, this.scene);
+                    if (this.gameService.hasMonopoly(this.gameService.getCurrentPlayer(), this.focusedAssetGroup)) {
+                        this.drawingService.showHouseButtons(this.focusedAssetGroup, this.scene);
+                    }
+                }
+            };
+            GameController.prototype.setupManageHighlight = function () {
+                this.drawingService.setManageCameraPosition(this.manageCamera, this.focusedAssetGroup, this.scene);
+                if (this.gameService.hasMonopoly(this.gameService.getCurrentPlayer(), this.focusedAssetGroup)) {
+                    this.drawingService.showHouseButtons(this.focusedAssetGroup, this.scene);
                 }
             };
             GameController.prototype.handleClickEvent = function (eventObject) {
@@ -1361,11 +1733,11 @@ var MonopolyApp;
                     data[_i - 1] = arguments[_i];
                 }
                 var thisInstance = eventObject.data;
-                if (thisInstance.manageMode) {
-                    var boardFieldIndex = thisInstance.drawingService.pickBoardElement(thisInstance.scene);
-                    if (boardFieldIndex) {
+                if (thisInstance.manageMode && !thisInstance.swipeInProgress) {
+                    var pickedObject = thisInstance.drawingService.pickBoardElement(thisInstance.scene);
+                    if (pickedObject && pickedObject.pickedObjectType === MonopolyApp.Viewmodels.PickedObjectType.BoardField) {
                         var groupFields = thisInstance.gameService.getGroupBoardFields(thisInstance.focusedAssetGroup);
-                        var clickedFields = groupFields.filter(function (f) { return f.index === boardFieldIndex; });
+                        var clickedFields = groupFields.filter(function (f) { return f.index === pickedObject.position; });
                         if (clickedFields.length > 0) {
                             // user clicked a field that is currently focused - show its details
                             thisInstance.scope.$apply(function () {
@@ -1373,11 +1745,81 @@ var MonopolyApp;
                             });
                         }
                     }
+                    else if (pickedObject && pickedObject.pickedObjectType === MonopolyApp.Viewmodels.PickedObjectType.AddHouse) {
+                        thisInstance.addHousePreview(pickedObject.position);
+                    }
+                    else if (pickedObject && pickedObject.pickedObjectType === MonopolyApp.Viewmodels.PickedObjectType.RemoveHouse) {
+                        thisInstance.removeHousePreview(pickedObject.position);
+                    }
                 }
             };
             GameController.prototype.manageField = function (asset) {
                 this.assetToManage = asset;
                 $("#assetManagement").show();
+            };
+            GameController.prototype.swipeMove = function (coords) {
+                this.swipeInProgress = true;
+                if (this.manageMode) {
+                    this.drawingService.onSwipeMove(this.scene, coords);
+                }
+            };
+            GameController.prototype.swipeEnd = function (coords, event) {
+                var _this = this;
+                if (!this.swipeInProgress) {
+                    return;
+                }
+                if (this.manageMode) {
+                    var pickedObject = this.drawingService.onSwipeEnd(this.scene, coords);
+                    if (pickedObject && pickedObject.pickedObjectType === MonopolyApp.Viewmodels.PickedObjectType.AddHouse) {
+                    }
+                }
+                this.timeoutService(function () { return _this.swipeInProgress = false; }, 100, false);
+            };
+            GameController.prototype.swipeCancel = function (event) {
+                this.swipeInProgress = false;
+            };
+            GameController.prototype.addHousePreview = function (position) {
+                if (this.gameService.addHousePreview(this.gameService.getCurrentPlayer(), position)) {
+                    var assetGroup = this.gameService.getBoardFieldGroup(position);
+                    this.refreshBoardFieldGroupHouses(assetGroup);
+                    this.setupActionButtons(this.commitHouses, this.rollbackHouses);
+                }
+            };
+            GameController.prototype.removeHousePreview = function (position) {
+                if (this.gameService.removeHousePreview(this.gameService.getCurrentPlayer(), position)) {
+                    var assetGroup = this.gameService.getBoardFieldGroup(position);
+                    this.refreshBoardFieldGroupHouses(assetGroup);
+                    this.setupActionButtons(this.commitHouses, this.rollbackHouses);
+                }
+            };
+            GameController.prototype.setupActionButtons = function (confirmCallback, cancelCallback) {
+                this.confirmButtonCallback = confirmCallback;
+                this.cancelButtonCallback = cancelCallback;
+                this.drawingService.showActionButtons();
+                var that = this;
+                this.scope.$apply(function () {
+                    that.actionButtonsVisible = true;
+                });
+            };
+            GameController.prototype.refreshBoardFieldGroupHouses = function (assetGroup) {
+                var fields = this.gameService.getGroupBoardFields(assetGroup);
+                var fieldIndexes = $.map(fields, function (f) { return f.index; });
+                var viewGroupBoardFields = this.boardFields.filter(function (viewBoardField) { return $.inArray(viewBoardField.index, fieldIndexes) >= 0; });
+                var that = this;
+                viewGroupBoardFields.forEach(function (f) {
+                    var asset = fields.filter(function (field) { return f.index === field.index; })[0].asset;
+                    that.drawingService.setBoardFieldHouses(f, asset.houses, asset.hotel, that.scene);
+                });
+            };
+            GameController.prototype.commitHouses = function (data) {
+                this.gameService.commitHouseOrHotel(this.gameService.getCurrentPlayer(), this.focusedAssetGroup);
+                this.actionButtonsVisible = false;
+            };
+            GameController.prototype.rollbackHouses = function (data) {
+                this.gameService.rollbackHouseOrHotel(this.gameService.getCurrentPlayer(), this.focusedAssetGroup);
+                this.actionButtonsVisible = false;
+                this.refreshBoardFieldGroupHouses(this.focusedAssetGroup);
+                return;
             };
             GameController.$inject = ["$state", "$swipe", "$scope", "$timeout", "gameService", "drawingService"];
             return GameController;
@@ -1486,6 +1928,27 @@ var MonopolyApp;
             return Coordinate;
         })();
         Viewmodels.Coordinate = Coordinate;
+    })(Viewmodels = MonopolyApp.Viewmodels || (MonopolyApp.Viewmodels = {}));
+})(MonopolyApp || (MonopolyApp = {}));
+var MonopolyApp;
+(function (MonopolyApp) {
+    var Viewmodels;
+    (function (Viewmodels) {
+        (function (PickedObjectType) {
+            PickedObjectType[PickedObjectType["None"] = 0] = "None";
+            PickedObjectType[PickedObjectType["BoardField"] = 1] = "BoardField";
+            PickedObjectType[PickedObjectType["AddHouse"] = 2] = "AddHouse";
+            PickedObjectType[PickedObjectType["RemoveHouse"] = 3] = "RemoveHouse";
+        })(Viewmodels.PickedObjectType || (Viewmodels.PickedObjectType = {}));
+        var PickedObjectType = Viewmodels.PickedObjectType;
+        ;
+        // represents an object that has been picked from the scene either via click/tap or via swipe
+        var PickedObject = (function () {
+            function PickedObject() {
+            }
+            return PickedObject;
+        })();
+        Viewmodels.PickedObject = PickedObject;
     })(Viewmodels = MonopolyApp.Viewmodels || (MonopolyApp.Viewmodels = {}));
 })(MonopolyApp || (MonopolyApp = {}));
 var MonopolyApp;
