@@ -1,5 +1,17 @@
 ﻿<div id="header" style="position: relative; z-index: 5; background-color: lightblue; width:100%">Your move, {{gameController.currentPlayer}}!</div>
 <canvas id="renderCanvas" ng-swipe-left="gameController.handleSwipe(true)" ng-swipe-right="gameController.handleSwipe(false)"></canvas>
+<div id="player1Properties" style="position: fixed; top: 20px; left: 0; width: 15%; height: 11%; border-bottom: 2px solid blue; border-right: 2px solid blue; background-color: #101040">
+    <table style="height: 100%; padding-bottom: 2px">
+        <tr style="height: 50%"><td style="color: #909020; padding-left: 3px">{{gameController.playerModels[0].name}}</td></tr>
+        <tr style="height: 50%"><td style="color: #C0B020; padding-left: 3px">{{gameController.playerModels[0].money}}</td></tr>
+    </table>
+</div>
+<div id="player2Properties" style="position: fixed; top: 20px; right: 0; width: 15%; height: 11%; border-bottom: 2px solid blue; border-left: 2px solid blue; background-color: #101040">
+    <table style="height: 100%; padding-bottom: 2px">
+        <tr style="height: 50%"><td style="color: #909020; padding-left: 3px">{{gameController.playerModels[1].name}}</td></tr>
+        <tr style="height: 50%;"><td style="color: #C0B020; padding-left: 3px">{{gameController.playerModels[1].money}}</tdstyle="color:></tr>
+    </table>
+</div>
 <div id="titleDeed" style="position: fixed; top: 10%; left: 30%; width: 40%; height: 80%; background-color: white; border: 2px; border-color: black; border-radius: 3px" ng-show="gameController.availableActions.buy">
     <table style="width: 100%">
         <tr>
@@ -52,8 +64,10 @@
 <div id="manageCommandPanel" style="position: fixed; bottom: 0px; left: 0px; width: 100%; display: none">
     <button ng-click="gameController.returnFromManage()">Return</button>
 </div>
-<div id="actionButtonPanel" style="position: fixed; bottom: 10%; left: 30%; width: 40%;" ng-show="gameController.actionButtonsVisible">
-    <a ng-click="gameController.executeConfirmAction({})"><img style="width: 30px; height:30px" src="../../images/CheckMark.png"/></a>
-    <a ng-click="gameController.executeCancelAction({})"><img style="width: 30px; height:30px" src="../../images/Cancel.png" /></a>    
+<div id="actionButtonPanel" style="position: fixed; bottom: 8%; width: 100%;" ng-show="gameController.actionButtonsVisible">
+    <div style="display: block; margin-left: auto; margin-right: auto; width:120px">
+        <a ng-click="gameController.executeCancelAction({})"><img style="width: 40px; height: 40px" src="../../images/Cancel.png" /></a>
+        <a ng-click="gameController.executeConfirmAction({})" style="margin-left: 20px"><img style="width: 40px; height: 40px" src="../../images/CheckMark.png" /></a>
+    </div>
 </div>
 

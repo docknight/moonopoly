@@ -217,7 +217,7 @@ module Services {
         hasMonopoly(player: string, assetGroup: Model.AssetGroup): boolean {
             var monopoly = true;
             // temporarily
-            return monopoly;
+            //return monopoly;
             if (assetGroup < Model.AssetGroup.First || assetGroup > Model.AssetGroup.Eighth) {
                 monopoly = false;
             }
@@ -234,7 +234,7 @@ module Services {
 
         addHousePreview(playerName: string, position: number): boolean {
             var boardField = this.game.board.fields.filter(f => f.index === position)[0];
-            if (!boardField.asset || !this.hasMonopoly(playerName, boardField.asset.group) || boardField.asset.hotel) {
+            if (!this.canUpgradeAsset(boardField.asset, playerName)) {
                 return false;
             }
 
@@ -242,13 +242,13 @@ module Services {
             var groupBoardFields = this.getGroupBoardFields(boardField.asset.group);
             var requiredMoney = 0;
             var houseCount = boardField.asset.houses + 1;
-            requiredMoney += houseCount === 5 ? boardField.asset.priceHotel : boardField.asset.priceHouse;
+            requiredMoney += houseCount === 5 ? boardField.asset.getPriceForHotelDuringManage(false) : boardField.asset.getPriceForHouseDuringManage(false);
             groupBoardFields.forEach(field => {
                 if (field.index !== boardField.index) {
                     var neighbourHouseCount = field.asset.houses;
                     while (neighbourHouseCount < houseCount - 1) {
                         neighbourHouseCount++;
-                        requiredMoney += field.asset.priceHouse;
+                        requiredMoney += field.asset.getPriceForHouseDuringManage(false);
                     }
                 }
             });
@@ -272,7 +272,6 @@ module Services {
                     }
                 }
             });
-            this.uncommittedHousesPrice += requiredMoney;
 
             return true;
         }
@@ -291,11 +290,11 @@ module Services {
             // next, perform the upgrade
             if (houseCount < 0) {
                 boardField.asset.removeHotel();
-                sellPrice += boardField.asset.priceHotel / 2;
+                sellPrice += boardField.asset.getPriceForHotelDuringManage(true);
                 houseCount = 4;
             } else {
                 boardField.asset.removeHouse();
-                sellPrice += boardField.asset.priceHouse / 2;
+                sellPrice += boardField.asset.getPriceForHouseDuringManage(true);
             }
             groupBoardFields.forEach(field => {
                 if (field.index !== boardField.index) {
@@ -303,10 +302,10 @@ module Services {
                     while (neighbourHouseCount > houseCount + 1) {
                         if (neighbourHouseCount === 5) {
                             field.asset.removeHotel();
-                            sellPrice += boardField.asset.priceHotel / 2;
+                            sellPrice += boardField.asset.getPriceForHotelDuringManage(true);
                         } else {
                             field.asset.removeHouse();
-                            sellPrice += boardField.asset.priceHouse / 2;
+                            sellPrice += boardField.asset.getPriceForHouseDuringManage(true);
                         }
                         neighbourHouseCount--;
                     }
@@ -322,13 +321,14 @@ module Services {
                 return false;
             }    
             var boardFields = this.game.board.fields.filter(f => f.type === Model.BoardFieldType.Asset && f.asset.group === assetGroup);
+            var totalPrice = 0;
             var that = this;
             boardFields.forEach(boardField => {
+                totalPrice += boardField.asset.uncommittedPrice();
                 boardField.asset.commitHouseOrHotel();
             });
             var player = that.game.players.filter(p => p.playerName === playerName)[0];
-            player.money -= that.uncommittedHousesPrice;
-            that.uncommittedHousesPrice = 0;
+            player.money -= totalPrice;
             return true;
         }
 
@@ -337,12 +337,22 @@ module Services {
                 return false;
             }
             var boardFields = this.game.board.fields.filter(f => f.type === Model.BoardFieldType.Asset && f.asset.group === assetGroup);
-            var that = this;
             boardFields.forEach(boardField => {
                 boardField.asset.rollbackHouseOrHotel();
             });
-            that.uncommittedHousesPrice = 0;
             return true;
+        }
+
+        canUpgradeAsset(asset: Model.Asset, playerName: string): boolean {
+            if (!asset || asset.unowned || asset.owner !== playerName || !this.hasMonopoly(playerName, asset.group)) {
+                return false;
+            }
+            if (asset.hotel) {
+                return false;
+            }
+            var player = this.players.filter(p => p.playerName === playerName)[0];
+            var requiredPrice = !asset.houses || asset.houses <= 3 ? asset.getPriceForHouseDuringManage(false) : asset.getPriceForHotelDuringManage(false);
+            return player.money >= requiredPrice;
         }
 
         private initPlayers() {

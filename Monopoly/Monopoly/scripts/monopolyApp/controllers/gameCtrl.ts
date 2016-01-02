@@ -76,6 +76,7 @@ module MonopolyApp.controllers {
             if (bought) {
                 var boardField = this.gameService.getCurrentPlayerPosition();
                 this.drawingService.setBoardFieldOwner(this.boardFields.filter(f => f.index === boardField.index)[0], boardField.asset, this.scene);
+                this.updatePlayersForView();
             }
             this.setAvailableActions();
         }
@@ -171,11 +172,22 @@ module MonopolyApp.controllers {
             // Our built-in 'ground' shape. Params: name, width, depth, subdivs, scene
             this.drawingService.createBoard(this.scene);
 
-            this.players = [];
+            this.initPlayers();            
             var meshLoads = this.drawingService.loadMeshes(this.players, this.scene, this);
             $.when.apply($, meshLoads).done(this.setupPlayerPositions);
             this.setupBoardFields();
             return this.scene;
+        }
+
+        private initPlayers() {
+            this.players = [];
+            var that = this;
+            this.gameService.players.forEach((player) => {
+                var playerModel = new Viewmodels.Player();
+                playerModel.name = player.playerName;
+                playerModel.money = player.money;
+                that.playerModels.push(playerModel);
+            });
         }
 
         private setupBoardFields() {
@@ -231,6 +243,7 @@ module MonopolyApp.controllers {
                 if (result.message) {
                     this.showMessage(result.message);
                 }
+                this.updatePlayersForView();
             }
         }
 
@@ -316,18 +329,32 @@ module MonopolyApp.controllers {
 
         private addHousePreview(position: number) {
             if (this.gameService.addHousePreview(this.gameService.getCurrentPlayer(), position)) {
-                var assetGroup = this.gameService.getBoardFieldGroup(position);
-                this.refreshBoardFieldGroupHouses(assetGroup);
-                this.setupActionButtons(this.commitHouses, this.rollbackHouses);
+                this.setupActionButtonsForHousePreview(position);
             }
         }
 
         private removeHousePreview(position: number) {
             if (this.gameService.removeHousePreview(this.gameService.getCurrentPlayer(), position)) {
-                var assetGroup = this.gameService.getBoardFieldGroup(position);
-                this.refreshBoardFieldGroupHouses(assetGroup);
-                this.setupActionButtons(this.commitHouses, this.rollbackHouses);
+                this.setupActionButtonsForHousePreview(position);
             }
+        }
+
+        private setupActionButtonsForHousePreview(position: number) {
+            var assetGroup = this.gameService.getBoardFieldGroup(position);
+            var groupBoardFields = this.gameService.getGroupBoardFields(assetGroup);
+            var hasUncommittedUpgrades = false;
+            groupBoardFields.forEach(field => {
+                hasUncommittedUpgrades = hasUncommittedUpgrades || field.asset.hasUncommittedUpgrades();
+            });
+            this.refreshBoardFieldGroupHouses(assetGroup);
+            if (hasUncommittedUpgrades) {
+                this.setupActionButtons(this.commitHouses, this.rollbackHouses);
+            } else {
+                var that = this;
+                this.scope.$apply(() => {
+                    that.actionButtonsVisible = false;
+                });
+            }            
         }
 
         private setupActionButtons(confirmCallback: (data: any) => void, cancelCallback: (data: any) => void) {
@@ -337,8 +364,7 @@ module MonopolyApp.controllers {
             var that = this;
             this.scope.$apply(() => {
                 that.actionButtonsVisible = true;
-            });
-            
+            });            
         }
 
         private refreshBoardFieldGroupHouses(assetGroup: Model.AssetGroup) {
@@ -357,13 +383,22 @@ module MonopolyApp.controllers {
         private commitHouses(data: any) {
             this.gameService.commitHouseOrHotel(this.gameService.getCurrentPlayer(), this.focusedAssetGroup);
             this.actionButtonsVisible = false;
+            this.updatePlayersForView();
         }
 
         private rollbackHouses(data: any) {
-            this.gameService.rollbackHouseOrHotel(this.gameService.getCurrentPlayer(), this.focusedAssetGroup)
+            this.gameService.rollbackHouseOrHotel(this.gameService.getCurrentPlayer(), this.focusedAssetGroup);
             this.actionButtonsVisible = false;
             this.refreshBoardFieldGroupHouses(this.focusedAssetGroup);
-            return;
+            this.updatePlayersForView();
+        }
+
+        private updatePlayersForView() {
+            var that = this;
+            this.gameService.players.forEach(p => {
+                var viewPlayer = that.playerModels.filter(model => model.name === p.playerName)[0];
+                viewPlayer.money = p.money;
+            });
         }
     }
 

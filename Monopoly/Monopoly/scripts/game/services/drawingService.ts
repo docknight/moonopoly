@@ -211,18 +211,23 @@ module Services {
         loadMeshes(players: MonopolyApp.Viewmodels.Player[], scene: BABYLON.Scene, gameController: MonopolyApp.controllers.GameController): JQueryDeferred<{}>[] {
             var meshLoads = [];
             this.gameService.players.forEach((player) => {
-                var playerModel = new MonopolyApp.Viewmodels.Player();
+                var playerModel = players.filter(p => p.name === player.playerName)[0];
                 playerModel.name = player.playerName;
                 var d = $.Deferred();
                 meshLoads.push(d);
+                var that = this;
                 BABYLON.SceneLoader.ImportMesh(null, "meshes/", "character.babylon", scene, function (newMeshes, particleSystems) {
                     if (newMeshes != null) {
                         var mesh = newMeshes[0];
                         playerModel.mesh = mesh;
+                        var mat = new BABYLON.StandardMaterial(`player_${player.color}_material`, scene);
+                        mat.diffuseColor = that.getColor(player.color, true);
+                        //mat.emissiveColor = that.getColor(player.color, false);
+                        mat.specularColor = new BABYLON.Color3(0.9, 0.9, 0.9);
+                        newMeshes[1].material = mat;
                         d.resolve(gameController);
                     }
                 });
-                players.push(playerModel);
             });      
             
             var d = $.Deferred();
@@ -274,25 +279,27 @@ module Services {
         showHouseButtons(focusedAssetGroup: Model.AssetGroup, scene: BABYLON.Scene) {
             this.cleanupHouseButtons(scene);
             var groupBoardFields = this.gameService.getGroupBoardFields(focusedAssetGroup);
-            var groupBoardPositions = $.map(groupBoardFields, (f, i) => f.index);
+            //var groupBoardPositions = $.map(groupBoardFields, (f, i) => f.index);
             var that = this;
-            groupBoardPositions.forEach(position => {
-                var topLeft = that.getPositionCoordinate(position, true);
-                var boardFieldQuadrant = Math.floor(position / (that.boardFieldsInQuadrant - 1));
+            groupBoardFields.forEach(field => {
+                var topLeft = that.getPositionCoordinate(field.index, true);
+                var boardFieldQuadrant = Math.floor(field.index / (that.boardFieldsInQuadrant - 1));
                 var runningCoordinate = that.getQuadrantRunningCoordinate(boardFieldQuadrant);
                 var heightCoordinate = that.getQuadrantRunningCoordinate(boardFieldQuadrant) === "x" ? "z" : "x";
                 var heightDirection = boardFieldQuadrant === 0 || boardFieldQuadrant === 1 ? -1 : 1;
-                var houseButtonMesh = that.houseButtonMeshTemplate.clone(`houseButton_${position}`);
-                houseButtonMesh.material = that.houseButtonMaterial;
-                scene.addMesh(houseButtonMesh);
-                houseButtonMesh.position[runningCoordinate] = topLeft[runningCoordinate] + (0.5 * this.getQuadrantRunningDirection(boardFieldQuadrant) * -1);
-                houseButtonMesh.position[heightCoordinate] = topLeft[heightCoordinate] + (that.boardFieldHeight - 0.2) * heightDirection;
-                //houseButtonMesh.actionManager = new BABYLON.ActionManager(scene);
-                //houseButtonMesh.actionManager.registerAction(new BABYLON.InterpolateValueAction(BABYLON.ActionManager.OnPointerOverTrigger, houseButtonMesh, "scaling", new BABYLON.Vector3(1.5, 1, 1.5), 100));
-                //houseButtonMesh.actionManager.registerAction(new BABYLON.InterpolateValueAction(BABYLON.ActionManager.OnPointerOutTrigger, houseButtonMesh, "scaling", new BABYLON.Vector3(1, 1, 1), 100));
-                that.houseButtonMeshes.push(houseButtonMesh);
+                if (that.gameService.canUpgradeAsset(field.asset, that.gameService.getCurrentPlayer())) {
+                    var houseButtonMesh = that.houseButtonMeshTemplate.clone(`houseButton_${field.index}`);
+                    houseButtonMesh.material = that.houseButtonMaterial;
+                    scene.addMesh(houseButtonMesh);
+                    houseButtonMesh.position[runningCoordinate] = topLeft[runningCoordinate] + (0.5 * this.getQuadrantRunningDirection(boardFieldQuadrant) * -1);
+                    houseButtonMesh.position[heightCoordinate] = topLeft[heightCoordinate] + (that.boardFieldHeight - 0.2) * heightDirection;
+                    //houseButtonMesh.actionManager = new BABYLON.ActionManager(scene);
+                    //houseButtonMesh.actionManager.registerAction(new BABYLON.InterpolateValueAction(BABYLON.ActionManager.OnPointerOverTrigger, houseButtonMesh, "scaling", new BABYLON.Vector3(1.5, 1, 1.5), 100));
+                    //houseButtonMesh.actionManager.registerAction(new BABYLON.InterpolateValueAction(BABYLON.ActionManager.OnPointerOutTrigger, houseButtonMesh, "scaling", new BABYLON.Vector3(1, 1, 1), 100));
+                    that.houseButtonMeshes.push(houseButtonMesh);
+                }
 
-                var houseRemoveButtonMesh = that.houseRemoveButtonMeshTemplate.clone(`houseRemoveButton_${position}`);
+                var houseRemoveButtonMesh = that.houseRemoveButtonMeshTemplate.clone(`houseRemoveButton_${field.index}`);
                 houseRemoveButtonMesh.material = that.houseRemoveButtonMaterial;
                 scene.addMesh(houseRemoveButtonMesh);
                 houseRemoveButtonMesh.position[runningCoordinate] = topLeft[runningCoordinate] + (0.2 * that.getQuadrantRunningDirection(boardFieldQuadrant) * -1);

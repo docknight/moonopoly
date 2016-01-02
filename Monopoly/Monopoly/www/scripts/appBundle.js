@@ -106,8 +106,11 @@ var Model;
         });
         Object.defineProperty(Asset.prototype, "houses", {
             get: function () {
-                if (this.hotel) {
+                if (this.hotel || this._uncommittedHotel) {
                     return 0;
+                }
+                else if (this._uncommittedHotel === false) {
+                    return 4 + this._uncommittedHouses;
                 }
                 return this._houses + this._uncommittedHouses;
             },
@@ -131,29 +134,32 @@ var Model;
             enumerable: true,
             configurable: true
         });
-        // add a house in a preview mode
+        // add a house in a preview mode;
         Asset.prototype.addHouse = function () {
             this._uncommittedHouses++;
         };
-        // add a hotel in a preview mode
+        // add a hotel in a preview mode;
         Asset.prototype.addHotel = function () {
-            this._uncommittedHotel = true;
+            this._uncommittedHotel = this._uncommittedHotel === false ? undefined : true;
         };
-        // add a house in a preview mode
+        // remove a house in a preview mode
         Asset.prototype.removeHouse = function () {
             this._uncommittedHouses--;
         };
-        // add a hotel in a preview mode
+        // remove a hotel in a preview mode
         Asset.prototype.removeHotel = function () {
-            this._uncommittedHotel = false;
-            this._uncommittedHouses = 4;
+            this._uncommittedHotel = this._uncommittedHotel ? undefined : false;
+            //this._uncommittedHouses = 4;
         };
         Asset.prototype.commitHouseOrHotel = function () {
-            this._houses += this._uncommittedHouses;
-            this._uncommittedHouses = 0;
             if (this._uncommittedHotel !== undefined) {
                 this.hotel = this._uncommittedHotel;
+                if (this._uncommittedHotel === false) {
+                    this._houses = 4;
+                }
             }
+            this._houses += this._uncommittedHouses;
+            this._uncommittedHouses = 0;
             this._uncommittedHotel = undefined;
             if (this.hotel) {
                 this.houses = 0;
@@ -162,6 +168,58 @@ var Model;
         Asset.prototype.rollbackHouseOrHotel = function () {
             this._uncommittedHouses = 0;
             this._uncommittedHotel = undefined;
+        };
+        // gets the price to pay for all the uncommitted amenities of the asset (can be negative if the player is selling houses/hotel);
+        Asset.prototype.uncommittedPrice = function () {
+            var price = 0;
+            if (this._uncommittedHotel) {
+                price += this.priceHotel;
+            }
+            else if (this._uncommittedHotel === false) {
+                price -= this.priceHotel / 2;
+            }
+            if (this._uncommittedHouses) {
+                var priceHouses = this._uncommittedHouses * this.priceHouse;
+                price += priceHouses;
+            }
+            return price;
+        };
+        Asset.prototype.hasUncommittedUpgrades = function () {
+            return this._uncommittedHotel || this._uncommittedHotel === false || (this._uncommittedHouses && (this._uncommittedHouses > 0 || this._uncommittedHouses < 0));
+        };
+        // returns hotel price, taking into account that the hotel that has just been sold (at a half price) can be bought back at the same price, since the sell has not been
+        // committed yet
+        // the 'selling' parameter determines whether the hotel is being sold or bought
+        Asset.prototype.getPriceForHotelDuringManage = function (selling) {
+            if (!selling) {
+                if (this._uncommittedHotel === false) {
+                    return this.priceHotel / 2;
+                }
+                return this.priceHotel;
+            }
+            else {
+                if (this._uncommittedHotel) {
+                    return this.priceHotel;
+                }
+                return this.priceHotel / 2;
+            }
+        };
+        // returns house price, taking into account that the house that has just been sold (at a half price) can be bought back at the same price, since the sell has not been
+        // committed yet
+        // the 'selling' parameter determines whether the house is being sold or bought
+        Asset.prototype.getPriceForHouseDuringManage = function (selling) {
+            if (!selling) {
+                if (this._uncommittedHouses === undefined || this._uncommittedHouses < 0) {
+                    return this.priceHouse / 2;
+                }
+                return this.priceHouse;
+            }
+            else {
+                if (this._uncommittedHouses && this._uncommittedHouses > 0) {
+                    return this.priceHouse;
+                }
+                return this.priceHouse / 2;
+            }
         };
         Asset.prototype.putUnderMortgage = function () {
             this._mortgage = true;
@@ -808,18 +866,23 @@ var Services;
             var _this = this;
             var meshLoads = [];
             this.gameService.players.forEach(function (player) {
-                var playerModel = new MonopolyApp.Viewmodels.Player();
+                var playerModel = players.filter(function (p) { return p.name === player.playerName; })[0];
                 playerModel.name = player.playerName;
                 var d = $.Deferred();
                 meshLoads.push(d);
+                var that = _this;
                 BABYLON.SceneLoader.ImportMesh(null, "meshes/", "character.babylon", scene, function (newMeshes, particleSystems) {
                     if (newMeshes != null) {
                         var mesh = newMeshes[0];
                         playerModel.mesh = mesh;
+                        var mat = new BABYLON.StandardMaterial("player_" + player.color + "_material", scene);
+                        mat.diffuseColor = that.getColor(player.color, true);
+                        //mat.emissiveColor = that.getColor(player.color, false);
+                        mat.specularColor = new BABYLON.Color3(0.9, 0.9, 0.9);
+                        newMeshes[1].material = mat;
                         d.resolve(gameController);
                     }
                 });
-                players.push(playerModel);
             });
             var d = $.Deferred();
             meshLoads.push(d);
@@ -867,24 +930,26 @@ var Services;
             var _this = this;
             this.cleanupHouseButtons(scene);
             var groupBoardFields = this.gameService.getGroupBoardFields(focusedAssetGroup);
-            var groupBoardPositions = $.map(groupBoardFields, function (f, i) { return f.index; });
+            //var groupBoardPositions = $.map(groupBoardFields, (f, i) => f.index);
             var that = this;
-            groupBoardPositions.forEach(function (position) {
-                var topLeft = that.getPositionCoordinate(position, true);
-                var boardFieldQuadrant = Math.floor(position / (that.boardFieldsInQuadrant - 1));
+            groupBoardFields.forEach(function (field) {
+                var topLeft = that.getPositionCoordinate(field.index, true);
+                var boardFieldQuadrant = Math.floor(field.index / (that.boardFieldsInQuadrant - 1));
                 var runningCoordinate = that.getQuadrantRunningCoordinate(boardFieldQuadrant);
                 var heightCoordinate = that.getQuadrantRunningCoordinate(boardFieldQuadrant) === "x" ? "z" : "x";
                 var heightDirection = boardFieldQuadrant === 0 || boardFieldQuadrant === 1 ? -1 : 1;
-                var houseButtonMesh = that.houseButtonMeshTemplate.clone("houseButton_" + position);
-                houseButtonMesh.material = that.houseButtonMaterial;
-                scene.addMesh(houseButtonMesh);
-                houseButtonMesh.position[runningCoordinate] = topLeft[runningCoordinate] + (0.5 * _this.getQuadrantRunningDirection(boardFieldQuadrant) * -1);
-                houseButtonMesh.position[heightCoordinate] = topLeft[heightCoordinate] + (that.boardFieldHeight - 0.2) * heightDirection;
-                //houseButtonMesh.actionManager = new BABYLON.ActionManager(scene);
-                //houseButtonMesh.actionManager.registerAction(new BABYLON.InterpolateValueAction(BABYLON.ActionManager.OnPointerOverTrigger, houseButtonMesh, "scaling", new BABYLON.Vector3(1.5, 1, 1.5), 100));
-                //houseButtonMesh.actionManager.registerAction(new BABYLON.InterpolateValueAction(BABYLON.ActionManager.OnPointerOutTrigger, houseButtonMesh, "scaling", new BABYLON.Vector3(1, 1, 1), 100));
-                that.houseButtonMeshes.push(houseButtonMesh);
-                var houseRemoveButtonMesh = that.houseRemoveButtonMeshTemplate.clone("houseRemoveButton_" + position);
+                if (that.gameService.canUpgradeAsset(field.asset, that.gameService.getCurrentPlayer())) {
+                    var houseButtonMesh = that.houseButtonMeshTemplate.clone("houseButton_" + field.index);
+                    houseButtonMesh.material = that.houseButtonMaterial;
+                    scene.addMesh(houseButtonMesh);
+                    houseButtonMesh.position[runningCoordinate] = topLeft[runningCoordinate] + (0.5 * _this.getQuadrantRunningDirection(boardFieldQuadrant) * -1);
+                    houseButtonMesh.position[heightCoordinate] = topLeft[heightCoordinate] + (that.boardFieldHeight - 0.2) * heightDirection;
+                    //houseButtonMesh.actionManager = new BABYLON.ActionManager(scene);
+                    //houseButtonMesh.actionManager.registerAction(new BABYLON.InterpolateValueAction(BABYLON.ActionManager.OnPointerOverTrigger, houseButtonMesh, "scaling", new BABYLON.Vector3(1.5, 1, 1.5), 100));
+                    //houseButtonMesh.actionManager.registerAction(new BABYLON.InterpolateValueAction(BABYLON.ActionManager.OnPointerOutTrigger, houseButtonMesh, "scaling", new BABYLON.Vector3(1, 1, 1), 100));
+                    that.houseButtonMeshes.push(houseButtonMesh);
+                }
+                var houseRemoveButtonMesh = that.houseRemoveButtonMeshTemplate.clone("houseRemoveButton_" + field.index);
                 houseRemoveButtonMesh.material = that.houseRemoveButtonMaterial;
                 scene.addMesh(houseRemoveButtonMesh);
                 houseRemoveButtonMesh.position[runningCoordinate] = topLeft[runningCoordinate] + (0.2 * that.getQuadrantRunningDirection(boardFieldQuadrant) * -1);
@@ -1377,20 +1442,20 @@ var Services;
         };
         GameService.prototype.addHousePreview = function (playerName, position) {
             var boardField = this.game.board.fields.filter(function (f) { return f.index === position; })[0];
-            if (!boardField.asset || !this.hasMonopoly(playerName, boardField.asset.group) || boardField.asset.hotel) {
+            if (!this.canUpgradeAsset(boardField.asset, playerName)) {
                 return false;
             }
             // first, check if the player has the money to afford the upgrade
             var groupBoardFields = this.getGroupBoardFields(boardField.asset.group);
             var requiredMoney = 0;
             var houseCount = boardField.asset.houses + 1;
-            requiredMoney += houseCount === 5 ? boardField.asset.priceHotel : boardField.asset.priceHouse;
+            requiredMoney += houseCount === 5 ? boardField.asset.getPriceForHotelDuringManage(false) : boardField.asset.getPriceForHouseDuringManage(false);
             groupBoardFields.forEach(function (field) {
                 if (field.index !== boardField.index) {
                     var neighbourHouseCount = field.asset.houses;
                     while (neighbourHouseCount < houseCount - 1) {
                         neighbourHouseCount++;
-                        requiredMoney += field.asset.priceHouse;
+                        requiredMoney += field.asset.getPriceForHouseDuringManage(false);
                     }
                 }
             });
@@ -1414,7 +1479,6 @@ var Services;
                     }
                 }
             });
-            this.uncommittedHousesPrice += requiredMoney;
             return true;
         };
         GameService.prototype.removeHousePreview = function (playerName, position) {
@@ -1429,12 +1493,12 @@ var Services;
             // next, perform the upgrade
             if (houseCount < 0) {
                 boardField.asset.removeHotel();
-                sellPrice += boardField.asset.priceHotel / 2;
+                sellPrice += boardField.asset.getPriceForHotelDuringManage(true);
                 houseCount = 4;
             }
             else {
                 boardField.asset.removeHouse();
-                sellPrice += boardField.asset.priceHouse / 2;
+                sellPrice += boardField.asset.getPriceForHouseDuringManage(true);
             }
             groupBoardFields.forEach(function (field) {
                 if (field.index !== boardField.index) {
@@ -1442,11 +1506,11 @@ var Services;
                     while (neighbourHouseCount > houseCount + 1) {
                         if (neighbourHouseCount === 5) {
                             field.asset.removeHotel();
-                            sellPrice += boardField.asset.priceHotel / 2;
+                            sellPrice += boardField.asset.getPriceForHotelDuringManage(true);
                         }
                         else {
                             field.asset.removeHouse();
-                            sellPrice += boardField.asset.priceHouse / 2;
+                            sellPrice += boardField.asset.getPriceForHouseDuringManage(true);
                         }
                         neighbourHouseCount--;
                     }
@@ -1460,13 +1524,14 @@ var Services;
                 return false;
             }
             var boardFields = this.game.board.fields.filter(function (f) { return f.type === Model.BoardFieldType.Asset && f.asset.group === assetGroup; });
+            var totalPrice = 0;
             var that = this;
             boardFields.forEach(function (boardField) {
+                totalPrice += boardField.asset.uncommittedPrice();
                 boardField.asset.commitHouseOrHotel();
             });
             var player = that.game.players.filter(function (p) { return p.playerName === playerName; })[0];
-            player.money -= that.uncommittedHousesPrice;
-            that.uncommittedHousesPrice = 0;
+            player.money -= totalPrice;
             return true;
         };
         GameService.prototype.rollbackHouseOrHotel = function (playerName, assetGroup) {
@@ -1474,13 +1539,22 @@ var Services;
                 return false;
             }
             var boardFields = this.game.board.fields.filter(function (f) { return f.type === Model.BoardFieldType.Asset && f.asset.group === assetGroup; });
-            var that = this;
             boardFields.forEach(function (boardField) {
                 boardField.asset.rollbackHouseOrHotel();
             });
-            that.uncommittedHousesPrice = 0;
-            console.log("ROLLBACK!");
             return true;
+        };
+        GameService.prototype.canUpgradeAsset = function (asset, playerName) {
+            // temporarily
+            if (!asset /*|| asset.unowned || asset.owner !== playerName*/ || !this.hasMonopoly(playerName, asset.group)) {
+                return false;
+            }
+            if (asset.hotel) {
+                return false;
+            }
+            var player = this.players.filter(function (p) { return p.playerName === playerName; })[0];
+            var requiredPrice = !asset.houses || asset.houses <= 3 ? asset.getPriceForHouseDuringManage(false) : asset.getPriceForHotelDuringManage(false);
+            return player.money >= requiredPrice;
         };
         GameService.prototype.initPlayers = function () {
             var settings = this.settingsService.loadSettings();
@@ -1561,6 +1635,7 @@ var MonopolyApp;
                 if (bought) {
                     var boardField = this.gameService.getCurrentPlayerPosition();
                     this.drawingService.setBoardFieldOwner(this.boardFields.filter(function (f) { return f.index === boardField.index; })[0], boardField.asset, this.scene);
+                    this.updatePlayersForView();
                 }
                 this.setAvailableActions();
             };
@@ -1641,11 +1716,21 @@ var MonopolyApp;
                 light.intensity = 1;
                 // Our built-in 'ground' shape. Params: name, width, depth, subdivs, scene
                 this.drawingService.createBoard(this.scene);
-                this.players = [];
+                this.initPlayers();
                 var meshLoads = this.drawingService.loadMeshes(this.players, this.scene, this);
                 $.when.apply($, meshLoads).done(this.setupPlayerPositions);
                 this.setupBoardFields();
                 return this.scene;
+            };
+            GameController.prototype.initPlayers = function () {
+                this.players = [];
+                var that = this;
+                this.gameService.players.forEach(function (player) {
+                    var playerModel = new MonopolyApp.Viewmodels.Player();
+                    playerModel.name = player.playerName;
+                    playerModel.money = player.money;
+                    that.playerModels.push(playerModel);
+                });
             };
             GameController.prototype.setupBoardFields = function () {
                 var _this = this;
@@ -1697,6 +1782,7 @@ var MonopolyApp;
                     if (result.message) {
                         this.showMessage(result.message);
                     }
+                    this.updatePlayersForView();
                 }
             };
             GameController.prototype.showMessage = function (message) {
@@ -1780,16 +1866,30 @@ var MonopolyApp;
             };
             GameController.prototype.addHousePreview = function (position) {
                 if (this.gameService.addHousePreview(this.gameService.getCurrentPlayer(), position)) {
-                    var assetGroup = this.gameService.getBoardFieldGroup(position);
-                    this.refreshBoardFieldGroupHouses(assetGroup);
-                    this.setupActionButtons(this.commitHouses, this.rollbackHouses);
+                    this.setupActionButtonsForHousePreview(position);
                 }
             };
             GameController.prototype.removeHousePreview = function (position) {
                 if (this.gameService.removeHousePreview(this.gameService.getCurrentPlayer(), position)) {
-                    var assetGroup = this.gameService.getBoardFieldGroup(position);
-                    this.refreshBoardFieldGroupHouses(assetGroup);
+                    this.setupActionButtonsForHousePreview(position);
+                }
+            };
+            GameController.prototype.setupActionButtonsForHousePreview = function (position) {
+                var assetGroup = this.gameService.getBoardFieldGroup(position);
+                var groupBoardFields = this.gameService.getGroupBoardFields(assetGroup);
+                var hasUncommittedUpgrades = false;
+                groupBoardFields.forEach(function (field) {
+                    hasUncommittedUpgrades = hasUncommittedUpgrades || field.asset.hasUncommittedUpgrades();
+                });
+                this.refreshBoardFieldGroupHouses(assetGroup);
+                if (hasUncommittedUpgrades) {
                     this.setupActionButtons(this.commitHouses, this.rollbackHouses);
+                }
+                else {
+                    var that = this;
+                    this.scope.$apply(function () {
+                        that.actionButtonsVisible = false;
+                    });
                 }
             };
             GameController.prototype.setupActionButtons = function (confirmCallback, cancelCallback) {
@@ -1814,12 +1914,20 @@ var MonopolyApp;
             GameController.prototype.commitHouses = function (data) {
                 this.gameService.commitHouseOrHotel(this.gameService.getCurrentPlayer(), this.focusedAssetGroup);
                 this.actionButtonsVisible = false;
+                this.updatePlayersForView();
             };
             GameController.prototype.rollbackHouses = function (data) {
                 this.gameService.rollbackHouseOrHotel(this.gameService.getCurrentPlayer(), this.focusedAssetGroup);
                 this.actionButtonsVisible = false;
                 this.refreshBoardFieldGroupHouses(this.focusedAssetGroup);
-                return;
+                this.updatePlayersForView();
+            };
+            GameController.prototype.updatePlayersForView = function () {
+                var that = this;
+                this.gameService.players.forEach(function (p) {
+                    var viewPlayer = that.playerModels.filter(function (model) { return model.name === p.playerName; })[0];
+                    viewPlayer.money = p.money;
+                });
             };
             GameController.$inject = ["$state", "$swipe", "$scope", "$timeout", "gameService", "drawingService"];
             return GameController;

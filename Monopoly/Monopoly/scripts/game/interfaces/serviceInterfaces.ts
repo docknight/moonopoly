@@ -27,6 +27,7 @@
         removeHousePreview(playerName: string, position: number): boolean;
         commitHouseOrHotel(playerName: string, assetGroup: Model.AssetGroup): boolean;
         rollbackHouseOrHotel(playerName: string, assetGroup: Model.AssetGroup): boolean;
+        canUpgradeAsset(asset: Model.Asset, playerName: string): boolean;
     }
     export interface IDrawingService {
         boardSize: number;
