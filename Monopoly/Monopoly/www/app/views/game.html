@@ -56,7 +56,7 @@
 </div>
 
 <div id="commandPanel" style="position: fixed; bottom: 0px; left: 0px; width: 100%">
-    <button ng-disabled="!gameController.availableActions.throwDice" ng-click="gameController.throwDice()">Throw dice</button>
+    <button ng-disabled="!gameController.availableActions.throwDice" ng-click="gameController.setupThrowDice()">Throw dice</button>
     <button ng-show="gameController.availableActions.buy" ng-click="gameController.buy()">Buy</button>
     <button ng-disabled="!gameController.availableActions.endTurn" ng-click="gameController.endTurn()">End turn</button>
     <button ng-disabled="!gameController.availableActions.manage" ng-click="gameController.manage()">Manage</button>

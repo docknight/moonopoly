@@ -718,13 +718,87 @@ var Services;
             playerModel.mesh.position.x = playerCoordinate.x;
             playerModel.mesh.position.z = playerCoordinate.z;
         };
-        DrawingService.prototype.animatePlayerMove = function (oldPositionIndex, newPosition, playerModel) {
+        DrawingService.prototype.animatePlayerMove = function (oldPositionIndex, newPosition, playerModel, scene) {
             this.positionPlayer(playerModel);
         };
+        DrawingService.prototype.setupDiceForThrow = function (scene) {
+            this.diceMesh.position.x = 0;
+            this.diceMesh.position.y = 2;
+            this.diceMesh.position.z = 0;
+            var physicsEngine = scene.getPhysicsEngine();
+            physicsEngine._unregisterMesh(this.diceMesh);
+        };
+        DrawingService.prototype.animateDiceThrow = function (impulsePoint, scene) {
+            this.numFramesDiceIsAtRest = 0;
+            this.diceMesh.setPhysicsState({ impostor: BABYLON.PhysicsEngine.BoxImpostor, mass: 0.2, friction: 0.5, restitution: 0.5 });
+            this.diceMesh.checkCollisions = true;
+            var dir = impulsePoint.subtract(scene.activeCamera.position);
+            dir.normalize();
+            this.diceMesh.applyImpulse(dir.scale(0.1), impulsePoint);
+            this.throwingDice = true;
+        };
+        // animates camera back to the base viewing position; returns the deferred object that will be resolved when the animation finishes
+        DrawingService.prototype.returnCameraToMainPosition = function (scene, camera) {
+            var d = $.Deferred();
+            var animationCameraPosition = new BABYLON.Animation("myAnimation", "position", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
+            var animationCameraRotation = new BABYLON.Animation("myAnimation2", "rotation", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
+            var finalCameraPosition = this.getGameCameraPosition();
+            var keys = [];
+            keys.push({
+                frame: 0,
+                value: camera.position
+            });
+            keys.push({
+                frame: 30,
+                value: finalCameraPosition
+            });
+            var keysRotation = [];
+            keysRotation.push({
+                frame: 0,
+                value: camera.rotation
+            });
+            keysRotation.push({
+                frame: 30,
+                value: this.getCameraRotationForTarget(new BABYLON.Vector3(0, 0, 0), camera, finalCameraPosition)
+            });
+            animationCameraPosition.setKeys(keys);
+            animationCameraRotation.setKeys(keysRotation);
+            camera.animations.push(animationCameraPosition);
+            camera.animations.push(animationCameraRotation);
+            scene.beginAnimation(camera, 0, 60, false, undefined, function () { d.resolve(); });
+            return d;
+        };
+        DrawingService.prototype.isDiceAtRestAfterThrowing = function (scene) {
+            if (this.throwingDice) {
+                var physicsEngine = scene.getPhysicsEngine();
+                var body = physicsEngine.getPhysicsBodyOfMesh(this.diceMesh);
+                if (Math.abs(body.velocity.x) > BABYLON.PhysicsEngine.Epsilon * 10 || Math.abs(body.velocity.y) > BABYLON.PhysicsEngine.Epsilon * 10 || Math.abs(body.velocity.z) > BABYLON.PhysicsEngine.Epsilon * 10) {
+                    this.numFramesDiceIsAtRest -= 5;
+                    if (this.numFramesDiceIsAtRest < 0) {
+                        this.numFramesDiceIsAtRest = 0;
+                    }
+                    return false;
+                }
+                this.numFramesDiceIsAtRest++;
+                if (this.numFramesDiceIsAtRest < 120) {
+                    return false;
+                }
+                this.throwingDice = false;
+                return true;
+            }
+            return false;
+        };
+        DrawingService.prototype.getDiceLocation = function (scene) {
+            //var physicsEngine = scene.getPhysicsEngine();
+            //var body = physicsEngine.getPhysicsBodyOfMesh(this.diceMesh);
+            //if (body) {
+            //    return <BABYLON.Vector3>body.position;
+            //}
+            return this.diceMesh.position;
+            return undefined;
+        };
         DrawingService.prototype.setGameCameraPosition = function (camera) {
-            camera.position.x = 0;
-            camera.position.y = 5;
-            camera.position.z = -10;
+            camera.position = this.getGameCameraPosition();
             camera.setTarget(BABYLON.Vector3.Zero());
         };
         DrawingService.prototype.setManageCameraPosition = function (camera, group, scene) {
@@ -773,6 +847,10 @@ var Services;
                     pickedObject.pickedObjectType = MonopolyApp.Viewmodels.PickedObjectType.RemoveHouse;
                     pickedObject.position = Number(pickResult.pickedMesh.name.substring(18));
                 }
+                if (pickResult.pickedMesh && (pickResult.pickedMesh.name.substring(0, 6) === "Boole_" || pickResult.pickedMesh.name === "Dice_obj")) {
+                    pickedObject.pickedObjectType = MonopolyApp.Viewmodels.PickedObjectType.Dice;
+                    pickedObject.pickedPoint = pickResult.pickedPoint;
+                }
                 return pickedObject;
             }
             return undefined;
@@ -780,9 +858,11 @@ var Services;
         DrawingService.prototype.createBoard = function (scene) {
             var board = BABYLON.Mesh.CreateGround(this.groundMeshName, this.boardSize, this.boardSize, 2, scene);
             var boardMaterial = new BABYLON.StandardMaterial("boardTexture", scene);
-            boardMaterial.emissiveTexture = new BABYLON.Texture("images/Gameboard.png", scene);
-            boardMaterial.diffuseTexture = new BABYLON.Texture("images/Gameboard.png", scene);
+            boardMaterial.emissiveTexture = new BABYLON.Texture("images/Gameboard-Model.png", scene);
+            boardMaterial.diffuseTexture = new BABYLON.Texture("images/Gameboard-Model.png", scene);
             board.material = boardMaterial;
+            board.setPhysicsState({ impostor: BABYLON.PhysicsEngine.BoxImpostor, mass: 0, friction: 0.5, restitution: 0.5 });
+            board.checkCollisions = true;
         };
         DrawingService.prototype.setBoardFieldOwner = function (boardField, asset, scene) {
             var _this = this;
@@ -886,6 +966,7 @@ var Services;
             });
             var d = $.Deferred();
             meshLoads.push(d);
+            var that = this;
             BABYLON.SceneLoader.ImportMesh(null, "meshes/", "house2.babylon", scene, function (newMeshes, particleSystems) {
                 if (newMeshes != null) {
                     var mesh = newMeshes[0];
@@ -898,8 +979,43 @@ var Services;
                     mesh.position.x = 5;
                     mesh.position.z = -5;
                     mesh.visibility = 0;
-                    _this.houseMeshTemplate = mesh;
+                    that.houseMeshTemplate = mesh;
                     d.resolve(gameController);
+                }
+            });
+            var d1 = $.Deferred();
+            meshLoads.push(d1);
+            var that = this;
+            BABYLON.SceneLoader.ImportMesh(null, "meshes/", "dice.babylon", scene, function (newMeshes, particleSystems) {
+                if (newMeshes != null) {
+                    var mesh = newMeshes[0];
+                    mesh.position.x = 0;
+                    mesh.position.z = 0;
+                    mesh.position.y = 0.18;
+                    //// DEBUGGING
+                    ////var vector = new BABYLON.Vector3(1.57, 0.21, 0);
+                    ////var quaternion = new BABYLON.Quaternion(0, 0, 0, 0);
+                    ////mesh.rotationQuaternion = quaternion; //vector.toQuaternion(); //new BABYLON.Quaternion(-0.75, 0, 0, -0.75);
+                    ////var rotationMatrix = new BABYLON.Matrix();
+                    ////quaternion.toRotationMatrix(rotationMatrix);
+                    ////vector = new BABYLON.Vector3(0, 0, 1);
+                    ////var x = 2;
+                    ////if (x > 1) {
+                    ////    mesh.rotate(vector, 0.3);
+                    ////}
+                    that.diceMesh = mesh;
+                    /*
+                    since the dice mesh has no bounding box assigned (required by the physics calculations), we borrow it from a temporary box object;
+                    the size of the impostor box is determined by the bounding box of the dice shell mesh (newMeshes[1].getBoundingInfo().boundingBox.minimum & maximum), divided
+                    by the dice mesh scaling factor (defined in the .babylon file)
+                    */
+                    var diceMeshImpostor = BABYLON.Mesh.CreateBox("dice", 120, scene);
+                    diceMeshImpostor.position.x = 5;
+                    //diceMeshImpostor.scaling = new BABYLON.Vector3(0.003, 0.003, 0.003);
+                    that.diceMesh.getBoundingInfo().boundingBox = diceMeshImpostor.getBoundingInfo().boundingBox;
+                    scene.removeMesh(diceMeshImpostor);
+                    that.diceMesh.checkCollisions = true;
+                    d1.resolve(gameController);
                 }
             });
             this.houseButtonMeshTemplate = BABYLON.Mesh.CreateGround("houseButton", 0.3, 0.3, 2, scene, true);
@@ -1184,6 +1300,68 @@ var Services;
             }
             this.houseRemoveButtonMeshes = [];
         };
+        /*
+        This has been coded with the help of http://www.euclideanspace.com/maths/discrete/groups/categorise/finite/cube/
+        */
+        DrawingService.prototype.getDiceResult = function () {
+            var rotationMatrix = new BABYLON.Matrix();
+            this.diceMesh.rotationQuaternion.toRotationMatrix(rotationMatrix);
+            if (this.epsilonCompare(rotationMatrix.m[0], 0) && this.epsilonCompare(rotationMatrix.m[1], 1) && this.epsilonCompare(rotationMatrix.m[2], 0) && this.epsilonCompare(rotationMatrix.m[5], 0) && this.epsilonCompare(rotationMatrix.m[9], 0)) {
+                return 1;
+            }
+            if (this.epsilonCompare(rotationMatrix.m[0], 0) && this.epsilonCompare(rotationMatrix.m[1], -1) && this.epsilonCompare(rotationMatrix.m[2], 0) && this.epsilonCompare(rotationMatrix.m[5], 0) && this.epsilonCompare(rotationMatrix.m[9], 0)) {
+                return 2;
+            }
+            if (this.epsilonCompare(rotationMatrix.m[1], 0) && this.epsilonCompare(rotationMatrix.m[4], 0) && this.epsilonCompare(rotationMatrix.m[5], -1) && this.epsilonCompare(rotationMatrix.m[6], 0) && this.epsilonCompare(rotationMatrix.m[9], 0)) {
+                return 3;
+            }
+            if (this.epsilonCompare(rotationMatrix.m[1], 0) && this.epsilonCompare(rotationMatrix.m[4], 0) && this.epsilonCompare(rotationMatrix.m[5], 1) && this.epsilonCompare(rotationMatrix.m[6], 0) && this.epsilonCompare(rotationMatrix.m[9], 0)) {
+                return 4;
+            }
+            if (this.epsilonCompare(rotationMatrix.m[1], 0) && this.epsilonCompare(rotationMatrix.m[5], 0) && this.epsilonCompare(rotationMatrix.m[8], 0) && this.epsilonCompare(rotationMatrix.m[9], -1) && this.epsilonCompare(rotationMatrix.m[10], 0)) {
+                return 5;
+            }
+            if (this.epsilonCompare(rotationMatrix.m[1], 0) && this.epsilonCompare(rotationMatrix.m[5], 0) && this.epsilonCompare(rotationMatrix.m[8], 0) && this.epsilonCompare(rotationMatrix.m[9], 1) && this.epsilonCompare(rotationMatrix.m[10], 0)) {
+                return 6;
+            }
+            return 0;
+        };
+        // get the rotation required for the camera to face the target; position determines the camera position, if it is not equal to its current position
+        DrawingService.prototype.getCameraRotationForTarget = function (target, camera, position) {
+            var rotation = new BABYLON.Vector3(0, 0, 0);
+            //this.upVector.normalize();
+            BABYLON.Matrix.LookAtLHToRef(position ? position : camera.position, target, camera.upVector, camera._camMatrix);
+            var invertedCamMatrix = camera._camMatrix.invert();
+            rotation.x = Math.atan(invertedCamMatrix.m[6] / invertedCamMatrix.m[10]);
+            var vDir = target.subtract(camera.position);
+            if (vDir.x >= 0.0) {
+                rotation.y = (-Math.atan(vDir.z / vDir.x) + Math.PI / 2.0);
+            }
+            else {
+                rotation.y = (-Math.atan(vDir.z / vDir.x) - Math.PI / 2.0);
+            }
+            rotation.z = -Math.acos(BABYLON.Vector3.Dot(new BABYLON.Vector3(0, 1.0, 0), camera.upVector));
+            if (isNaN(rotation.x)) {
+                rotation.x = 0;
+            }
+            if (isNaN(rotation.y)) {
+                rotation.y = 0;
+            }
+            if (isNaN(rotation.z)) {
+                rotation.z = 0;
+            }
+            return rotation;
+        };
+        DrawingService.prototype.epsilonCompare = function (v1, v2) {
+            if (Math.abs(v1 - v2) < 0.02) {
+                return true;
+            }
+            return false;
+        };
+        DrawingService.prototype.getGameCameraPosition = function () {
+            // TODO: vary depending on current player position
+            return new BABYLON.Vector3(0, 5, -10);
+        };
         DrawingService.$inject = ["$http", "gameService"];
         return DrawingService;
     })();
@@ -1271,6 +1449,8 @@ var Services;
         Object.defineProperty(GameService.prototype, "canBuy", {
             get: function () {
                 var _this = this;
+                // temporarily
+                return false;
                 if (this.game.getState() === Model.GameState.Process) {
                     var currentPosition = this.getCurrentPlayerPosition();
                     if (currentPosition.type === Model.BoardFieldType.Asset) {
@@ -1297,6 +1477,13 @@ var Services;
             enumerable: true,
             configurable: true
         });
+        Object.defineProperty(GameService.prototype, "gameState", {
+            get: function () {
+                return this.game.getState();
+            },
+            enumerable: true,
+            configurable: true
+        });
         GameService.prototype.setPlayerPosition = function (player, boardFieldIndex) {
             player.position = this.game.board.fields[boardFieldIndex];
             var previousFields = this.game.board.fields.filter(function (b) { return b.occupiedBy != null && b.occupiedBy.filter(function (ocb) { return ocb === player.playerName; }).length > 0; });
@@ -1308,8 +1495,6 @@ var Services;
         };
         GameService.prototype.throwDice = function () {
             this.game.setState(Model.GameState.ThrowDice);
-            this.lastDiceResult1 = 1;
-            this.lastDiceResult2 = 0;
         };
         GameService.prototype.buy = function () {
             var _this = this;
@@ -1428,7 +1613,7 @@ var Services;
             var _this = this;
             var monopoly = true;
             // temporarily
-            return monopoly;
+            //return monopoly;
             if (assetGroup < Model.AssetGroup.First || assetGroup > Model.AssetGroup.Eighth) {
                 monopoly = false;
             }
@@ -1545,8 +1730,7 @@ var Services;
             return true;
         };
         GameService.prototype.canUpgradeAsset = function (asset, playerName) {
-            // temporarily
-            if (!asset /*|| asset.unowned || asset.owner !== playerName*/ || !this.hasMonopoly(playerName, asset.group)) {
+            if (!asset || asset.unowned || asset.owner !== playerName || !this.hasMonopoly(playerName, asset.group)) {
                 return false;
             }
             if (asset.hotel) {
@@ -1555,6 +1739,10 @@ var Services;
             var player = this.players.filter(function (p) { return p.playerName === playerName; })[0];
             var requiredPrice = !asset.houses || asset.houses <= 3 ? asset.getPriceForHouseDuringManage(false) : asset.getPriceForHotelDuringManage(false);
             return player.money >= requiredPrice;
+        };
+        GameService.prototype.setDiceResult = function (diceResult) {
+            this.lastDiceResult1 = diceResult;
+            this.lastDiceResult2 = 0;
         };
         GameService.prototype.initPlayers = function () {
             var settings = this.settingsService.loadSettings();
@@ -1597,6 +1785,7 @@ var MonopolyApp;
                 this.availableActions = new MonopolyApp.Viewmodels.AvailableActions();
                 this.setAvailableActions();
                 this.messages = [];
+                $(window).on("click", null, this, this.handleClickEvent);
                 this.swipeService.bind($("#renderCanvas"), {
                     'move': function (coords) { _this.swipeMove(coords); },
                     'end': function (coords, event) { _this.swipeEnd(coords, event); },
@@ -1620,14 +1809,32 @@ var MonopolyApp;
             GameController.prototype.initGame = function () {
                 this.gameService.initGame();
             };
-            GameController.prototype.throwDice = function () {
+            GameController.prototype.setupThrowDice = function () {
                 if (this.gameService.canThrowDice) {
                     this.gameService.throwDice();
-                    var oldPosition = this.gameService.getCurrentPlayerPosition();
-                    var newPosition = this.gameService.moveCurrentPlayer();
-                    this.animateMove(oldPosition, newPosition);
-                    this.setAvailableActions();
-                    this.processDestinationField();
+                    this.gameCamera.position.z = -4;
+                    this.drawingService.setupDiceForThrow(this.scene);
+                }
+            };
+            GameController.prototype.throwDice = function (impulsePoint) {
+                //if (this.gameService.canThrowDice) {
+                if (this.gameService.gameState === Model.GameState.ThrowDice) {
+                    this.diceThrowCompleted = $.Deferred();
+                    this.drawingService.animateDiceThrow(impulsePoint, this.scene);
+                    var that = this;
+                    $.when(this.diceThrowCompleted).done(function () {
+                        that.gameService.setDiceResult(that.drawingService.getDiceResult());
+                        var cameraMovementCompleted = that.drawingService.returnCameraToMainPosition(that.scene, that.gameCamera);
+                        $.when(cameraMovementCompleted).done(function () {
+                            var oldPosition = that.gameService.getCurrentPlayerPosition();
+                            var newPosition = that.gameService.moveCurrentPlayer();
+                            that.animateMove(oldPosition, newPosition);
+                            that.scope.$apply(function () {
+                                that.setAvailableActions();
+                                that.processDestinationField();
+                            });
+                        });
+                    });
                 }
             };
             GameController.prototype.buy = function () {
@@ -1650,15 +1857,11 @@ var MonopolyApp;
                     this.setAvailableActions();
                     $("#commandPanel").hide();
                     $("#manageCommandPanel").show();
-                    //var that = this;
-                    //this.timeoutService(() => { $(window).on("click", null, that, that.handleClickEvent); }, 1000, false);
-                    //this.scope.$evalAsync(() => { $(window).on("click", null, that, that.handleClickEvent); });
-                    $(window).on("click", null, this, this.handleClickEvent);
                 }
             };
             GameController.prototype.returnFromManage = function () {
                 this.manageMode = false;
-                $(window).off("click", this.handleClickEvent);
+                //$(window).off("click", this.handleClickEvent);
                 this.closeAssetManagementWindow();
                 this.scene.activeCamera = this.gameCamera;
                 this.gameService.returnFromManage();
@@ -1689,7 +1892,19 @@ var MonopolyApp;
                 var canvas = document.getElementById("renderCanvas");
                 var engine = new BABYLON.Engine(canvas, true);
                 var theScene = this.createBoard(engine, canvas);
+                var that = this;
                 engine.runRenderLoop(function () {
+                    if (that.gameService.gameState === Model.GameState.ThrowDice) {
+                        if (that.drawingService.isDiceAtRestAfterThrowing(theScene)) {
+                            that.diceThrowCompleted.resolve();
+                        }
+                        else {
+                            var dicePhysicsLocation = that.drawingService.getDiceLocation(that.scene);
+                            if (dicePhysicsLocation) {
+                                that.gameCamera.setTarget(new BABYLON.Vector3(dicePhysicsLocation.x, dicePhysicsLocation.y, dicePhysicsLocation.z));
+                            }
+                        }
+                    }
                     theScene.render();
                 });
                 window.addEventListener("resize", function () {
@@ -1703,6 +1918,8 @@ var MonopolyApp;
             GameController.prototype.createBoard = function (engine, canvas) {
                 // This creates a basic Babylon Scene object (non-mesh)
                 this.scene = new BABYLON.Scene(engine);
+                this.scene.enablePhysics(new BABYLON.Vector3(0, -10, 0), new BABYLON.CannonJSPlugin());
+                this.scene.setGravity(new BABYLON.Vector3(0, -10, 0));
                 // This creates and positions a free camera (non-mesh)
                 this.gameCamera = new BABYLON.FreeCamera("camera1", BABYLON.Vector3.Zero(), this.scene);
                 this.drawingService.setGameCameraPosition(this.gameCamera);
@@ -1763,7 +1980,7 @@ var MonopolyApp;
             GameController.prototype.animateMove = function (oldPosition, newPosition) {
                 var _this = this;
                 var playerModel = this.players.filter(function (p) { return p.name === _this.gameService.getCurrentPlayer(); })[0];
-                this.drawingService.animatePlayerMove(oldPosition, newPosition, playerModel);
+                this.drawingService.animatePlayerMove(oldPosition, newPosition, playerModel, this.scene);
             };
             GameController.prototype.showDeed = function () {
                 this.assetToBuy = this.gameService.getCurrentPlayerPosition().asset;
@@ -1836,6 +2053,12 @@ var MonopolyApp;
                     }
                     else if (pickedObject && pickedObject.pickedObjectType === MonopolyApp.Viewmodels.PickedObjectType.RemoveHouse) {
                         thisInstance.removeHousePreview(pickedObject.position);
+                    }
+                }
+                if (thisInstance.gameService.gameState === Model.GameState.ThrowDice && !thisInstance.swipeInProgress) {
+                    var pickedObject2 = thisInstance.drawingService.pickBoardElement(thisInstance.scene);
+                    if (pickedObject2 && pickedObject2.pickedObjectType === MonopolyApp.Viewmodels.PickedObjectType.Dice) {
+                        thisInstance.throwDice(pickedObject2.pickedPoint);
                     }
                 }
             };
@@ -2047,6 +2270,7 @@ var MonopolyApp;
             PickedObjectType[PickedObjectType["BoardField"] = 1] = "BoardField";
             PickedObjectType[PickedObjectType["AddHouse"] = 2] = "AddHouse";
             PickedObjectType[PickedObjectType["RemoveHouse"] = 3] = "RemoveHouse";
+            PickedObjectType[PickedObjectType["Dice"] = 4] = "Dice";
         })(Viewmodels.PickedObjectType || (Viewmodels.PickedObjectType = {}));
         var PickedObjectType = Viewmodels.PickedObjectType;
         ;

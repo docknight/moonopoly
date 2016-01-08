@@ -22,6 +22,7 @@ module MonopolyApp.controllers {
         private swipeInProgress: boolean;
         private confirmButtonCallback: (data: any) => void; // callbacks currently assigned to action buttons
         private cancelButtonCallback: (data: any) => void;
+        private diceThrowCompleted: JQueryDeferred<{}>;
 
         availableActions: Viewmodels.AvailableActions;
         assetToBuy: Model.Asset; // asset currently available for purchase
@@ -49,6 +50,7 @@ module MonopolyApp.controllers {
             this.availableActions = new Viewmodels.AvailableActions();
             this.setAvailableActions();
             this.messages = [];
+            $(window).on("click", null, this, this.handleClickEvent);
             this.swipeService.bind($("#renderCanvas"), {
                 'move': (coords) => { this.swipeMove(coords); },
                 'end': (coords, event) => { this.swipeEnd(coords, event); },
@@ -60,14 +62,32 @@ module MonopolyApp.controllers {
             this.gameService.initGame();
         }
 
-        throwDice() {
+        setupThrowDice() {
             if (this.gameService.canThrowDice) {
                 this.gameService.throwDice();
-                var oldPosition = this.gameService.getCurrentPlayerPosition();
-                var newPosition = this.gameService.moveCurrentPlayer();
-                this.animateMove(oldPosition, newPosition);
-                this.setAvailableActions();
-                this.processDestinationField();                
+                this.gameCamera.position.z = -4;
+                this.drawingService.setupDiceForThrow(this.scene);
+            }
+        }
+
+        throwDice(impulsePoint?: BABYLON.Vector3) {
+            if (this.gameService.gameState === Model.GameState.ThrowDice) {
+                this.diceThrowCompleted = $.Deferred();
+                this.drawingService.animateDiceThrow(impulsePoint, this.scene);
+                var that = this;
+                $.when(this.diceThrowCompleted).done(() => {
+                    that.gameService.setDiceResult(that.drawingService.getDiceResult());
+                    var cameraMovementCompleted = that.drawingService.returnCameraToMainPosition(that.scene, that.gameCamera);
+                    $.when(cameraMovementCompleted).done(() => {
+                        var oldPosition = that.gameService.getCurrentPlayerPosition();
+                        var newPosition = that.gameService.moveCurrentPlayer();
+                        that.animateMove(oldPosition, newPosition);
+                        that.scope.$apply(() => {
+                            that.setAvailableActions();
+                            that.processDestinationField();
+                        });
+                    });
+                });
             }
         }
 
@@ -95,13 +115,14 @@ module MonopolyApp.controllers {
                 //var that = this;
                 //this.timeoutService(() => { $(window).on("click", null, that, that.handleClickEvent); }, 1000, false);
                 //this.scope.$evalAsync(() => { $(window).on("click", null, that, that.handleClickEvent); });
-                $(window).on("click", null, this, this.handleClickEvent);
+                
+                //$(window).on("click", null, this, this.handleClickEvent);
             }
         }
 
         returnFromManage() {
             this.manageMode = false;
-            $(window).off("click", this.handleClickEvent);
+            //$(window).off("click", this.handleClickEvent);
             this.closeAssetManagementWindow();            
             this.scene.activeCamera = this.gameCamera;
             this.gameService.returnFromManage();
@@ -137,7 +158,18 @@ module MonopolyApp.controllers {
             var canvas = <HTMLCanvasElement>document.getElementById("renderCanvas");
             var engine = new BABYLON.Engine(canvas, true);
             var theScene = this.createBoard(engine, canvas);
-            engine.runRenderLoop(function () {
+            var that = this;
+            engine.runRenderLoop(() => {
+                if (that.gameService.gameState === Model.GameState.ThrowDice) {
+                    if (that.drawingService.isDiceAtRestAfterThrowing(theScene)) {
+                        that.diceThrowCompleted.resolve();
+                    } else {
+                        var dicePhysicsLocation = that.drawingService.getDiceLocation(that.scene);
+                        if (dicePhysicsLocation) {
+                            that.gameCamera.setTarget(new BABYLON.Vector3(dicePhysicsLocation.x, dicePhysicsLocation.y, dicePhysicsLocation.z));
+                        }
+                    }
+                }
                 theScene.render();
             });
             window.addEventListener("resize", function () {
@@ -153,6 +185,8 @@ module MonopolyApp.controllers {
         private createBoard(engine, canvas) {
             // This creates a basic Babylon Scene object (non-mesh)
             this.scene = new BABYLON.Scene(engine);
+            this.scene.enablePhysics(new BABYLON.Vector3(0, -10, 0), new BABYLON.CannonJSPlugin());
+            this.scene.setGravity(new BABYLON.Vector3(0, -10, 0));
 
             // This creates and positions a free camera (non-mesh)
             this.gameCamera = new BABYLON.FreeCamera("camera1", BABYLON.Vector3.Zero(), this.scene);
@@ -222,7 +256,7 @@ module MonopolyApp.controllers {
 
         private animateMove(oldPosition: Model.BoardField, newPosition: Model.BoardField) {
             var playerModel = this.players.filter(p => p.name === this.gameService.getCurrentPlayer())[0];
-            this.drawingService.animatePlayerMove(oldPosition, newPosition, playerModel);
+            this.drawingService.animatePlayerMove(oldPosition, newPosition, playerModel, this.scene);
         }
 
         private showDeed() {
@@ -294,6 +328,13 @@ module MonopolyApp.controllers {
                     thisInstance.addHousePreview(pickedObject.position);
                 } else if (pickedObject && pickedObject.pickedObjectType === Viewmodels.PickedObjectType.RemoveHouse) {
                     thisInstance.removeHousePreview(pickedObject.position);
+                }
+            }
+
+            if (thisInstance.gameService.gameState === Model.GameState.ThrowDice && !thisInstance.swipeInProgress) {
+                var pickedObject2 = thisInstance.drawingService.pickBoardElement(thisInstance.scene);
+                if (pickedObject2 && pickedObject2.pickedObjectType === Viewmodels.PickedObjectType.Dice) {
+                    thisInstance.throwDice(pickedObject2.pickedPoint);
                 }
             }
         }

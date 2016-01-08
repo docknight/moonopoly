@@ -57,6 +57,8 @@ module Services {
         }
 
         get canBuy() {
+            // temporarily
+            return false;
             if (this.game.getState() === Model.GameState.Process) {
                 var currentPosition = this.getCurrentPlayerPosition();
                 if (currentPosition.type === Model.BoardFieldType.Asset) {
@@ -79,6 +81,10 @@ module Services {
             return true;
         }
 
+        get gameState(): Model.GameState {
+            return this.game.getState();
+        }
+
         setPlayerPosition(player: Model.Player, boardFieldIndex: number) {
             player.position = this.game.board.fields[boardFieldIndex];
             var previousFields = this.game.board.fields.filter(b => b.occupiedBy != null && b.occupiedBy.filter(ocb => ocb === player.playerName).length > 0);
@@ -92,8 +98,6 @@ module Services {
 
         throwDice() {
             this.game.setState(Model.GameState.ThrowDice);
-            this.lastDiceResult1 = 1;
-            this.lastDiceResult2 = 0;
         }
 
         buy(): boolean {
@@ -353,6 +357,11 @@ module Services {
             var player = this.players.filter(p => p.playerName === playerName)[0];
             var requiredPrice = !asset.houses || asset.houses <= 3 ? asset.getPriceForHouseDuringManage(false) : asset.getPriceForHotelDuringManage(false);
             return player.money >= requiredPrice;
+        }
+
+        setDiceResult(diceResult: number) {
+            this.lastDiceResult1 = diceResult;
+            this.lastDiceResult2 = 0;
         }
 
         private initPlayers() {
