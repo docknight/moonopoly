@@ -3,5 +3,6 @@
         name: string;
         money: number;
         mesh: BABYLON.AbstractMesh;
+        index: number;
     }
 }

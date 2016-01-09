@@ -693,6 +693,7 @@ var Services;
             this.boardFieldHeight = this.boardFieldWidth * 2;
             this.boardFieldEdgeWidth = this.boardFieldWidth * 2;
             this.initQuadrantStartingCoordinates();
+            this.dicePosition = new BABYLON.Vector3(0, 3, 0);
         }
         Object.defineProperty(DrawingService.prototype, "boardSize", {
             /// board dimenzion in both, X and Z directions
@@ -702,47 +703,71 @@ var Services;
             enumerable: true,
             configurable: true
         });
+        Object.defineProperty(DrawingService.prototype, "framesToMoveOneBoardField", {
+            // number of frames to animate player move between two neighbouring fields
+            get: function () {
+                return 10;
+            },
+            enumerable: true,
+            configurable: true
+        });
         DrawingService.prototype.positionPlayer = function (playerModel) {
             var player = this.gameService.players.filter(function (player, index) { return player.playerName === playerModel.name; })[0];
+            var playerCoordinate = this.getPlayerPositionOnBoardField(playerModel, player.position.index);
             var playerQuadrant = Math.floor(player.position.index / (this.boardFieldsInQuadrant - 1));
             var playerQuadrantOffset = player.position.index % (this.boardFieldsInQuadrant - 1);
-            var playerCoordinate = new MonopolyApp.Viewmodels.Coordinate();
-            playerCoordinate.x = this.quadrantStartingCoordinate[playerQuadrant].x;
-            playerCoordinate.z = this.quadrantStartingCoordinate[playerQuadrant].z;
-            playerCoordinate[this.getQuadrantRunningCoordinate(playerQuadrant)] += playerQuadrantOffset * this.boardFieldWidth * this.getQuadrantRunningDirection(playerQuadrant);
-            // now that the player is positioned on the board field corner, position him inside the field
-            var playersInField = player.position.occupiedBy.length;
-            var playerIndexInField = player.position.occupiedBy.indexOf(player.playerName);
-            var offset = ((playerQuadrantOffset === 0 ? this.boardFieldEdgeWidth : this.boardFieldWidth) / (playersInField + 1)) * (playerIndexInField + 1);
-            playerCoordinate[this.getQuadrantRunningCoordinate(playerQuadrant)] += offset * this.getQuadrantRunningDirection(playerQuadrant) * -1;
             playerModel.mesh.position.x = playerCoordinate.x;
             playerModel.mesh.position.z = playerCoordinate.z;
+            playerModel.mesh.rotationQuaternion = this.getPlayerRotationOnBoardField(playerModel, player.position.index);
         };
-        DrawingService.prototype.animatePlayerMove = function (oldPositionIndex, newPosition, playerModel, scene) {
-            this.positionPlayer(playerModel);
+        DrawingService.prototype.animatePlayerMove = function (oldPosition, newPosition, playerModel, scene) {
+            var positionKeys = [];
+            var rotationKeys = [];
+            var framesForField = this.framesToMoveOneBoardField;
+            var framesForRotation = this.framesToMoveOneBoardField * 2;
+            var runningFrame = 0;
+            var runningField = 0;
+            var fieldsToTravel = newPosition.index >= oldPosition.index ? newPosition.index - oldPosition.index : 40 - oldPosition.index + newPosition.index;
+            while (runningField <= fieldsToTravel) {
+                var runningPosition = (oldPosition.index + runningField) % 40;
+                if (runningField > 0) {
+                    if ((oldPosition.index + runningField) % 10 === 0) {
+                        runningFrame += framesForRotation;
+                    }
+                    else {
+                        runningFrame += framesForField;
+                    }
+                }
+                var coordinate = this.getPlayerPositionOnBoardField(playerModel, runningPosition);
+                var playerPosition = new BABYLON.Vector3(coordinate.x, playerModel.mesh.position.y, coordinate.z);
+                positionKeys.push({ frame: runningFrame, value: playerPosition });
+                rotationKeys.push({ frame: runningFrame, value: this.getPlayerRotationOnBoardField(playerModel, runningPosition) });
+                runningField++;
+            }
+            var animationplayerPosition = new BABYLON.Animation("playerPositionAnimation", "position", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
+            var animationplayerRotation = new BABYLON.Animation("playerRotationAnimation", "rotationQuaternion", 30, BABYLON.Animation.ANIMATIONTYPE_QUATERNION, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
+            animationplayerPosition.setKeys(positionKeys);
+            animationplayerRotation.setKeys(rotationKeys);
+            playerModel.mesh.animations.push(animationplayerPosition);
+            playerModel.mesh.animations.push(animationplayerRotation);
+            var d = $.Deferred();
+            scene.beginAnimation(playerModel.mesh, 0, /*totalFrames*/ runningFrame, false, undefined, function () { d.resolve(); });
+            return d;
+            //this.positionPlayer(playerModel);
         };
         DrawingService.prototype.setupDiceForThrow = function (scene) {
-            this.diceMesh.position.x = 0;
-            this.diceMesh.position.y = 2;
-            this.diceMesh.position.z = 0;
+            this.diceMesh.position.x = this.dicePosition.x;
+            this.diceMesh.position.y = this.dicePosition.y;
+            this.diceMesh.position.z = this.dicePosition.z;
             var physicsEngine = scene.getPhysicsEngine();
             physicsEngine._unregisterMesh(this.diceMesh);
         };
-        DrawingService.prototype.animateDiceThrow = function (impulsePoint, scene) {
-            this.numFramesDiceIsAtRest = 0;
-            this.diceMesh.setPhysicsState({ impostor: BABYLON.PhysicsEngine.BoxImpostor, mass: 0.2, friction: 0.5, restitution: 0.5 });
-            this.diceMesh.checkCollisions = true;
-            var dir = impulsePoint.subtract(scene.activeCamera.position);
-            dir.normalize();
-            this.diceMesh.applyImpulse(dir.scale(0.1), impulsePoint);
-            this.throwingDice = true;
-        };
-        // animates camera back to the base viewing position; returns the deferred object that will be resolved when the animation finishes
-        DrawingService.prototype.returnCameraToMainPosition = function (scene, camera) {
-            var d = $.Deferred();
-            var animationCameraPosition = new BABYLON.Animation("myAnimation", "position", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
-            var animationCameraRotation = new BABYLON.Animation("myAnimation2", "rotation", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
-            var finalCameraPosition = this.getGameCameraPosition();
+        DrawingService.prototype.moveCameraForDiceThrow = function (scene, camera, currentPlayerPosition) {
+            var animationCameraPosition = new BABYLON.Animation("cameraDiceThrowMoveAnimation", "position", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
+            var animationCameraRotation = new BABYLON.Animation("cameraDiceThrowRotateAnimation", "rotation", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
+            var topCenter = this.getPositionCoordinate(currentPlayerPosition.index);
+            var cameraDirection = new BABYLON.Vector3(topCenter.x, 6, topCenter.z).subtract(this.dicePosition).normalize();
+            var finalCameraPosition = this.dicePosition.add(new BABYLON.Vector3(cameraDirection.x * 1.5, cameraDirection.y * 1.5, cameraDirection.z * 1.5)); //this.getGameCameraPosition(currentPlayerPosition);
             var keys = [];
             keys.push({
                 frame: 0,
@@ -759,13 +784,72 @@ var Services;
             });
             keysRotation.push({
                 frame: 30,
-                value: this.getCameraRotationForTarget(new BABYLON.Vector3(0, 0, 0), camera, finalCameraPosition)
+                value: this.getCameraRotationForTarget(this.dicePosition, camera, finalCameraPosition)
             });
+            // make sure the starting and ending rotation angle are at the same side of the numeric scale; Math.Pi and -Math.Pi are the same in terms of object rotation, but for
+            // computer animation, this is a 360 degree spin, which is undesirable...
+            if (keysRotation[0].value.y < 0 && keysRotation[1].value.y >= 0) {
+                keysRotation[0].value.y = Math.PI + Math.PI + keysRotation[0].value.y;
+            }
+            if (keysRotation[0].value.y >= 0 && keysRotation[1].value.y < 0) {
+                keysRotation[0].value.y = -Math.PI - Math.PI + keysRotation[0].value.y;
+            }
             animationCameraPosition.setKeys(keys);
             animationCameraRotation.setKeys(keysRotation);
             camera.animations.push(animationCameraPosition);
             camera.animations.push(animationCameraRotation);
-            scene.beginAnimation(camera, 0, 60, false, undefined, function () { d.resolve(); });
+            scene.beginAnimation(camera, 0, 30, false, undefined, function () { });
+        };
+        DrawingService.prototype.animateDiceThrow = function (impulsePoint, scene) {
+            this.numFramesDiceIsAtRest = 0;
+            this.diceMesh.setPhysicsState({ impostor: BABYLON.PhysicsEngine.BoxImpostor, mass: 0.2, friction: 0.5, restitution: 0.5 });
+            this.diceMesh.checkCollisions = true;
+            var dir = impulsePoint.subtract(scene.activeCamera.position);
+            dir.normalize();
+            this.diceMesh.applyImpulse(dir.scale(0.1), impulsePoint);
+            this.throwingDice = true;
+        };
+        // animates camera back to the base viewing position; returns the deferred object that will be resolved when the animation finishes
+        DrawingService.prototype.returnCameraToMainPosition = function (scene, camera, currentPlayerPositionIndex, numFrames) {
+            var d = $.Deferred();
+            var animationCameraPosition = new BABYLON.Animation("myAnimation", "position", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
+            var animationCameraRotation = new BABYLON.Animation("myAnimation2", "rotation", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
+            var finalCameraPosition = this.getGameCameraPosition(currentPlayerPositionIndex);
+            var keys = [];
+            keys.push({
+                frame: 0,
+                value: camera.position
+            });
+            keys.push({
+                frame: numFrames ? numFrames : 30,
+                value: finalCameraPosition
+            });
+            var keysRotation = [];
+            keysRotation.push({
+                frame: 0,
+                value: camera.rotation
+            });
+            keysRotation.push({
+                frame: numFrames ? numFrames : 30,
+                value: this.getCameraRotationForTarget(new BABYLON.Vector3(0, 0, 0), camera, finalCameraPosition)
+            });
+            // make sure the starting and ending rotation angle are at the same side of the numeric scale; Math.Pi and -Math.Pi are the same in terms of object rotation, but for
+            // computer animation, this is a 360 degree spin, which is undesirable...
+            if (keysRotation[0].value.y < 0 && keysRotation[1].value.y >= 0) {
+                keysRotation[0].value.y = Math.PI + Math.PI + keysRotation[0].value.y;
+            }
+            if (keysRotation[0].value.y >= 0 && keysRotation[1].value.y < 0) {
+                keysRotation[0].value.y = -Math.PI - Math.PI + keysRotation[0].value.y;
+            }
+            animationCameraPosition.setKeys(keys);
+            animationCameraRotation.setKeys(keysRotation);
+            camera.animations.splice(0, camera.animations.length);
+            camera.animations.push(animationCameraPosition);
+            camera.animations.push(animationCameraRotation);
+            var speedRatio = 1;
+            scene.beginAnimation(camera, 0, numFrames ? numFrames : 30, false, speedRatio, function () {
+                d.resolve();
+            });
             return d;
         };
         DrawingService.prototype.isDiceAtRestAfterThrowing = function (scene) {
@@ -798,7 +882,7 @@ var Services;
             return undefined;
         };
         DrawingService.prototype.setGameCameraPosition = function (camera) {
-            camera.position = this.getGameCameraPosition();
+            camera.position = this.getGameCameraPosition(this.gameService.getCurrentPlayerPosition().index);
             camera.setTarget(BABYLON.Vector3.Zero());
         };
         DrawingService.prototype.setManageCameraPosition = function (camera, group, scene) {
@@ -863,6 +947,14 @@ var Services;
             board.material = boardMaterial;
             board.setPhysicsState({ impostor: BABYLON.PhysicsEngine.BoxImpostor, mass: 0, friction: 0.5, restitution: 0.5 });
             board.checkCollisions = true;
+            var table = BABYLON.Mesh.CreateGround("tableMesh", 20, 13.33, 2, scene);
+            var tableMaterial = new BABYLON.StandardMaterial("boardTexture", scene);
+            tableMaterial.emissiveTexture = new BABYLON.Texture("images/wood_texture.jpg", scene);
+            tableMaterial.diffuseTexture = new BABYLON.Texture("images/wood_texture.jpg", scene);
+            table.material = tableMaterial;
+            table.position.y = -0.01;
+            table.setPhysicsState({ impostor: BABYLON.PhysicsEngine.BoxImpostor, mass: 0, friction: 0.5, restitution: 0.5 });
+            table.checkCollisions = true;
         };
         DrawingService.prototype.setBoardFieldOwner = function (boardField, asset, scene) {
             var _this = this;
@@ -1109,7 +1201,6 @@ var Services;
             return pickedObject;
         };
         DrawingService.prototype.showActionButtons = function () {
-            // sdf
         };
         DrawingService.prototype.initQuadrantStartingCoordinates = function () {
             this.quadrantStartingCoordinate = [];
@@ -1300,12 +1391,36 @@ var Services;
             }
             this.houseRemoveButtonMeshes = [];
         };
+        DrawingService.prototype.getPlayerPositionOnBoardField = function (playerModel, positionIndex) {
+            var playerQuadrant = Math.floor(positionIndex / (this.boardFieldsInQuadrant - 1));
+            var playerQuadrantOffset = positionIndex % (this.boardFieldsInQuadrant - 1);
+            var playerCoordinate = this.getPositionCoordinate(positionIndex);
+            var heightCoordinate = this.getQuadrantRunningCoordinate(playerQuadrant) === "x" ? "z" : "x";
+            var heightDirection = playerQuadrant === 0 || playerQuadrant === 1 ? -1 : 1;
+            playerCoordinate[heightCoordinate] += this.boardFieldHeight / 5 * (playerModel.index + 1) * heightDirection;
+            return playerCoordinate;
+        };
+        DrawingService.prototype.getPlayerRotationOnBoardField = function (playerModel, positionIndex) {
+            var playerQuadrant = Math.floor(positionIndex / (this.boardFieldsInQuadrant - 1));
+            var rotationQuaternion = new BABYLON.Quaternion(0, 0, 0, 1);
+            if (playerQuadrant === 1) {
+                rotationQuaternion = new BABYLON.Quaternion(0, 0.7071, 0, 0.7071);
+            }
+            else if (playerQuadrant === 2) {
+                rotationQuaternion = new BABYLON.Quaternion(0, 1, 0, 0);
+            }
+            else if (playerQuadrant === 3) {
+                rotationQuaternion = new BABYLON.Quaternion(0, 0.7071, 0, -0.7071);
+            }
+            return rotationQuaternion;
+        };
         /*
         This has been coded with the help of http://www.euclideanspace.com/maths/discrete/groups/categorise/finite/cube/
         */
         DrawingService.prototype.getDiceResult = function () {
             var rotationMatrix = new BABYLON.Matrix();
             this.diceMesh.rotationQuaternion.toRotationMatrix(rotationMatrix);
+            return 1;
             if (this.epsilonCompare(rotationMatrix.m[0], 0) && this.epsilonCompare(rotationMatrix.m[1], 1) && this.epsilonCompare(rotationMatrix.m[2], 0) && this.epsilonCompare(rotationMatrix.m[5], 0) && this.epsilonCompare(rotationMatrix.m[9], 0)) {
                 return 1;
             }
@@ -1329,11 +1444,11 @@ var Services;
         // get the rotation required for the camera to face the target; position determines the camera position, if it is not equal to its current position
         DrawingService.prototype.getCameraRotationForTarget = function (target, camera, position) {
             var rotation = new BABYLON.Vector3(0, 0, 0);
-            //this.upVector.normalize();
+            camera.upVector.normalize();
             BABYLON.Matrix.LookAtLHToRef(position ? position : camera.position, target, camera.upVector, camera._camMatrix);
             var invertedCamMatrix = camera._camMatrix.invert();
             rotation.x = Math.atan(invertedCamMatrix.m[6] / invertedCamMatrix.m[10]);
-            var vDir = target.subtract(camera.position);
+            var vDir = target.subtract(position ? position : camera.position);
             if (vDir.x >= 0.0) {
                 rotation.y = (-Math.atan(vDir.z / vDir.x) + Math.PI / 2.0);
             }
@@ -1358,9 +1473,15 @@ var Services;
             }
             return false;
         };
-        DrawingService.prototype.getGameCameraPosition = function () {
-            // TODO: vary depending on current player position
-            return new BABYLON.Vector3(0, 5, -10);
+        DrawingService.prototype.getGameCameraPosition = function (currentPlayerPositionIndex) {
+            var boardFieldQuadrant = Math.floor(currentPlayerPositionIndex / (this.boardFieldsInQuadrant - 1));
+            var runningCoordinate = this.getQuadrantRunningCoordinate(boardFieldQuadrant);
+            var heightCoordinate = this.getQuadrantRunningCoordinate(boardFieldQuadrant) === "x" ? "z" : "x";
+            var heightDirection = boardFieldQuadrant === 0 || boardFieldQuadrant === 1 ? -1 : 1;
+            var position = new BABYLON.Vector3(0, 5, -10);
+            position[heightCoordinate] = 10 * heightDirection;
+            position[runningCoordinate] = this.getPositionCoordinate(currentPlayerPositionIndex)[runningCoordinate];
+            return position;
         };
         DrawingService.$inject = ["$http", "gameService"];
         return DrawingService;
@@ -1422,6 +1543,13 @@ var Services;
         Object.defineProperty(GameService.prototype, "players", {
             get: function () {
                 return this.game.players;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(GameService.prototype, "lastDiceResult", {
+            get: function () {
+                return this.lastDiceResult1 + this.lastDiceResult2;
             },
             enumerable: true,
             configurable: true
@@ -1754,7 +1882,7 @@ var Services;
                 player.money = 1500;
                 player.color = i;
                 this.game.players.push(player);
-                this.setPlayerPosition(player, 0);
+                this.setPlayerPosition(player, 24);
             }
         };
         GameService.$inject = ["$http", "settingsService"];
@@ -1812,28 +1940,44 @@ var MonopolyApp;
             GameController.prototype.setupThrowDice = function () {
                 if (this.gameService.canThrowDice) {
                     this.gameService.throwDice();
-                    this.gameCamera.position.z = -4;
                     this.drawingService.setupDiceForThrow(this.scene);
+                    this.drawingService.moveCameraForDiceThrow(this.scene, this.gameCamera, this.gameService.getCurrentPlayerPosition());
                 }
             };
             GameController.prototype.throwDice = function (impulsePoint) {
-                //if (this.gameService.canThrowDice) {
                 if (this.gameService.gameState === Model.GameState.ThrowDice) {
                     this.diceThrowCompleted = $.Deferred();
                     this.drawingService.animateDiceThrow(impulsePoint, this.scene);
                     var that = this;
                     $.when(this.diceThrowCompleted).done(function () {
+                        that.diceThrowCompleted = undefined;
                         that.gameService.setDiceResult(that.drawingService.getDiceResult());
-                        var cameraMovementCompleted = that.drawingService.returnCameraToMainPosition(that.scene, that.gameCamera);
+                        var oldPosition = that.gameService.getCurrentPlayerPosition();
+                        var newPosition = that.gameService.moveCurrentPlayer();
+                        var cameraMovementCompleted = that.drawingService.returnCameraToMainPosition(that.scene, that.gameCamera, oldPosition.index);
                         $.when(cameraMovementCompleted).done(function () {
-                            var oldPosition = that.gameService.getCurrentPlayerPosition();
-                            var newPosition = that.gameService.moveCurrentPlayer();
-                            that.animateMove(oldPosition, newPosition);
-                            that.scope.$apply(function () {
-                                that.setAvailableActions();
-                                that.processDestinationField();
+                            var animateMoveCompleted = that.animateMove(oldPosition, newPosition);
+                            //that.drawingService.returnCameraToMainPosition(that.scene, that.gameCamera, newPosition.index, that.drawingService.framesToMoveOneBoardField * that.gameService.lastDiceResult);
+                            var positionsToMove = oldPosition.index < newPosition.index ? newPosition.index - oldPosition.index : (40 - oldPosition.index) + newPosition.index;
+                            that.followBoardFields(oldPosition.index, positionsToMove, that.drawingService, that.scene, that.gameCamera, that);
+                            $.when(animateMoveCompleted).done(function () {
+                                that.scope.$apply(function () {
+                                    that.setAvailableActions();
+                                    that.processDestinationField();
+                                });
                             });
                         });
+                    });
+                }
+            };
+            // animate game camera by following board fields from player current field to its movement destination field; this animation occurs at the same time that the player is moving
+            GameController.prototype.followBoardFields = function (positionIndex, positionsLeftToMove, drawingService, scene, camera, gameController) {
+                if (positionsLeftToMove > 0) {
+                    positionIndex = (positionIndex + 1) % 40;
+                    positionsLeftToMove--;
+                    var cameraMoveCompleted = drawingService.returnCameraToMainPosition(scene, camera, positionIndex, positionIndex % 10 === 0 ? drawingService.framesToMoveOneBoardField * 2 : drawingService.framesToMoveOneBoardField);
+                    $.when(cameraMoveCompleted).done(function () {
+                        gameController.followBoardFields(positionIndex, positionsLeftToMove, drawingService, scene, camera, gameController);
                     });
                 }
             };
@@ -1894,7 +2038,8 @@ var MonopolyApp;
                 var theScene = this.createBoard(engine, canvas);
                 var that = this;
                 engine.runRenderLoop(function () {
-                    if (that.gameService.gameState === Model.GameState.ThrowDice) {
+                    if (that.gameService.gameState === Model.GameState.ThrowDice && that.diceThrowCompleted) {
+                        // if the game is at the dice throw state and the dice throw has been triggered, verify if it is done, otherwise just follow with the camera
                         if (that.drawingService.isDiceAtRestAfterThrowing(theScene)) {
                             that.diceThrowCompleted.resolve();
                         }
@@ -1942,11 +2087,14 @@ var MonopolyApp;
             GameController.prototype.initPlayers = function () {
                 this.players = [];
                 var that = this;
+                var index = 0;
                 this.gameService.players.forEach(function (player) {
                     var playerModel = new MonopolyApp.Viewmodels.Player();
                     playerModel.name = player.playerName;
                     playerModel.money = player.money;
+                    playerModel.index = index;
                     that.playerModels.push(playerModel);
+                    index++;
                 });
             };
             GameController.prototype.setupBoardFields = function () {
@@ -1980,7 +2128,7 @@ var MonopolyApp;
             GameController.prototype.animateMove = function (oldPosition, newPosition) {
                 var _this = this;
                 var playerModel = this.players.filter(function (p) { return p.name === _this.gameService.getCurrentPlayer(); })[0];
-                this.drawingService.animatePlayerMove(oldPosition, newPosition, playerModel, this.scene);
+                return this.drawingService.animatePlayerMove(oldPosition, newPosition, playerModel, this.scene);
             };
             GameController.prototype.showDeed = function () {
                 this.assetToBuy = this.gameService.getCurrentPlayerPosition().asset;

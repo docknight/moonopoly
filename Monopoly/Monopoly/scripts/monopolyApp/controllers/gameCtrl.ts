@@ -65,8 +65,8 @@ module MonopolyApp.controllers {
         setupThrowDice() {
             if (this.gameService.canThrowDice) {
                 this.gameService.throwDice();
-                this.gameCamera.position.z = -4;
                 this.drawingService.setupDiceForThrow(this.scene);
+                this.drawingService.moveCameraForDiceThrow(this.scene, this.gameCamera, this.gameService.getCurrentPlayerPosition());
             }
         }
 
@@ -76,17 +76,35 @@ module MonopolyApp.controllers {
                 this.drawingService.animateDiceThrow(impulsePoint, this.scene);
                 var that = this;
                 $.when(this.diceThrowCompleted).done(() => {
+                    that.diceThrowCompleted = undefined;
                     that.gameService.setDiceResult(that.drawingService.getDiceResult());
-                    var cameraMovementCompleted = that.drawingService.returnCameraToMainPosition(that.scene, that.gameCamera);
+                    var oldPosition = that.gameService.getCurrentPlayerPosition();
+                    var newPosition = that.gameService.moveCurrentPlayer();
+                    var cameraMovementCompleted = that.drawingService.returnCameraToMainPosition(that.scene, that.gameCamera, oldPosition.index);
                     $.when(cameraMovementCompleted).done(() => {
-                        var oldPosition = that.gameService.getCurrentPlayerPosition();
-                        var newPosition = that.gameService.moveCurrentPlayer();
-                        that.animateMove(oldPosition, newPosition);
-                        that.scope.$apply(() => {
-                            that.setAvailableActions();
-                            that.processDestinationField();
+                        var animateMoveCompleted = that.animateMove(oldPosition, newPosition);
+                        //that.drawingService.returnCameraToMainPosition(that.scene, that.gameCamera, newPosition.index, that.drawingService.framesToMoveOneBoardField * that.gameService.lastDiceResult);
+                        var positionsToMove = oldPosition.index < newPosition.index ? newPosition.index - oldPosition.index : (40 - oldPosition.index) + newPosition.index;
+                        that.followBoardFields(oldPosition.index, positionsToMove, that.drawingService, that.scene, that.gameCamera, that);
+                        $.when(animateMoveCompleted).done(() => {
+                            that.scope.$apply(() => {
+                                that.setAvailableActions();
+                                that.processDestinationField();
+                            });
                         });
                     });
+                });
+            }
+        }
+
+        // animate game camera by following board fields from player current field to its movement destination field; this animation occurs at the same time that the player is moving
+        followBoardFields(positionIndex: number, positionsLeftToMove: number, drawingService: Interfaces.IDrawingService, scene: BABYLON.Scene, camera: BABYLON.FreeCamera, gameController: GameController) {
+            if (positionsLeftToMove > 0) {
+                positionIndex = (positionIndex + 1) % 40;
+                positionsLeftToMove--;
+                var cameraMoveCompleted = drawingService.returnCameraToMainPosition(scene, camera, positionIndex, positionIndex % 10 === 0 ? drawingService.framesToMoveOneBoardField * 2 : drawingService.framesToMoveOneBoardField);
+                $.when(cameraMoveCompleted).done(() => {
+                    gameController.followBoardFields(positionIndex, positionsLeftToMove, drawingService, scene, camera, gameController);
                 });
             }
         }
@@ -160,7 +178,8 @@ module MonopolyApp.controllers {
             var theScene = this.createBoard(engine, canvas);
             var that = this;
             engine.runRenderLoop(() => {
-                if (that.gameService.gameState === Model.GameState.ThrowDice) {
+                if (that.gameService.gameState === Model.GameState.ThrowDice && that.diceThrowCompleted) {
+                    // if the game is at the dice throw state and the dice throw has been triggered, verify if it is done, otherwise just follow with the camera
                     if (that.drawingService.isDiceAtRestAfterThrowing(theScene)) {
                         that.diceThrowCompleted.resolve();
                     } else {
@@ -216,11 +235,14 @@ module MonopolyApp.controllers {
         private initPlayers() {
             this.players = [];
             var that = this;
+            var index = 0;
             this.gameService.players.forEach((player) => {
                 var playerModel = new Viewmodels.Player();
                 playerModel.name = player.playerName;
                 playerModel.money = player.money;
+                playerModel.index = index;
                 that.playerModels.push(playerModel);
+                index++;
             });
         }
 
@@ -254,9 +276,9 @@ module MonopolyApp.controllers {
             this.availableActions.manage = this.gameService.canManage;
         }
 
-        private animateMove(oldPosition: Model.BoardField, newPosition: Model.BoardField) {
+        private animateMove(oldPosition: Model.BoardField, newPosition: Model.BoardField): JQueryDeferred<{}> {
             var playerModel = this.players.filter(p => p.name === this.gameService.getCurrentPlayer())[0];
-            this.drawingService.animatePlayerMove(oldPosition, newPosition, playerModel, this.scene);
+            return this.drawingService.animatePlayerMove(oldPosition, newPosition, playerModel, this.scene);
         }
 
         private showDeed() {

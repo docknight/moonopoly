@@ -5,6 +5,7 @@
     }
     export interface IGameService {
         players: Array<Model.Player>;
+        lastDiceResult: number;
         canThrowDice: boolean;
         canEndTurn: boolean;
         canBuy: boolean;
@@ -33,8 +34,9 @@
     }
     export interface IDrawingService {
         boardSize: number;
+        framesToMoveOneBoardField: number;
         positionPlayer(playerModel: MonopolyApp.Viewmodels.Player);
-        animatePlayerMove(oldPositionIndex: Model.BoardField, newPosition: Model.BoardField, playerModel: MonopolyApp.Viewmodels.Player, scene: BABYLON.Scene);
+        animatePlayerMove(oldPositionIndex: Model.BoardField, newPosition: Model.BoardField, playerModel: MonopolyApp.Viewmodels.Player, scene: BABYLON.Scene): JQueryDeferred<{}>;
         setGameCameraPosition(camera: BABYLON.FreeCamera);
         setManageCameraPosition(camera: BABYLON.ArcRotateCamera, group: Model.AssetGroup, scene: BABYLON.Scene);
         returnFromManage(scene: BABYLON.Scene);
@@ -54,6 +56,7 @@
         getDiceResult(): number;
         // get the rotation required for the camera to face the target; position determines the camera position, if it is not equal to its current position
         getCameraRotationForTarget(target: BABYLON.Vector3, camera: BABYLON.FreeCamera, position?: BABYLON.Vector3): BABYLON.Vector3;
-        returnCameraToMainPosition(scene: BABYLON.Scene, camera: BABYLON.FreeCamera): JQueryDeferred<{}>;
+        returnCameraToMainPosition(scene: BABYLON.Scene, camera: BABYLON.FreeCamera, currentPlayerPositionIndex: number, numFrames?: number): JQueryDeferred<{}>;
+        moveCameraForDiceThrow(scene: BABYLON.Scene, camera: BABYLON.FreeCamera, currentPlayerPosition: Model.BoardField);
     }
 }

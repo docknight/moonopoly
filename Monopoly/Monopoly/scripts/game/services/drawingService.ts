@@ -25,6 +25,7 @@ module Services {
         private diceMesh: BABYLON.AbstractMesh;
         private throwingDice: boolean; // whether the dices are currently being thrown
         private numFramesDiceIsAtRest: number;
+        private dicePosition: BABYLON.Vector3; // position of the dice at the beginning of a throw
 
         static $inject = ["$http", "gameService"];
 
@@ -35,6 +36,7 @@ module Services {
             this.boardFieldHeight = this.boardFieldWidth * 2;
             this.boardFieldEdgeWidth = this.boardFieldWidth * 2;
             this.initQuadrantStartingCoordinates();
+            this.dicePosition = new BABYLON.Vector3(0, 3, 0);
         }
 
         /// board dimenzion in both, X and Z directions
@@ -42,52 +44,70 @@ module Services {
             return 10;
         }
 
-        positionPlayer(playerModel: MonopolyApp.Viewmodels.Player) {
-            var player = this.gameService.players.filter((player, index) => { return player.playerName === playerModel.name; })[0];
-            var playerQuadrant = Math.floor(player.position.index / (this.boardFieldsInQuadrant - 1));
-            var playerQuadrantOffset = player.position.index % (this.boardFieldsInQuadrant - 1);
-            var playerCoordinate = new MonopolyApp.Viewmodels.Coordinate();
-            playerCoordinate.x = this.quadrantStartingCoordinate[playerQuadrant].x;
-            playerCoordinate.z = this.quadrantStartingCoordinate[playerQuadrant].z;
-            playerCoordinate[this.getQuadrantRunningCoordinate(playerQuadrant)] += playerQuadrantOffset * this.boardFieldWidth * this.getQuadrantRunningDirection(playerQuadrant);
-
-            // now that the player is positioned on the board field corner, position him inside the field
-            var playersInField = player.position.occupiedBy.length;
-            var playerIndexInField = player.position.occupiedBy.indexOf(player.playerName);
-            var offset = ((playerQuadrantOffset === 0 ? this.boardFieldEdgeWidth : this.boardFieldWidth) / (playersInField + 1)) * (playerIndexInField + 1);
-            playerCoordinate[this.getQuadrantRunningCoordinate(playerQuadrant)] += offset * this.getQuadrantRunningDirection(playerQuadrant) * -1;
-            playerModel.mesh.position.x = playerCoordinate.x;
-            playerModel.mesh.position.z = playerCoordinate.z;
+        // number of frames to animate player move between two neighbouring fields
+        get framesToMoveOneBoardField(): number {
+            return 10;
         }
 
-        animatePlayerMove(oldPositionIndex: Model.BoardField, newPosition: Model.BoardField, playerModel: MonopolyApp.Viewmodels.Player, scene: BABYLON.Scene) {
-            this.positionPlayer(playerModel);
+        positionPlayer(playerModel: MonopolyApp.Viewmodels.Player) {
+            var player = this.gameService.players.filter((player, index) => { return player.playerName === playerModel.name; })[0];
+            var playerCoordinate = this.getPlayerPositionOnBoardField(playerModel, player.position.index);
+            var playerQuadrant = Math.floor(player.position.index / (this.boardFieldsInQuadrant - 1));
+            var playerQuadrantOffset = player.position.index % (this.boardFieldsInQuadrant - 1);
+            playerModel.mesh.position.x = playerCoordinate.x;
+            playerModel.mesh.position.z = playerCoordinate.z;
+            playerModel.mesh.rotationQuaternion = this.getPlayerRotationOnBoardField(playerModel, player.position.index);
+        }
+
+        animatePlayerMove(oldPosition: Model.BoardField, newPosition: Model.BoardField, playerModel: MonopolyApp.Viewmodels.Player, scene: BABYLON.Scene): JQueryDeferred<{}> {
+            var positionKeys = [];
+            var rotationKeys = [];
+            var framesForField = this.framesToMoveOneBoardField;
+            var framesForRotation = this.framesToMoveOneBoardField * 2;
+            var runningFrame = 0;
+            var runningField = 0;
+            var fieldsToTravel = newPosition.index >= oldPosition.index ? newPosition.index - oldPosition.index : 40 - oldPosition.index + newPosition.index;            
+            while (runningField <= fieldsToTravel) {
+                var runningPosition = (oldPosition.index + runningField) % 40;
+                if (runningField > 0) {
+                    if ((oldPosition.index + runningField) % 10 === 0) {
+                        runningFrame += framesForRotation;
+                    } else {
+                        runningFrame += framesForField;
+                    }                    
+                }
+                var coordinate = this.getPlayerPositionOnBoardField(playerModel, runningPosition);
+                var playerPosition = new BABYLON.Vector3(coordinate.x, playerModel.mesh.position.y, coordinate.z);
+                positionKeys.push({ frame: runningFrame, value: playerPosition });
+                rotationKeys.push({ frame: runningFrame, value: this.getPlayerRotationOnBoardField(playerModel, runningPosition) });
+                runningField++;
+            }
+            var animationplayerPosition = new BABYLON.Animation("playerPositionAnimation", "position", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
+            var animationplayerRotation = new BABYLON.Animation("playerRotationAnimation", "rotationQuaternion", 30, BABYLON.Animation.ANIMATIONTYPE_QUATERNION, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
+            animationplayerPosition.setKeys(positionKeys);
+            animationplayerRotation.setKeys(rotationKeys);
+            playerModel.mesh.animations.push(animationplayerPosition);
+            playerModel.mesh.animations.push(animationplayerRotation);
+            var d = $.Deferred();
+            scene.beginAnimation(playerModel.mesh, 0, /*totalFrames*/runningFrame, false, undefined, () => { d.resolve() });
+            return d;
+            //this.positionPlayer(playerModel);
         }
 
         setupDiceForThrow(scene: BABYLON.Scene) {
-            this.diceMesh.position.x = 0;
-            this.diceMesh.position.y = 2;
-            this.diceMesh.position.z = 0;
+            this.diceMesh.position.x = this.dicePosition.x;
+            this.diceMesh.position.y = this.dicePosition.y;
+            this.diceMesh.position.z = this.dicePosition.z;
             var physicsEngine = scene.getPhysicsEngine();
             physicsEngine._unregisterMesh(this.diceMesh);
         }
 
-        animateDiceThrow(impulsePoint: BABYLON.Vector3, scene: BABYLON.Scene) {
-            this.numFramesDiceIsAtRest = 0;
-            this.diceMesh.setPhysicsState({ impostor: BABYLON.PhysicsEngine.BoxImpostor, mass: 0.2, friction: 0.5, restitution: 0.5 });
-            this.diceMesh.checkCollisions = true;
-            var dir = impulsePoint.subtract(scene.activeCamera.position);
-            dir.normalize();
-            this.diceMesh.applyImpulse(dir.scale(0.1), impulsePoint);
-            this.throwingDice = true;
-        }
-
-        // animates camera back to the base viewing position; returns the deferred object that will be resolved when the animation finishes
-        returnCameraToMainPosition(scene: BABYLON.Scene, camera: BABYLON.FreeCamera): JQueryDeferred<{}> {
-            var d = $.Deferred();
-            var animationCameraPosition = new BABYLON.Animation("myAnimation", "position", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
-            var animationCameraRotation = new BABYLON.Animation("myAnimation2", "rotation", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
-            var finalCameraPosition = this.getGameCameraPosition();
+        moveCameraForDiceThrow(scene: BABYLON.Scene, camera: BABYLON.FreeCamera, currentPlayerPosition: Model.BoardField) {
+            var animationCameraPosition = new BABYLON.Animation("cameraDiceThrowMoveAnimation", "position", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
+            var animationCameraRotation = new BABYLON.Animation("cameraDiceThrowRotateAnimation", "rotation", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
+            var topCenter = this.getPositionCoordinate(currentPlayerPosition.index);
+            var cameraDirection = new BABYLON.Vector3(topCenter.x, 6, topCenter.z).subtract(this.dicePosition).normalize();
+            var finalCameraPosition = this.dicePosition.add(new BABYLON.Vector3(cameraDirection.x * 1.5, cameraDirection.y * 1.5, cameraDirection.z * 1.5)); //this.getGameCameraPosition(currentPlayerPosition);
             var keys = [];
             keys.push({
                 frame: 0,
@@ -104,13 +124,76 @@ module Services {
             });
             keysRotation.push({
                 frame: 30,
-                value: this.getCameraRotationForTarget(new BABYLON.Vector3(0, 0, 0), camera, finalCameraPosition)
+                value: this.getCameraRotationForTarget(this.dicePosition, camera, finalCameraPosition)
             });
+            // make sure the starting and ending rotation angle are at the same side of the numeric scale; Math.Pi and -Math.Pi are the same in terms of object rotation, but for
+            // computer animation, this is a 360 degree spin, which is undesirable...
+            if (keysRotation[0].value.y < 0 && keysRotation[1].value.y >= 0) {
+                keysRotation[0].value.y = Math.PI + Math.PI + keysRotation[0].value.y;
+            }
+            if (keysRotation[0].value.y >= 0 && keysRotation[1].value.y < 0) {
+                keysRotation[0].value.y = -Math.PI - Math.PI + keysRotation[0].value.y;
+            }
+
             animationCameraPosition.setKeys(keys);
             animationCameraRotation.setKeys(keysRotation);
             camera.animations.push(animationCameraPosition);
             camera.animations.push(animationCameraRotation);
-            scene.beginAnimation(camera, 0, 60, false, undefined, () => { d.resolve() });
+            scene.beginAnimation(camera, 0, 30, false, undefined, () => { });            
+        }
+
+        animateDiceThrow(impulsePoint: BABYLON.Vector3, scene: BABYLON.Scene) {
+            this.numFramesDiceIsAtRest = 0;
+            this.diceMesh.setPhysicsState({ impostor: BABYLON.PhysicsEngine.BoxImpostor, mass: 0.2, friction: 0.5, restitution: 0.5 });
+            this.diceMesh.checkCollisions = true;
+            var dir = impulsePoint.subtract(scene.activeCamera.position);
+            dir.normalize();
+            this.diceMesh.applyImpulse(dir.scale(0.1), impulsePoint);
+            this.throwingDice = true;
+        }
+
+        // animates camera back to the base viewing position; returns the deferred object that will be resolved when the animation finishes
+        returnCameraToMainPosition(scene: BABYLON.Scene, camera: BABYLON.FreeCamera, currentPlayerPositionIndex: number, numFrames?: number): JQueryDeferred<{}> {
+            var d = $.Deferred();
+            var animationCameraPosition = new BABYLON.Animation("myAnimation", "position", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
+            var animationCameraRotation = new BABYLON.Animation("myAnimation2", "rotation", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
+            var finalCameraPosition = this.getGameCameraPosition(currentPlayerPositionIndex);
+            var keys = [];
+            keys.push({
+                frame: 0,
+                value: camera.position
+            });
+            keys.push({
+                frame: numFrames ? numFrames : 30,
+                value: finalCameraPosition
+            });
+            var keysRotation = [];
+            keysRotation.push({
+                frame: 0,
+                value: camera.rotation
+            });
+            keysRotation.push({
+                frame: numFrames ? numFrames : 30,
+                value: this.getCameraRotationForTarget(new BABYLON.Vector3(0, 0, 0), camera, finalCameraPosition)
+            });
+            // make sure the starting and ending rotation angle are at the same side of the numeric scale; Math.Pi and -Math.Pi are the same in terms of object rotation, but for
+            // computer animation, this is a 360 degree spin, which is undesirable...
+            if (keysRotation[0].value.y < 0 && keysRotation[1].value.y >= 0) {
+                keysRotation[0].value.y = Math.PI + Math.PI + keysRotation[0].value.y;
+            }
+            if (keysRotation[0].value.y >= 0 && keysRotation[1].value.y < 0) {
+                keysRotation[0].value.y = -Math.PI - Math.PI + keysRotation[0].value.y;
+            }
+
+            animationCameraPosition.setKeys(keys);
+            animationCameraRotation.setKeys(keysRotation);
+            camera.animations.splice(0, camera.animations.length);
+            camera.animations.push(animationCameraPosition);
+            camera.animations.push(animationCameraRotation);
+            var speedRatio = 1;
+            scene.beginAnimation(camera, 0, numFrames ? numFrames : 30, false, speedRatio, () => {
+                d.resolve();
+            });
             return d;
         }
 
@@ -146,7 +229,7 @@ module Services {
         }
 
         setGameCameraPosition(camera: BABYLON.FreeCamera) {
-            camera.position = this.getGameCameraPosition();
+            camera.position = this.getGameCameraPosition(this.gameService.getCurrentPlayerPosition().index);
             camera.setTarget(BABYLON.Vector3.Zero());
         }
 
@@ -216,6 +299,14 @@ module Services {
             board.material = boardMaterial;
             board.setPhysicsState({ impostor: BABYLON.PhysicsEngine.BoxImpostor, mass: 0, friction: 0.5, restitution: 0.5 });
             board.checkCollisions = true;
+            var table = BABYLON.Mesh.CreateGround("tableMesh", 20, 13.33, 2, scene);
+            var tableMaterial = new BABYLON.StandardMaterial("boardTexture", scene);
+            tableMaterial.emissiveTexture = new BABYLON.Texture("images/wood_texture.jpg", scene);
+            tableMaterial.diffuseTexture = new BABYLON.Texture("images/wood_texture.jpg", scene);
+            table.material = tableMaterial;
+            table.position.y = -0.01;
+            table.setPhysicsState({ impostor: BABYLON.PhysicsEngine.BoxImpostor, mass: 0, friction: 0.5, restitution: 0.5 });
+            table.checkCollisions = true;
         }
 
         setBoardFieldOwner(boardField: MonopolyApp.Viewmodels.BoardField, asset: Model.Asset, scene: BABYLON.Scene) {
@@ -469,7 +560,6 @@ module Services {
         }
 
         showActionButtons() {
-            // sdf
         }
 
         private initQuadrantStartingCoordinates() {
@@ -664,6 +754,29 @@ module Services {
             this.houseRemoveButtonMeshes = [];
         }
 
+        private getPlayerPositionOnBoardField(playerModel: MonopolyApp.Viewmodels.Player, positionIndex: number): MonopolyApp.Viewmodels.Coordinate {
+            var playerQuadrant = Math.floor(positionIndex / (this.boardFieldsInQuadrant - 1));
+            var playerQuadrantOffset = positionIndex % (this.boardFieldsInQuadrant - 1);
+            var playerCoordinate = this.getPositionCoordinate(positionIndex);
+            var heightCoordinate = this.getQuadrantRunningCoordinate(playerQuadrant) === "x" ? "z" : "x";
+            var heightDirection = playerQuadrant === 0 || playerQuadrant === 1 ? -1 : 1;
+            playerCoordinate[heightCoordinate] += this.boardFieldHeight / 5 * (playerModel.index + 1) * heightDirection;
+            return playerCoordinate;
+        }
+
+        private getPlayerRotationOnBoardField(playerModel: MonopolyApp.Viewmodels.Player, positionIndex: number): BABYLON.Quaternion {
+            var playerQuadrant = Math.floor(positionIndex / (this.boardFieldsInQuadrant - 1));
+            var rotationQuaternion = new BABYLON.Quaternion(0, 0, 0, 1);
+            if (playerQuadrant === 1) {
+                rotationQuaternion = new BABYLON.Quaternion(0, 0.7071, 0, 0.7071);
+            } else if (playerQuadrant === 2) {
+                rotationQuaternion = new BABYLON.Quaternion(0, 1, 0, 0);
+            } else if (playerQuadrant === 3) {
+                rotationQuaternion = new BABYLON.Quaternion(0, 0.7071, 0, -0.7071);
+            }
+            return rotationQuaternion;
+        }
+
         /* 
         This has been coded with the help of http://www.euclideanspace.com/maths/discrete/groups/categorise/finite/cube/
         */
@@ -694,11 +807,11 @@ module Services {
         // get the rotation required for the camera to face the target; position determines the camera position, if it is not equal to its current position
         getCameraRotationForTarget(target: BABYLON.Vector3, camera: BABYLON.FreeCamera, position?: BABYLON.Vector3): BABYLON.Vector3 {
             var rotation = new BABYLON.Vector3(0, 0, 0);
-            //this.upVector.normalize();
+            camera.upVector.normalize();
             BABYLON.Matrix.LookAtLHToRef(position ? position : camera.position, target, camera.upVector, camera._camMatrix);
             var invertedCamMatrix = camera._camMatrix.invert();
             rotation.x = Math.atan(invertedCamMatrix.m[6] / invertedCamMatrix.m[10]);
-            var vDir = target.subtract(camera.position);
+            var vDir = target.subtract(position ? position : camera.position);
             if (vDir.x >= 0.0) {
                 rotation.y = (-Math.atan(vDir.z / vDir.x) + Math.PI / 2.0);
             }
@@ -725,9 +838,15 @@ module Services {
             return false;
         }
 
-        private getGameCameraPosition(): BABYLON.Vector3 {
-            // TODO: vary depending on current player position
-            return new BABYLON.Vector3(0, 5, -10);
+        private getGameCameraPosition(currentPlayerPositionIndex: number): BABYLON.Vector3 {
+            var boardFieldQuadrant = Math.floor(currentPlayerPositionIndex / (this.boardFieldsInQuadrant - 1));
+            var runningCoordinate = this.getQuadrantRunningCoordinate(boardFieldQuadrant);
+            var heightCoordinate = this.getQuadrantRunningCoordinate(boardFieldQuadrant) === "x" ? "z" : "x";
+            var heightDirection = boardFieldQuadrant === 0 || boardFieldQuadrant === 1 ? -1 : 1;
+            var position = new BABYLON.Vector3(0, 5, -10);
+            position[heightCoordinate] = 10 * heightDirection;
+            position[runningCoordinate] = this.getPositionCoordinate(currentPlayerPositionIndex)[runningCoordinate];
+            return position;
         }
     }
 

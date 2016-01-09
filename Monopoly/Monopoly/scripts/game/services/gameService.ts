@@ -42,6 +42,10 @@ module Services {
             return this.game.players;
         }
 
+        get lastDiceResult(): number {
+            return this.lastDiceResult1 + this.lastDiceResult2;
+        }
+
         get canThrowDice() {
             if (this.game.getState() === Model.GameState.BeginTurn) {
                 return true;
