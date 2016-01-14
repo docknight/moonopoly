@@ -13,6 +13,8 @@ module Services {
         private lastDiceResult2: number;
         private currentManageGroup: Model.AssetGroup;
         private uncommittedHousesPrice: number; // price sum of currently uncommitted house deals
+        private currentTreasureCardIndex: number;
+        private currentEventCardIndex: number;
 
         static $inject = ["$http", "settingsService"];
         constructor($http: ng.IHttpService, settingsService: Interfaces.ISettingsService) {
@@ -23,6 +25,7 @@ module Services {
         initGame() {
             this.game = new Model.Game();
             this.initPlayers();
+            this.initCards();
             this.game.advanceToNextPlayer();
             this.uncommittedHousesPrice = 0;
         }
@@ -61,8 +64,6 @@ module Services {
         }
 
         get canBuy() {
-            // temporarily
-            return false;
             if (this.game.getState() === Model.GameState.Process) {
                 var currentPosition = this.getCurrentPlayerPosition();
                 if (currentPosition.type === Model.BoardFieldType.Asset) {
@@ -158,11 +159,11 @@ module Services {
             return player.position;
         }
 
-        moveCurrentPlayer(): Model.BoardField {
+        moveCurrentPlayer(newPositionIndex?: number): Model.BoardField {
             this.game.setState(Model.GameState.Move);
             var player = this.game.players.filter(p => p.playerName === this.getCurrentPlayer())[0];
             var currentPositionIndex = player.position.index;
-            var newPositionIndex = Math.floor((currentPositionIndex + this.lastDiceResult1 + this.lastDiceResult2) % 40);
+            newPositionIndex = newPositionIndex !== undefined ? newPositionIndex : Math.floor((currentPositionIndex + this.lastDiceResult1 + this.lastDiceResult2) % 40);
             player.position = this.game.board.fields[newPositionIndex];
             this.game.board.fields[currentPositionIndex].occupiedBy.splice(this.game.board.fields[currentPositionIndex].occupiedBy.indexOf(player.playerName), 1);
             player.position.occupiedBy.push(player.playerName);
@@ -368,6 +369,36 @@ module Services {
             this.lastDiceResult2 = 0;
         }
 
+        getNextTreasureCard(): Model.TreasureCard {
+            var card = this.game.treasureCards.filter(c => c.index === this.currentTreasureCardIndex);
+            if (!card || card.length === 0) {
+                this.currentTreasureCardIndex = 0;
+                card = this.game.treasureCards.filter(c => c.index === this.currentTreasureCardIndex);
+            }
+            this.currentTreasureCardIndex++;
+            return card[0];
+        }
+
+        getNextEventCard(): Model.EventCard {
+            var card = this.game.eventCards.filter(c => c.index === this.currentEventCardIndex);
+            if (!card || card.length === 0) {
+                this.currentEventCardIndex = 0;
+                card = this.game.eventCards.filter(c => c.index === this.currentEventCardIndex);
+            }
+            this.currentEventCardIndex++;
+            return card[0];
+        }
+
+        processCard(card: Model.Card) {
+            var player = this.game.players.filter(p => p.playerName === this.getCurrentPlayer())[0];
+            if (card.cardType === Model.CardType.ReceiveMoney) {
+                player.money += card.money;
+            }
+            if (card.cardType === Model.CardType.PayMoney) {
+                player.money -= card.money;
+            }
+        }
+
         private initPlayers() {
             var settings = this.settingsService.loadSettings();
             var colors: string[] = ["Red", "Green", "Yellow", "Blue"];
@@ -380,6 +411,61 @@ module Services {
                 this.game.players.push(player);
                 this.setPlayerPosition(player, 0);
             }
+        }
+
+        private initCards() {
+            this.currentEventCardIndex = 0;
+            this.currentTreasureCardIndex = 0;
+            var treasureCardIndex = 0;
+            var eventCardIndex = 0;
+            var treasureCard = new Model.TreasureCard();
+            treasureCard.index = treasureCardIndex++;
+            treasureCard.cardType = Model.CardType.ReceiveMoney;
+            treasureCard.message = "Bank error. You receive M200.";
+            treasureCard.money = 200;
+            this.game.treasureCards.push(treasureCard);
+
+            treasureCard = new Model.TreasureCard();
+            treasureCard.index = treasureCardIndex++;
+            treasureCard.cardType = Model.CardType.AdvanceToField;
+            treasureCard.message = "Go to START. You receive M200.";
+            treasureCard.boardFieldIndex = 0;
+            this.game.treasureCards.push(treasureCard);
+
+            treasureCard = new Model.TreasureCard();
+            treasureCard.index = treasureCardIndex++;
+            treasureCard.cardType = Model.CardType.ReceiveMoney;
+            treasureCard.message = "You have won second award at the beauty competition. You receive M10.";
+            treasureCard.money = 10;
+            this.game.treasureCards.push(treasureCard);
+
+            treasureCard = new Model.TreasureCard();
+            treasureCard.index = treasureCardIndex++;
+            treasureCard.cardType = Model.CardType.PayMoney;
+            treasureCard.message = "Pay M100 for hospital expenses.";
+            treasureCard.money = 100;
+            this.game.treasureCards.push(treasureCard);
+
+            var eventCard = new Model.EventCard();
+            eventCard.index = eventCardIndex++;
+            eventCard.cardType = Model.CardType.PayMoney;
+            eventCard.message = "You have received a speeding ticket. Pay M15.";
+            eventCard.money = 15;
+            this.game.eventCards.push(eventCard);
+
+            eventCard = new Model.EventCard();
+            eventCard.index = eventCardIndex++;
+            eventCard.cardType = Model.CardType.RetractNumFields;
+            eventCard.message = "Go three fields backwards.";
+            eventCard.boardFieldCount = 3;
+            this.game.eventCards.push(eventCard);
+
+            var eventCard = new Model.EventCard();
+            eventCard.index = eventCardIndex++;
+            eventCard.cardType = Model.CardType.ReceiveMoney;
+            eventCard.message = "Bank has issued dividends worth of M50.";
+            eventCard.money = 50;
+            this.game.eventCards.push(eventCard);
         }
     }
 

@@ -59,11 +59,15 @@ module Services {
             playerModel.mesh.rotationQuaternion = this.getPlayerRotationOnBoardField(playerModel, player.position.index);
         }
 
-        animatePlayerMove(oldPosition: Model.BoardField, newPosition: Model.BoardField, playerModel: MonopolyApp.Viewmodels.Player, scene: BABYLON.Scene): JQueryDeferred<{}> {
+        animatePlayerMove(oldPosition: Model.BoardField, newPosition: Model.BoardField, playerModel: MonopolyApp.Viewmodels.Player, scene: BABYLON.Scene, fast?: boolean): JQueryDeferred<{}> {
             var positionKeys = [];
             var rotationKeys = [];
             var framesForField = this.framesToMoveOneBoardField;
             var framesForRotation = this.framesToMoveOneBoardField * 2;
+            if (fast) {
+                framesForField = Math.floor(framesForField / 2);
+                framesForRotation = framesForRotation / 2;
+            }
             var runningFrame = 0;
             var runningField = 0;
             var fieldsToTravel = newPosition.index >= oldPosition.index ? newPosition.index - oldPosition.index : 40 - oldPosition.index + newPosition.index;            
@@ -89,9 +93,8 @@ module Services {
             playerModel.mesh.animations.push(animationplayerPosition);
             playerModel.mesh.animations.push(animationplayerRotation);
             var d = $.Deferred();
-            scene.beginAnimation(playerModel.mesh, 0, /*totalFrames*/runningFrame, false, undefined, () => { d.resolve() });
+            scene.beginAnimation(playerModel.mesh, 0, runningFrame, false, undefined, () => { d.resolve() });
             return d;
-            //this.positionPlayer(playerModel);
         }
 
         setupDiceForThrow(scene: BABYLON.Scene) {
@@ -128,10 +131,10 @@ module Services {
             });
             // make sure the starting and ending rotation angle are at the same side of the numeric scale; Math.Pi and -Math.Pi are the same in terms of object rotation, but for
             // computer animation, this is a 360 degree spin, which is undesirable...
-            if (keysRotation[0].value.y < 0 && keysRotation[1].value.y >= 0) {
+            if (keysRotation[0].value.y < 0 && keysRotation[1].value.y >= 0 && keysRotation[1].value.y + Math.abs(keysRotation[0].value.y) > Math.PI) {
                 keysRotation[0].value.y = Math.PI + Math.PI + keysRotation[0].value.y;
             }
-            if (keysRotation[0].value.y >= 0 && keysRotation[1].value.y < 0) {
+            if (keysRotation[0].value.y >= 0 && keysRotation[1].value.y < 0 && keysRotation[0].value.y + Math.abs(keysRotation[1].value.y) > Math.PI) {
                 keysRotation[0].value.y = -Math.PI - Math.PI + keysRotation[0].value.y;
             }
 
@@ -178,10 +181,10 @@ module Services {
             });
             // make sure the starting and ending rotation angle are at the same side of the numeric scale; Math.Pi and -Math.Pi are the same in terms of object rotation, but for
             // computer animation, this is a 360 degree spin, which is undesirable...
-            if (keysRotation[0].value.y < 0 && keysRotation[1].value.y >= 0) {
+            if (keysRotation[0].value.y < 0 && keysRotation[1].value.y >= 0 && keysRotation[1].value.y + Math.abs(keysRotation[0].value.y) > Math.PI) {
                 keysRotation[0].value.y = Math.PI + Math.PI + keysRotation[0].value.y;
             }
-            if (keysRotation[0].value.y >= 0 && keysRotation[1].value.y < 0) {
+            if (keysRotation[0].value.y >= 0 && keysRotation[1].value.y < 0 && keysRotation[0].value.y + Math.abs(keysRotation[1].value.y) > Math.PI) {
                 keysRotation[0].value.y = -Math.PI - Math.PI + keysRotation[0].value.y;
             }
 

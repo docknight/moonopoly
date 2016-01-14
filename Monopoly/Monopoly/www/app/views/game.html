@@ -51,6 +51,18 @@
     </table>
 </div>
 
+<div id="card" style="position: fixed; display: none; top: 25%; left: 15%; width: 70%; height: 50%; background-color: white; border: 2px; border-color: black; border-radius: 3px">
+    <table style="width: 100%; height: 100%">
+        <tr style="height:20%">
+            <td style="text-align: center; font-size: 18px; font-weight: bold">{{gameController.currentCard.title}}</td>
+        </tr>
+        <tr style="height:10%"><td></td></tr>
+        <tr style="height:70%">
+            <td style="text-align: center; font-size: 16px;">{{gameController.currentCard.message}}</td>
+        </tr>
+    </table>
+</div>
+
 <div style="position: fixed; top: 15%; left: 10%; width: 80%;">
     <div id="messageOverlay" style="position: relative; display: none; color: red; font-size: 16px; font-weight: bold; width: 100%; text-align: center; z-index: 1" class="shadow-basic"></div>    
 </div>

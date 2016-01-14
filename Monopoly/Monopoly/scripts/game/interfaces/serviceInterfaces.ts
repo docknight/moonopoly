@@ -16,7 +16,7 @@
         endTurn();
         throwDice();
         getCurrentPlayerPosition(): Model.BoardField;
-        moveCurrentPlayer(): Model.BoardField;
+        moveCurrentPlayer(newPositionIndex?: number): Model.BoardField;
         buy(): boolean;
         processOwnedFieldVisit(): Model.ProcessResult;
         manage(): Model.AssetGroup;
@@ -31,12 +31,15 @@
         rollbackHouseOrHotel(playerName: string, assetGroup: Model.AssetGroup): boolean;
         canUpgradeAsset(asset: Model.Asset, playerName: string): boolean;
         setDiceResult(diceResult: number);
+        getNextTreasureCard(): Model.TreasureCard;
+        getNextEventCard(): Model.EventCard;
+        processCard(card: Model.Card);
     }
     export interface IDrawingService {
         boardSize: number;
         framesToMoveOneBoardField: number;
         positionPlayer(playerModel: MonopolyApp.Viewmodels.Player);
-        animatePlayerMove(oldPositionIndex: Model.BoardField, newPosition: Model.BoardField, playerModel: MonopolyApp.Viewmodels.Player, scene: BABYLON.Scene): JQueryDeferred<{}>;
+        animatePlayerMove(oldPositionIndex: Model.BoardField, newPosition: Model.BoardField, playerModel: MonopolyApp.Viewmodels.Player, scene: BABYLON.Scene, fast?: boolean): JQueryDeferred<{}>;
         setGameCameraPosition(camera: BABYLON.FreeCamera);
         setManageCameraPosition(camera: BABYLON.ArcRotateCamera, group: Model.AssetGroup, scene: BABYLON.Scene);
         returnFromManage(scene: BABYLON.Scene);

@@ -570,6 +570,39 @@ var Model;
 })(Model || (Model = {}));
 var Model;
 (function (Model) {
+    (function (CardType) {
+        CardType[CardType["PayMoney"] = 0] = "PayMoney";
+        CardType[CardType["ReceiveMoney"] = 1] = "ReceiveMoney";
+        CardType[CardType["AdvanceToField"] = 2] = "AdvanceToField";
+        CardType[CardType["RetractNumFields"] = 3] = "RetractNumFields";
+    })(Model.CardType || (Model.CardType = {}));
+    var CardType = Model.CardType;
+    ;
+    var Card = (function () {
+        function Card() {
+        }
+        return Card;
+    })();
+    Model.Card = Card;
+})(Model || (Model = {}));
+var __extends = (this && this.__extends) || function (d, b) {
+    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
+    function __() { this.constructor = d; }
+    d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+};
+var Model;
+(function (Model) {
+    var EventCard = (function (_super) {
+        __extends(EventCard, _super);
+        function EventCard() {
+            _super.call(this);
+        }
+        return EventCard;
+    })(Model.Card);
+    Model.EventCard = EventCard;
+})(Model || (Model = {}));
+var Model;
+(function (Model) {
     (function (GameState) {
         GameState[GameState["BeginTurn"] = 0] = "BeginTurn";
         GameState[GameState["ThrowDice"] = 1] = "ThrowDice";
@@ -584,11 +617,27 @@ var Model;
             this._currentPlayer = "";
             this.players = new Array();
             this._board = new Model.Board();
+            this._treasureCards = new Array();
+            this._eventCards = new Array();
             this.state = GameState.BeginTurn;
         }
         Object.defineProperty(Game.prototype, "currentPlayer", {
             get: function () {
                 return this._currentPlayer;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(Game.prototype, "treasureCards", {
+            get: function () {
+                return this._treasureCards;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(Game.prototype, "eventCards", {
+            get: function () {
+                return this._eventCards;
             },
             enumerable: true,
             configurable: true
@@ -672,6 +721,17 @@ var Model;
     })();
     Model.Settings = Settings;
 })(Model || (Model = {}));
+var Model;
+(function (Model) {
+    var TreasureCard = (function (_super) {
+        __extends(TreasureCard, _super);
+        function TreasureCard() {
+            _super.call(this);
+        }
+        return TreasureCard;
+    })(Model.Card);
+    Model.TreasureCard = TreasureCard;
+})(Model || (Model = {}));
 /// <reference path="../../typings/angularjs/angular.d.ts" />
 //((): void=> {
 //    var app = angular.module("angularWithTS", ['ngRoute']);
@@ -720,11 +780,15 @@ var Services;
             playerModel.mesh.position.z = playerCoordinate.z;
             playerModel.mesh.rotationQuaternion = this.getPlayerRotationOnBoardField(playerModel, player.position.index);
         };
-        DrawingService.prototype.animatePlayerMove = function (oldPosition, newPosition, playerModel, scene) {
+        DrawingService.prototype.animatePlayerMove = function (oldPosition, newPosition, playerModel, scene, fast) {
             var positionKeys = [];
             var rotationKeys = [];
             var framesForField = this.framesToMoveOneBoardField;
             var framesForRotation = this.framesToMoveOneBoardField * 2;
+            if (fast) {
+                framesForField = Math.floor(framesForField / 2);
+                framesForRotation = framesForRotation / 2;
+            }
             var runningFrame = 0;
             var runningField = 0;
             var fieldsToTravel = newPosition.index >= oldPosition.index ? newPosition.index - oldPosition.index : 40 - oldPosition.index + newPosition.index;
@@ -751,9 +815,8 @@ var Services;
             playerModel.mesh.animations.push(animationplayerPosition);
             playerModel.mesh.animations.push(animationplayerRotation);
             var d = $.Deferred();
-            scene.beginAnimation(playerModel.mesh, 0, /*totalFrames*/ runningFrame, false, undefined, function () { d.resolve(); });
+            scene.beginAnimation(playerModel.mesh, 0, runningFrame, false, undefined, function () { d.resolve(); });
             return d;
-            //this.positionPlayer(playerModel);
         };
         DrawingService.prototype.setupDiceForThrow = function (scene) {
             this.diceMesh.position.x = this.dicePosition.x;
@@ -788,10 +851,10 @@ var Services;
             });
             // make sure the starting and ending rotation angle are at the same side of the numeric scale; Math.Pi and -Math.Pi are the same in terms of object rotation, but for
             // computer animation, this is a 360 degree spin, which is undesirable...
-            if (keysRotation[0].value.y < 0 && keysRotation[1].value.y >= 0) {
+            if (keysRotation[0].value.y < 0 && keysRotation[1].value.y >= 0 && keysRotation[1].value.y + Math.abs(keysRotation[0].value.y) > Math.PI) {
                 keysRotation[0].value.y = Math.PI + Math.PI + keysRotation[0].value.y;
             }
-            if (keysRotation[0].value.y >= 0 && keysRotation[1].value.y < 0) {
+            if (keysRotation[0].value.y >= 0 && keysRotation[1].value.y < 0 && keysRotation[0].value.y + Math.abs(keysRotation[1].value.y) > Math.PI) {
                 keysRotation[0].value.y = -Math.PI - Math.PI + keysRotation[0].value.y;
             }
             animationCameraPosition.setKeys(keys);
@@ -835,10 +898,10 @@ var Services;
             });
             // make sure the starting and ending rotation angle are at the same side of the numeric scale; Math.Pi and -Math.Pi are the same in terms of object rotation, but for
             // computer animation, this is a 360 degree spin, which is undesirable...
-            if (keysRotation[0].value.y < 0 && keysRotation[1].value.y >= 0) {
+            if (keysRotation[0].value.y < 0 && keysRotation[1].value.y >= 0 && keysRotation[1].value.y + Math.abs(keysRotation[0].value.y) > Math.PI) {
                 keysRotation[0].value.y = Math.PI + Math.PI + keysRotation[0].value.y;
             }
-            if (keysRotation[0].value.y >= 0 && keysRotation[1].value.y < 0) {
+            if (keysRotation[0].value.y >= 0 && keysRotation[1].value.y < 0 && keysRotation[0].value.y + Math.abs(keysRotation[1].value.y) > Math.PI) {
                 keysRotation[0].value.y = -Math.PI - Math.PI + keysRotation[0].value.y;
             }
             animationCameraPosition.setKeys(keys);
@@ -1420,6 +1483,7 @@ var Services;
         DrawingService.prototype.getDiceResult = function () {
             var rotationMatrix = new BABYLON.Matrix();
             this.diceMesh.rotationQuaternion.toRotationMatrix(rotationMatrix);
+            // temporarily
             return 1;
             if (this.epsilonCompare(rotationMatrix.m[0], 0) && this.epsilonCompare(rotationMatrix.m[1], 1) && this.epsilonCompare(rotationMatrix.m[2], 0) && this.epsilonCompare(rotationMatrix.m[5], 0) && this.epsilonCompare(rotationMatrix.m[9], 0)) {
                 return 1;
@@ -1528,6 +1592,7 @@ var Services;
         GameService.prototype.initGame = function () {
             this.game = new Model.Game();
             this.initPlayers();
+            this.initCards();
             this.game.advanceToNextPlayer();
             this.uncommittedHousesPrice = 0;
         };
@@ -1577,8 +1642,6 @@ var Services;
         Object.defineProperty(GameService.prototype, "canBuy", {
             get: function () {
                 var _this = this;
-                // temporarily
-                return false;
                 if (this.game.getState() === Model.GameState.Process) {
                     var currentPosition = this.getCurrentPlayerPosition();
                     if (currentPosition.type === Model.BoardFieldType.Asset) {
@@ -1674,12 +1737,12 @@ var Services;
             var player = this.game.players.filter(function (p) { return p.playerName === _this.getCurrentPlayer(); })[0];
             return player.position;
         };
-        GameService.prototype.moveCurrentPlayer = function () {
+        GameService.prototype.moveCurrentPlayer = function (newPositionIndex) {
             var _this = this;
             this.game.setState(Model.GameState.Move);
             var player = this.game.players.filter(function (p) { return p.playerName === _this.getCurrentPlayer(); })[0];
             var currentPositionIndex = player.position.index;
-            var newPositionIndex = Math.floor((currentPositionIndex + this.lastDiceResult1 + this.lastDiceResult2) % 40);
+            newPositionIndex = newPositionIndex !== undefined ? newPositionIndex : Math.floor((currentPositionIndex + this.lastDiceResult1 + this.lastDiceResult2) % 40);
             player.position = this.game.board.fields[newPositionIndex];
             this.game.board.fields[currentPositionIndex].occupiedBy.splice(this.game.board.fields[currentPositionIndex].occupiedBy.indexOf(player.playerName), 1);
             player.position.occupiedBy.push(player.playerName);
@@ -1872,6 +1935,36 @@ var Services;
             this.lastDiceResult1 = diceResult;
             this.lastDiceResult2 = 0;
         };
+        GameService.prototype.getNextTreasureCard = function () {
+            var _this = this;
+            var card = this.game.treasureCards.filter(function (c) { return c.index === _this.currentTreasureCardIndex; });
+            if (!card || card.length === 0) {
+                this.currentTreasureCardIndex = 0;
+                card = this.game.treasureCards.filter(function (c) { return c.index === _this.currentTreasureCardIndex; });
+            }
+            this.currentTreasureCardIndex++;
+            return card[0];
+        };
+        GameService.prototype.getNextEventCard = function () {
+            var _this = this;
+            var card = this.game.eventCards.filter(function (c) { return c.index === _this.currentEventCardIndex; });
+            if (!card || card.length === 0) {
+                this.currentEventCardIndex = 0;
+                card = this.game.eventCards.filter(function (c) { return c.index === _this.currentEventCardIndex; });
+            }
+            this.currentEventCardIndex++;
+            return card[0];
+        };
+        GameService.prototype.processCard = function (card) {
+            var _this = this;
+            var player = this.game.players.filter(function (p) { return p.playerName === _this.getCurrentPlayer(); })[0];
+            if (card.cardType === Model.CardType.ReceiveMoney) {
+                player.money += card.money;
+            }
+            if (card.cardType === Model.CardType.PayMoney) {
+                player.money -= card.money;
+            }
+        };
         GameService.prototype.initPlayers = function () {
             var settings = this.settingsService.loadSettings();
             var colors = ["Red", "Green", "Yellow", "Blue"];
@@ -1882,8 +1975,56 @@ var Services;
                 player.money = 1500;
                 player.color = i;
                 this.game.players.push(player);
-                this.setPlayerPosition(player, 24);
+                this.setPlayerPosition(player, 0);
             }
+        };
+        GameService.prototype.initCards = function () {
+            this.currentEventCardIndex = 0;
+            this.currentTreasureCardIndex = 1;
+            var treasureCardIndex = 0;
+            var eventCardIndex = 0;
+            var treasureCard = new Model.TreasureCard();
+            treasureCard.index = treasureCardIndex++;
+            treasureCard.cardType = Model.CardType.ReceiveMoney;
+            treasureCard.message = "Bank error. You receive M200.";
+            treasureCard.money = 200;
+            this.game.treasureCards.push(treasureCard);
+            treasureCard = new Model.TreasureCard();
+            treasureCard.index = treasureCardIndex++;
+            treasureCard.cardType = Model.CardType.AdvanceToField;
+            treasureCard.message = "Go to START. You receive M200.";
+            treasureCard.boardFieldIndex = 0;
+            this.game.treasureCards.push(treasureCard);
+            treasureCard = new Model.TreasureCard();
+            treasureCard.index = treasureCardIndex++;
+            treasureCard.cardType = Model.CardType.ReceiveMoney;
+            treasureCard.message = "You have won second award at the beauty competition. You receive M10.";
+            treasureCard.money = 10;
+            this.game.treasureCards.push(treasureCard);
+            treasureCard = new Model.TreasureCard();
+            treasureCard.index = treasureCardIndex++;
+            treasureCard.cardType = Model.CardType.PayMoney;
+            treasureCard.message = "Pay M100 for hospital expenses.";
+            treasureCard.money = 100;
+            this.game.treasureCards.push(treasureCard);
+            var eventCard = new Model.EventCard();
+            eventCard.index = eventCardIndex++;
+            eventCard.cardType = Model.CardType.PayMoney;
+            eventCard.message = "You have received a speeding ticket. Pay M15.";
+            eventCard.money = 15;
+            this.game.eventCards.push(eventCard);
+            eventCard = new Model.EventCard();
+            eventCard.index = eventCardIndex++;
+            eventCard.cardType = Model.CardType.RetractNumFields;
+            eventCard.message = "Go three fields backwards.";
+            eventCard.boardFieldCount = 3;
+            this.game.eventCards.push(eventCard);
+            var eventCard = new Model.EventCard();
+            eventCard.index = eventCardIndex++;
+            eventCard.cardType = Model.CardType.ReceiveMoney;
+            eventCard.message = "Bank has issued dividends worth of M50.";
+            eventCard.money = 50;
+            this.game.eventCards.push(eventCard);
         };
         GameService.$inject = ["$http", "settingsService"];
         return GameService;
@@ -1913,6 +2054,7 @@ var MonopolyApp;
                 this.availableActions = new MonopolyApp.Viewmodels.AvailableActions();
                 this.setAvailableActions();
                 this.messages = [];
+                this.currentCard = new MonopolyApp.Viewmodels.Card();
                 $(window).on("click", null, this, this.handleClickEvent);
                 this.swipeService.bind($("#renderCanvas"), {
                     'move': function (coords) { _this.swipeMove(coords); },
@@ -1952,32 +2094,58 @@ var MonopolyApp;
                     $.when(this.diceThrowCompleted).done(function () {
                         that.diceThrowCompleted = undefined;
                         that.gameService.setDiceResult(that.drawingService.getDiceResult());
-                        var oldPosition = that.gameService.getCurrentPlayerPosition();
-                        var newPosition = that.gameService.moveCurrentPlayer();
-                        var cameraMovementCompleted = that.drawingService.returnCameraToMainPosition(that.scene, that.gameCamera, oldPosition.index);
-                        $.when(cameraMovementCompleted).done(function () {
-                            var animateMoveCompleted = that.animateMove(oldPosition, newPosition);
-                            //that.drawingService.returnCameraToMainPosition(that.scene, that.gameCamera, newPosition.index, that.drawingService.framesToMoveOneBoardField * that.gameService.lastDiceResult);
-                            var positionsToMove = oldPosition.index < newPosition.index ? newPosition.index - oldPosition.index : (40 - oldPosition.index) + newPosition.index;
-                            that.followBoardFields(oldPosition.index, positionsToMove, that.drawingService, that.scene, that.gameCamera, that);
-                            $.when(animateMoveCompleted).done(function () {
-                                that.scope.$apply(function () {
-                                    that.setAvailableActions();
-                                    that.processDestinationField();
-                                });
-                            });
-                        });
+                        ////var oldPosition = that.gameService.getCurrentPlayerPosition();
+                        ////var newPosition = that.gameService.moveCurrentPlayer();
+                        ////var cameraMovementCompleted = that.drawingService.returnCameraToMainPosition(that.scene, that.gameCamera, oldPosition.index);
+                        ////$.when(cameraMovementCompleted).done(() => {
+                        ////    var animateMoveCompleted = that.animateMove(oldPosition, newPosition);
+                        ////    //that.drawingService.returnCameraToMainPosition(that.scene, that.gameCamera, newPosition.index, that.drawingService.framesToMoveOneBoardField * that.gameService.lastDiceResult);
+                        ////    var positionsToMove = oldPosition.index < newPosition.index ? newPosition.index - oldPosition.index : (40 - oldPosition.index) + newPosition.index;
+                        ////    that.followBoardFields(oldPosition.index, positionsToMove, that.drawingService, that.scene, that.gameCamera, that);
+                        ////    $.when(animateMoveCompleted).done(() => {
+                        ////        that.scope.$apply(() => {
+                        ////            that.setAvailableActions();
+                        ////            that.processDestinationField();
+                        ////        });
+                        ////    });
+                        ////});
+                        that.movePlayer();
                     });
                 }
             };
+            GameController.prototype.movePlayer = function (newPositionIndex) {
+                var d = $.Deferred();
+                var oldPosition = this.gameService.getCurrentPlayerPosition();
+                var newPosition = this.gameService.moveCurrentPlayer(newPositionIndex);
+                var cameraMovementCompleted = this.drawingService.returnCameraToMainPosition(this.scene, this.gameCamera, oldPosition.index);
+                var that = this;
+                $.when(cameraMovementCompleted).done(function () {
+                    var animateMoveCompleted = that.animateMove(oldPosition, newPosition, newPositionIndex !== undefined);
+                    //that.drawingService.returnCameraToMainPosition(that.scene, that.gameCamera, newPosition.index, that.drawingService.framesToMoveOneBoardField * that.gameService.lastDiceResult);
+                    var positionsToMove = oldPosition.index < newPosition.index ? newPosition.index - oldPosition.index : (40 - oldPosition.index) + newPosition.index;
+                    that.followBoardFields(oldPosition.index, positionsToMove, that.drawingService, that.scene, that.gameCamera, that, newPositionIndex !== undefined);
+                    $.when(animateMoveCompleted).done(function () {
+                        that.scope.$apply(function () {
+                            that.setAvailableActions();
+                            that.processDestinationField();
+                            d.resolve();
+                        });
+                    });
+                });
+                return d;
+            };
             // animate game camera by following board fields from player current field to its movement destination field; this animation occurs at the same time that the player is moving
-            GameController.prototype.followBoardFields = function (positionIndex, positionsLeftToMove, drawingService, scene, camera, gameController) {
+            GameController.prototype.followBoardFields = function (positionIndex, positionsLeftToMove, drawingService, scene, camera, gameController, fast) {
                 if (positionsLeftToMove > 0) {
                     positionIndex = (positionIndex + 1) % 40;
                     positionsLeftToMove--;
-                    var cameraMoveCompleted = drawingService.returnCameraToMainPosition(scene, camera, positionIndex, positionIndex % 10 === 0 ? drawingService.framesToMoveOneBoardField * 2 : drawingService.framesToMoveOneBoardField);
+                    var numFrames = positionIndex % 10 === 0 ? drawingService.framesToMoveOneBoardField * 2 : drawingService.framesToMoveOneBoardField;
+                    //if (fast) {
+                    numFrames = Math.floor(numFrames / 2);
+                    //}
+                    var cameraMoveCompleted = drawingService.returnCameraToMainPosition(scene, camera, positionIndex, numFrames);
                     $.when(cameraMoveCompleted).done(function () {
-                        gameController.followBoardFields(positionIndex, positionsLeftToMove, drawingService, scene, camera, gameController);
+                        gameController.followBoardFields(positionIndex, positionsLeftToMove, drawingService, scene, camera, gameController, fast);
                     });
                 }
             };
@@ -2125,10 +2293,10 @@ var MonopolyApp;
                 this.availableActions.buy = this.gameService.canBuy;
                 this.availableActions.manage = this.gameService.canManage;
             };
-            GameController.prototype.animateMove = function (oldPosition, newPosition) {
+            GameController.prototype.animateMove = function (oldPosition, newPosition, fast) {
                 var _this = this;
                 var playerModel = this.players.filter(function (p) { return p.name === _this.gameService.getCurrentPlayer(); })[0];
-                return this.drawingService.animatePlayerMove(oldPosition, newPosition, playerModel, this.scene);
+                return this.drawingService.animatePlayerMove(oldPosition, newPosition, playerModel, this.scene, fast);
             };
             GameController.prototype.showDeed = function () {
                 this.assetToBuy = this.gameService.getCurrentPlayerPosition().asset;
@@ -2136,6 +2304,9 @@ var MonopolyApp;
             GameController.prototype.processDestinationField = function () {
                 if (this.gameService.getCurrentPlayerPosition().type === Model.BoardFieldType.Asset) {
                     this.processAssetField(this.gameService.getCurrentPlayerPosition());
+                }
+                if (this.gameService.getCurrentPlayerPosition().type === Model.BoardFieldType.Treasure || this.gameService.getCurrentPlayerPosition().type === Model.BoardFieldType.Event) {
+                    this.processCardField(this.gameService.getCurrentPlayerPosition());
                 }
             };
             GameController.prototype.processAssetField = function (position) {
@@ -2300,6 +2471,58 @@ var MonopolyApp;
                     viewPlayer.money = p.money;
                 });
             };
+            GameController.prototype.processCardField = function (position) {
+                var card;
+                if (position.type === Model.BoardFieldType.Treasure) {
+                    card = this.gameService.getNextTreasureCard();
+                }
+                else {
+                    card = this.gameService.getNextEventCard();
+                }
+                var that = this;
+                $.when(this.showCard(card, position.type === Model.BoardFieldType.Treasure ? "COMMUNITY CHEST" : "EVENT")).done(function () {
+                    that.gameService.processCard(card);
+                    that.showMessage(that.getMessageForCard(card, position));
+                    var addAction = $.Deferred();
+                    if (card.cardType === Model.CardType.AdvanceToField) {
+                        $.when(that.movePlayer(card.boardFieldIndex)).done(function () {
+                            addAction.resolve();
+                        });
+                    }
+                    else {
+                        addAction.resolve();
+                    }
+                    $.when(addAction).done(function () {
+                        that.scope.$apply(function () {
+                            that.updatePlayersForView();
+                        });
+                    });
+                });
+            };
+            GameController.prototype.showCard = function (card, title) {
+                var _this = this;
+                var d = $.Deferred();
+                this.currentCard.title = title;
+                this.currentCard.message = card.message;
+                $("#card").show("fold", { size: "30%" }, 800, function () {
+                    _this.timeoutService(4000).then(function () {
+                        $("#card").hide("fold", { size: "30%" }, 800, function () {
+                            d.resolve();
+                        });
+                    });
+                });
+                return d;
+            };
+            GameController.prototype.getMessageForCard = function (card, position) {
+                var type = position.type === Model.BoardFieldType.Treasure ? "community chest" : "event";
+                if (card.cardType === Model.CardType.ReceiveMoney) {
+                    return this.gameService.getCurrentPlayer() + " received M" + card.money + " from " + type + ".";
+                }
+                else if (card.cardType === Model.CardType.PayMoney) {
+                    return this.gameService.getCurrentPlayer() + " paid M" + card.money + (position.type === Model.BoardFieldType.Treasure ? " to " : " for ") + type + ".";
+                }
+                return this.gameService.getCurrentPlayer() + " landed on " + type + ".";
+            };
             GameController.$inject = ["$state", "$swipe", "$scope", "$timeout", "gameService", "drawingService"];
             return GameController;
         })();
@@ -2389,6 +2612,18 @@ var MonopolyApp;
             return BoardField;
         })();
         Viewmodels.BoardField = BoardField;
+    })(Viewmodels = MonopolyApp.Viewmodels || (MonopolyApp.Viewmodels = {}));
+})(MonopolyApp || (MonopolyApp = {}));
+var MonopolyApp;
+(function (MonopolyApp) {
+    var Viewmodels;
+    (function (Viewmodels) {
+        var Card = (function () {
+            function Card() {
+            }
+            return Card;
+        })();
+        Viewmodels.Card = Card;
     })(Viewmodels = MonopolyApp.Viewmodels || (MonopolyApp.Viewmodels = {}));
 })(MonopolyApp || (MonopolyApp = {}));
 var MonopolyApp;

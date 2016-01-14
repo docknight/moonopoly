@@ -10,6 +10,8 @@
     export class Game {
         private _currentPlayer: string; // name of the current player
         private _board: Board;
+        private _treasureCards: Array<TreasureCard>;
+        private _eventCards: Array<EventCard>;
         private previousState: GameState;
         private state: GameState;
 
@@ -20,6 +22,14 @@
             return this._currentPlayer;
         }
 
+        get treasureCards(): Array<TreasureCard> {
+            return this._treasureCards;
+        }
+
+        get eventCards(): Array<EventCard> {
+            return this._eventCards;
+        }
+
         get board(): Board {
             return this._board;
         }
@@ -28,6 +38,8 @@
             this._currentPlayer = "";
             this.players = new Array<Player>();
             this._board = new Board();
+            this._treasureCards = new Array<TreasureCard>();
+            this._eventCards = new Array<EventCard>();
             this.state = GameState.BeginTurn;
         }
 
