@@ -23,6 +23,7 @@
         }
 
         name: string;
+        color: string;
         price: number;
         group: AssetGroup;
         priceRent: number[];
@@ -59,6 +60,14 @@
 
         get mortgage(): boolean {
             return this._mortgage;
+        }
+
+        get isUtility(): boolean {
+            return this.group === Model.AssetGroup.Utility;
+        }
+
+        get isRailway(): boolean {
+            return this.group === Model.AssetGroup.Railway;
         }
 
         // add a house in a preview mode;

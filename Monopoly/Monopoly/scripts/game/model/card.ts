@@ -10,5 +10,6 @@
         index: number; // card index
         boardFieldIndex: number;
         boardFieldCount: number;
+        skipGoAward: boolean;
     }
 } 

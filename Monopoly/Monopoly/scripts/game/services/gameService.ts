@@ -161,6 +161,7 @@ module Services {
 
         moveCurrentPlayer(newPositionIndex?: number): Model.BoardField {
             this.game.setState(Model.GameState.Move);
+            this.game.moveContext.reset();
             var player = this.game.players.filter(p => p.playerName === this.getCurrentPlayer())[0];
             var currentPositionIndex = player.position.index;
             newPositionIndex = newPositionIndex !== undefined ? newPositionIndex : Math.floor((currentPositionIndex + this.lastDiceResult1 + this.lastDiceResult2) % 40);
@@ -397,6 +398,25 @@ module Services {
             if (card.cardType === Model.CardType.PayMoney) {
                 player.money -= card.money;
             }
+            if (card.cardType === Model.CardType.AdvanceToField) {
+                if (card.boardFieldIndex === 0 && card.skipGoAward) {
+                    this.game.moveContext.skipGoAward = true;
+                }
+            }
+        }
+
+        // process intermediate board fields while moving a player to its destination field
+        processFlyBy(positionIndex: number): Model.ProcessingEvent {
+            var processedEvent = Model.ProcessingEvent.None;
+            if (positionIndex === 0) {
+                if (this.game.moveContext.skipGoAward === false) {
+                    var player = this.game.players.filter(p => p.playerName === this.getCurrentPlayer())[0];
+                    player.money += 200;
+                    processedEvent = Model.ProcessingEvent.PassGoAward;
+                }
+            }
+
+            return processedEvent;
         }
 
         private initPlayers() {
@@ -427,16 +447,16 @@ module Services {
 
             treasureCard = new Model.TreasureCard();
             treasureCard.index = treasureCardIndex++;
-            treasureCard.cardType = Model.CardType.AdvanceToField;
-            treasureCard.message = "Go to START. You receive M200.";
-            treasureCard.boardFieldIndex = 0;
+            treasureCard.cardType = Model.CardType.ReceiveMoney;
+            treasureCard.message = "You have won second award at the beauty competition. You receive M10.";
+            treasureCard.money = 10;
             this.game.treasureCards.push(treasureCard);
 
             treasureCard = new Model.TreasureCard();
             treasureCard.index = treasureCardIndex++;
-            treasureCard.cardType = Model.CardType.ReceiveMoney;
-            treasureCard.message = "You have won second award at the beauty competition. You receive M10.";
-            treasureCard.money = 10;
+            treasureCard.cardType = Model.CardType.AdvanceToField;
+            treasureCard.message = "Go to START. You receive M200.";
+            treasureCard.boardFieldIndex = 0;
             this.game.treasureCards.push(treasureCard);
 
             treasureCard = new Model.TreasureCard();

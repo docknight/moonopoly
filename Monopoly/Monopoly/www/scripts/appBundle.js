@@ -134,6 +134,20 @@ var Model;
             enumerable: true,
             configurable: true
         });
+        Object.defineProperty(Asset.prototype, "isUtility", {
+            get: function () {
+                return this.group === Model.AssetGroup.Utility;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(Asset.prototype, "isRailway", {
+            get: function () {
+                return this.group === Model.AssetGroup.Railway;
+            },
+            enumerable: true,
+            configurable: true
+        });
         // add a house in a preview mode;
         Asset.prototype.addHouse = function () {
             this._uncommittedHouses++;
@@ -251,6 +265,7 @@ var Model;
             this.fields.push(startField);
             var boardField = this.createAssetBoardField("Goriška Brda", this.fields.length, Model.AssetGroup.First);
             boardField.asset.price = 60;
+            boardField.asset.color = "#723E00";
             boardField.asset.priceHouse = 50;
             boardField.asset.priceHotel = 50;
             boardField.asset.priceRent.push(2, 4);
@@ -264,6 +279,7 @@ var Model;
             this.fields.push(treasureField);
             boardField = this.createAssetBoardField("Slovenske Gorice", this.fields.length, Model.AssetGroup.First);
             boardField.asset.price = 60;
+            boardField.asset.color = "#723E00";
             boardField.asset.priceHouse = 50;
             boardField.asset.priceHotel = 50;
             boardField.asset.priceRent.push(4, 8);
@@ -277,11 +293,13 @@ var Model;
             this.fields.push(taxField);
             boardField = this.createAssetBoardField("Železniška postaja Jesenice", this.fields.length, Model.AssetGroup.Railway);
             boardField.asset.price = 200;
+            boardField.asset.color = "#FFFFFF";
             boardField.asset.priceRent.push(25, 50, 100, 200);
             boardField.asset.priceMortgage = 100;
             this.fields.push(boardField);
             boardField = this.createAssetBoardField("Bogenšperk", this.fields.length, Model.AssetGroup.Second);
             boardField.asset.price = 100;
+            boardField.asset.color = "#69EEF6";
             boardField.asset.priceHouse = 50;
             boardField.asset.priceHotel = 50;
             boardField.asset.priceRent.push(6, 6, 12);
@@ -294,6 +312,7 @@ var Model;
             eventField.type = Model.BoardFieldType.Event;
             this.fields.push(eventField);
             boardField = this.createAssetBoardField("Predjamski grad", this.fields.length, Model.AssetGroup.Second);
+            boardField.asset.color = "#69EEF6";
             boardField.asset.price = 100;
             boardField.asset.priceHouse = 50;
             boardField.asset.priceHotel = 50;
@@ -304,6 +323,7 @@ var Model;
             this.fields.push(boardField);
             boardField = this.createAssetBoardField("Otočec", this.fields.length, Model.AssetGroup.Second);
             boardField.asset.price = 120;
+            boardField.asset.color = "#69EEF6";
             boardField.asset.priceHouse = 50;
             boardField.asset.priceHotel = 50;
             boardField.asset.priceRent.push(8, 8, 16);
@@ -317,6 +337,7 @@ var Model;
             this.fields.push(prisonAndVisitField);
             boardField = this.createAssetBoardField("Terme Čatež", this.fields.length, Model.AssetGroup.Third);
             boardField.asset.price = 140;
+            boardField.asset.color = "#FD23BD";
             boardField.asset.priceHouse = 100;
             boardField.asset.priceHotel = 100;
             boardField.asset.priceRent.push(10, 10, 20);
@@ -326,11 +347,13 @@ var Model;
             this.fields.push(boardField);
             boardField = this.createAssetBoardField("Javna razsvetljava", this.fields.length, Model.AssetGroup.Utility);
             boardField.asset.price = 150;
+            boardField.asset.color = "#FFFFFF";
             boardField.asset.priceMultiplierUtility.push(4, 10);
             boardField.asset.priceMortgage = 75;
             this.fields.push(boardField);
             boardField = this.createAssetBoardField("Dolenjske toplice", this.fields.length, Model.AssetGroup.Third);
             boardField.asset.price = 140;
+            boardField.asset.color = "#FD23BD";
             boardField.asset.priceHouse = 100;
             boardField.asset.priceHotel = 100;
             boardField.asset.priceRent.push(10, 10, 20);
@@ -340,6 +363,7 @@ var Model;
             this.fields.push(boardField);
             boardField = this.createAssetBoardField("Moravske toplice", this.fields.length, Model.AssetGroup.Third);
             boardField.asset.price = 160;
+            boardField.asset.color = "#FD23BD";
             boardField.asset.priceHouse = 100;
             boardField.asset.priceHotel = 100;
             boardField.asset.priceRent.push(12, 12, 24);
@@ -349,11 +373,13 @@ var Model;
             this.fields.push(boardField);
             boardField = this.createAssetBoardField("Glavni kolodvor Ljubljana", this.fields.length, Model.AssetGroup.Railway);
             boardField.asset.price = 200;
+            boardField.asset.color = "#FFFFFF";
             boardField.asset.priceRent.push(25, 50, 100, 200);
             boardField.asset.priceMortgage = 100;
             this.fields.push(boardField);
             boardField = this.createAssetBoardField("Športni park Stožice", this.fields.length, Model.AssetGroup.Fourth);
             boardField.asset.price = 180;
+            boardField.asset.color = "#F39D37";
             boardField.asset.priceHouse = 100;
             boardField.asset.priceHotel = 100;
             boardField.asset.priceRent.push(14, 14, 28);
@@ -367,6 +393,7 @@ var Model;
             this.fields.push(treasureField);
             boardField = this.createAssetBoardField("Planica", this.fields.length, Model.AssetGroup.Fourth);
             boardField.asset.price = 180;
+            boardField.asset.color = "#F39D37";
             boardField.asset.priceHouse = 100;
             boardField.asset.priceHotel = 100;
             boardField.asset.priceRent.push(14, 14, 28);
@@ -376,6 +403,7 @@ var Model;
             this.fields.push(boardField);
             boardField = this.createAssetBoardField("Mariborsko Pohorje", this.fields.length, Model.AssetGroup.Fourth);
             boardField.asset.price = 200;
+            boardField.asset.color = "#F39D37";
             boardField.asset.priceHouse = 100;
             boardField.asset.priceHotel = 100;
             boardField.asset.priceRent.push(16, 16, 32);
@@ -389,6 +417,7 @@ var Model;
             this.fields.push(freeParkingField);
             boardField = this.createAssetBoardField("Trenta", this.fields.length, Model.AssetGroup.Fifth);
             boardField.asset.price = 220;
+            boardField.asset.color = "#E50E13";
             boardField.asset.priceHouse = 150;
             boardField.asset.priceHotel = 150;
             boardField.asset.priceRent.push(18, 18, 36);
@@ -402,6 +431,7 @@ var Model;
             this.fields.push(eventField);
             boardField = this.createAssetBoardField("Rakov Škocjan", this.fields.length, Model.AssetGroup.Fifth);
             boardField.asset.price = 220;
+            boardField.asset.color = "#E50E13";
             boardField.asset.priceHouse = 150;
             boardField.asset.priceHotel = 150;
             boardField.asset.priceRent.push(18, 18, 36);
@@ -411,6 +441,7 @@ var Model;
             this.fields.push(boardField);
             boardField = this.createAssetBoardField("Logarska dolina", this.fields.length, Model.AssetGroup.Fifth);
             boardField.asset.price = 240;
+            boardField.asset.color = "#E50E13";
             boardField.asset.priceHouse = 150;
             boardField.asset.priceHotel = 150;
             boardField.asset.priceRent.push(20, 20, 40);
@@ -420,11 +451,13 @@ var Model;
             this.fields.push(boardField);
             boardField = this.createAssetBoardField("Železniška postaja Zidani most", this.fields.length, Model.AssetGroup.Railway);
             boardField.asset.price = 200;
+            boardField.asset.color = "#FFFFFF";
             boardField.asset.priceRent.push(25, 50, 100, 200);
             boardField.asset.priceMortgage = 100;
             this.fields.push(boardField);
             boardField = this.createAssetBoardField("Lipica", this.fields.length, Model.AssetGroup.Sixth);
             boardField.asset.price = 260;
+            boardField.asset.color = "#F4F10B";
             boardField.asset.priceHouse = 150;
             boardField.asset.priceHotel = 150;
             boardField.asset.priceRent.push(22, 22, 44);
@@ -434,6 +467,7 @@ var Model;
             this.fields.push(boardField);
             boardField = this.createAssetBoardField("Volčji potok", this.fields.length, Model.AssetGroup.Sixth);
             boardField.asset.price = 260;
+            boardField.asset.color = "#F4F10B";
             boardField.asset.priceHouse = 150;
             boardField.asset.priceHotel = 150;
             boardField.asset.priceRent.push(22, 22, 44);
@@ -443,11 +477,13 @@ var Model;
             this.fields.push(boardField);
             boardField = this.createAssetBoardField("Mestni vodovod", this.fields.length, Model.AssetGroup.Utility);
             boardField.asset.price = 150;
+            boardField.asset.color = "#FFFFFF";
             boardField.asset.priceMultiplierUtility.push(4, 10);
             boardField.asset.priceMortgage = 75;
             this.fields.push(boardField);
             boardField = this.createAssetBoardField("Postojnska jama", this.fields.length, Model.AssetGroup.Sixth);
             boardField.asset.price = 280;
+            boardField.asset.color = "#F4F10B";
             boardField.asset.priceHouse = 150;
             boardField.asset.priceHotel = 150;
             boardField.asset.priceRent.push(24, 24, 48);
@@ -461,6 +497,7 @@ var Model;
             this.fields.push(goToPrisonField);
             boardField = this.createAssetBoardField("Cerkniško jezero", this.fields.length, Model.AssetGroup.Seventh);
             boardField.asset.price = 300;
+            boardField.asset.color = "#09C123";
             boardField.asset.priceHouse = 200;
             boardField.asset.priceHotel = 200;
             boardField.asset.priceRent.push(26, 26, 52);
@@ -470,6 +507,7 @@ var Model;
             this.fields.push(boardField);
             boardField = this.createAssetBoardField("Bohinj", this.fields.length, Model.AssetGroup.Seventh);
             boardField.asset.price = 300;
+            boardField.asset.color = "#09C123";
             boardField.asset.priceHouse = 200;
             boardField.asset.priceHotel = 200;
             boardField.asset.priceRent.push(26, 26, 52);
@@ -483,6 +521,7 @@ var Model;
             this.fields.push(treasureField);
             boardField = this.createAssetBoardField("Bled", this.fields.length, Model.AssetGroup.Seventh);
             boardField.asset.price = 320;
+            boardField.asset.color = "#09C123";
             boardField.asset.priceHouse = 200;
             boardField.asset.priceHotel = 200;
             boardField.asset.priceRent.push(28, 28, 56);
@@ -492,6 +531,7 @@ var Model;
             this.fields.push(boardField);
             boardField = this.createAssetBoardField("Železniška postaja Koper", this.fields.length, Model.AssetGroup.Railway);
             boardField.asset.price = 200;
+            boardField.asset.color = "#FFFFFF";
             boardField.asset.priceRent.push(25, 50, 100, 200);
             boardField.asset.priceMortgage = 100;
             this.fields.push(boardField);
@@ -501,6 +541,7 @@ var Model;
             this.fields.push(eventField);
             boardField = this.createAssetBoardField("Piran", this.fields.length, Model.AssetGroup.Eighth);
             boardField.asset.price = 350;
+            boardField.asset.color = "#2231F8";
             boardField.asset.priceHouse = 200;
             boardField.asset.priceHotel = 200;
             boardField.asset.priceRent.push(35, 70);
@@ -514,6 +555,7 @@ var Model;
             this.fields.push(taxField);
             boardField = this.createAssetBoardField("Portorož", this.fields.length, Model.AssetGroup.Eighth);
             boardField.asset.price = 400;
+            boardField.asset.color = "#2231F8";
             boardField.asset.priceHouse = 200;
             boardField.asset.priceHotel = 200;
             boardField.asset.priceRent.push(50, 100);
@@ -619,6 +661,7 @@ var Model;
             this._board = new Model.Board();
             this._treasureCards = new Array();
             this._eventCards = new Array();
+            this._moveContext = new Model.MoveContext();
             this.state = GameState.BeginTurn;
         }
         Object.defineProperty(Game.prototype, "currentPlayer", {
@@ -645,6 +688,13 @@ var Model;
         Object.defineProperty(Game.prototype, "board", {
             get: function () {
                 return this._board;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(Game.prototype, "moveContext", {
+            get: function () {
+                return this._moveContext;
             },
             enumerable: true,
             configurable: true
@@ -681,6 +731,26 @@ var Model;
         return Game;
     })();
     Model.Game = Game;
+})(Model || (Model = {}));
+var Model;
+(function (Model) {
+    (function (ProcessingEvent) {
+        ProcessingEvent[ProcessingEvent["None"] = 0] = "None";
+        ProcessingEvent[ProcessingEvent["PassGoAward"] = 1] = "PassGoAward";
+    })(Model.ProcessingEvent || (Model.ProcessingEvent = {}));
+    var ProcessingEvent = Model.ProcessingEvent;
+    ;
+    // context data associated with the current player move
+    var MoveContext = (function () {
+        function MoveContext() {
+            this.reset();
+        }
+        MoveContext.prototype.reset = function () {
+            this.skipGoAward = false;
+        };
+        return MoveContext;
+    })();
+    Model.MoveContext = MoveContext;
 })(Model || (Model = {}));
 var Model;
 (function (Model) {
@@ -1484,7 +1554,7 @@ var Services;
             var rotationMatrix = new BABYLON.Matrix();
             this.diceMesh.rotationQuaternion.toRotationMatrix(rotationMatrix);
             // temporarily
-            return 1;
+            return 5;
             if (this.epsilonCompare(rotationMatrix.m[0], 0) && this.epsilonCompare(rotationMatrix.m[1], 1) && this.epsilonCompare(rotationMatrix.m[2], 0) && this.epsilonCompare(rotationMatrix.m[5], 0) && this.epsilonCompare(rotationMatrix.m[9], 0)) {
                 return 1;
             }
@@ -1740,6 +1810,7 @@ var Services;
         GameService.prototype.moveCurrentPlayer = function (newPositionIndex) {
             var _this = this;
             this.game.setState(Model.GameState.Move);
+            this.game.moveContext.reset();
             var player = this.game.players.filter(function (p) { return p.playerName === _this.getCurrentPlayer(); })[0];
             var currentPositionIndex = player.position.index;
             newPositionIndex = newPositionIndex !== undefined ? newPositionIndex : Math.floor((currentPositionIndex + this.lastDiceResult1 + this.lastDiceResult2) % 40);
@@ -1964,6 +2035,24 @@ var Services;
             if (card.cardType === Model.CardType.PayMoney) {
                 player.money -= card.money;
             }
+            if (card.cardType === Model.CardType.AdvanceToField) {
+                if (card.boardFieldIndex === 0 && card.skipGoAward) {
+                    this.game.moveContext.skipGoAward = true;
+                }
+            }
+        };
+        // process intermediate board fields while moving a player to its destination field
+        GameService.prototype.processFlyBy = function (positionIndex) {
+            var _this = this;
+            var processedEvent = Model.ProcessingEvent.None;
+            if (positionIndex === 0) {
+                if (this.game.moveContext.skipGoAward === false) {
+                    var player = this.game.players.filter(function (p) { return p.playerName === _this.getCurrentPlayer(); })[0];
+                    player.money += 200;
+                    processedEvent = Model.ProcessingEvent.PassGoAward;
+                }
+            }
+            return processedEvent;
         };
         GameService.prototype.initPlayers = function () {
             var settings = this.settingsService.loadSettings();
@@ -1980,7 +2069,7 @@ var Services;
         };
         GameService.prototype.initCards = function () {
             this.currentEventCardIndex = 0;
-            this.currentTreasureCardIndex = 1;
+            this.currentTreasureCardIndex = 0;
             var treasureCardIndex = 0;
             var eventCardIndex = 0;
             var treasureCard = new Model.TreasureCard();
@@ -1991,15 +2080,15 @@ var Services;
             this.game.treasureCards.push(treasureCard);
             treasureCard = new Model.TreasureCard();
             treasureCard.index = treasureCardIndex++;
-            treasureCard.cardType = Model.CardType.AdvanceToField;
-            treasureCard.message = "Go to START. You receive M200.";
-            treasureCard.boardFieldIndex = 0;
-            this.game.treasureCards.push(treasureCard);
-            treasureCard = new Model.TreasureCard();
-            treasureCard.index = treasureCardIndex++;
             treasureCard.cardType = Model.CardType.ReceiveMoney;
             treasureCard.message = "You have won second award at the beauty competition. You receive M10.";
             treasureCard.money = 10;
+            this.game.treasureCards.push(treasureCard);
+            treasureCard = new Model.TreasureCard();
+            treasureCard.index = treasureCardIndex++;
+            treasureCard.cardType = Model.CardType.AdvanceToField;
+            treasureCard.message = "Go to START. You receive M200.";
+            treasureCard.boardFieldIndex = 0;
             this.game.treasureCards.push(treasureCard);
             treasureCard = new Model.TreasureCard();
             treasureCard.index = treasureCardIndex++;
@@ -2094,25 +2183,11 @@ var MonopolyApp;
                     $.when(this.diceThrowCompleted).done(function () {
                         that.diceThrowCompleted = undefined;
                         that.gameService.setDiceResult(that.drawingService.getDiceResult());
-                        ////var oldPosition = that.gameService.getCurrentPlayerPosition();
-                        ////var newPosition = that.gameService.moveCurrentPlayer();
-                        ////var cameraMovementCompleted = that.drawingService.returnCameraToMainPosition(that.scene, that.gameCamera, oldPosition.index);
-                        ////$.when(cameraMovementCompleted).done(() => {
-                        ////    var animateMoveCompleted = that.animateMove(oldPosition, newPosition);
-                        ////    //that.drawingService.returnCameraToMainPosition(that.scene, that.gameCamera, newPosition.index, that.drawingService.framesToMoveOneBoardField * that.gameService.lastDiceResult);
-                        ////    var positionsToMove = oldPosition.index < newPosition.index ? newPosition.index - oldPosition.index : (40 - oldPosition.index) + newPosition.index;
-                        ////    that.followBoardFields(oldPosition.index, positionsToMove, that.drawingService, that.scene, that.gameCamera, that);
-                        ////    $.when(animateMoveCompleted).done(() => {
-                        ////        that.scope.$apply(() => {
-                        ////            that.setAvailableActions();
-                        ////            that.processDestinationField();
-                        ////        });
-                        ////    });
-                        ////});
                         that.movePlayer();
                     });
                 }
             };
+            // move player to a destination defined by last dice throw or by explicit parameter value (as requested by an event card, for instance)
             GameController.prototype.movePlayer = function (newPositionIndex) {
                 var d = $.Deferred();
                 var oldPosition = this.gameService.getCurrentPlayerPosition();
@@ -2140,11 +2215,20 @@ var MonopolyApp;
                     positionIndex = (positionIndex + 1) % 40;
                     positionsLeftToMove--;
                     var numFrames = positionIndex % 10 === 0 ? drawingService.framesToMoveOneBoardField * 2 : drawingService.framesToMoveOneBoardField;
-                    //if (fast) {
-                    numFrames = Math.floor(numFrames / 2);
-                    //}
+                    if (fast) {
+                        numFrames = Math.floor(numFrames / 2);
+                    }
                     var cameraMoveCompleted = drawingService.returnCameraToMainPosition(scene, camera, positionIndex, numFrames);
                     $.when(cameraMoveCompleted).done(function () {
+                        var processedEvent = gameController.gameService.processFlyBy(positionIndex);
+                        if (processedEvent !== Model.ProcessingEvent.None) {
+                            gameController.timeoutService(function () {
+                                gameController.scope.$apply(function () {
+                                    gameController.updatePlayersForView();
+                                });
+                            });
+                        }
+                        gameController.showMessageForEvent(processedEvent);
                         gameController.followBoardFields(positionIndex, positionsLeftToMove, drawingService, scene, camera, gameController, fast);
                     });
                 }
@@ -2199,6 +2283,14 @@ var MonopolyApp;
             };
             GameController.prototype.executeCancelAction = function (data) {
                 this.cancelButtonCallback(data);
+            };
+            GameController.prototype.showMessageForEvent = function (processingEvent) {
+                if (processingEvent === Model.ProcessingEvent.None) {
+                    return;
+                }
+                else if (processingEvent === Model.ProcessingEvent.PassGoAward) {
+                    this.showMessage(this.gameService.getCurrentPlayer() + " passed GO and received M200.");
+                }
             };
             GameController.prototype.createScene = function () {
                 var canvas = document.getElementById("renderCanvas");
@@ -2493,8 +2585,10 @@ var MonopolyApp;
                         addAction.resolve();
                     }
                     $.when(addAction).done(function () {
-                        that.scope.$apply(function () {
-                            that.updatePlayersForView();
+                        that.timeoutService(function () {
+                            that.scope.$apply(function () {
+                                that.updatePlayersForView();
+                            });
                         });
                     });
                 });
@@ -2521,7 +2615,24 @@ var MonopolyApp;
                 else if (card.cardType === Model.CardType.PayMoney) {
                     return this.gameService.getCurrentPlayer() + " paid M" + card.money + (position.type === Model.BoardFieldType.Treasure ? " to " : " for ") + type + ".";
                 }
+                else if (card.cardType === Model.CardType.AdvanceToField) {
+                    return this.gameService.getCurrentPlayer() + " is advancing to " + this.getBoardFieldName(card.boardFieldIndex) + ".";
+                }
                 return this.gameService.getCurrentPlayer() + " landed on " + type + ".";
+            };
+            GameController.prototype.getBoardFieldName = function (boardFieldIndex) {
+                if (boardFieldIndex === 0) {
+                    return "GO";
+                }
+                var group = this.gameService.getBoardFieldGroup(boardFieldIndex);
+                if (group) {
+                    var fields = this.gameService.getGroupBoardFields(group);
+                    if (fields && fields.length > 0) {
+                        var field = fields.filter(function (f) { return f.index === boardFieldIndex; })[0];
+                        return field.asset.name;
+                    }
+                }
+                return "";
             };
             GameController.$inject = ["$state", "$swipe", "$scope", "$timeout", "gameService", "drawingService"];
             return GameController;

@@ -34,6 +34,7 @@
         getNextTreasureCard(): Model.TreasureCard;
         getNextEventCard(): Model.EventCard;
         processCard(card: Model.Card);
+        processFlyBy(positionIndex: number): Model.ProcessingEvent;
     }
     export interface IDrawingService {
         boardSize: number;

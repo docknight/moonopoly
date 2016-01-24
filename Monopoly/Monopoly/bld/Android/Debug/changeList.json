@@ -32,6 +32,7 @@
     "scripts\\monopolyApp\\models\\coordinate.ts",
     "scripts\\index.ts",
     "scripts\\typings\\cordova\\plugins\\Contacts.d.ts",
+    "scripts\\game\\model\\moveContext.ts",
     "scripts\\typings\\cordova\\plugins\\Splashscreen.d.ts",
     "scripts\\game\\model\\player.ts",
     "scripts\\typings\\cordova\\cordova.d.ts",
@@ -909,6 +910,7 @@
     "scripts\\i18n\\angular-locale_saq-ke.js",
     "scripts\\i18n\\angular-locale_naq-na.js",
     "scripts\\i18n\\angular-locale_ksh-de.js",
+    "www\\images\\lightbulb.png",
     "scripts\\i18n\\angular-locale_vai.js",
     "scripts\\i18n\\angular-locale_ee-tg.js",
     "scripts\\i18n\\angular-locale_az-cyrl-az.js",
@@ -1008,14 +1010,19 @@
     "scripts\\i18n\\angular-locale_en-pw.js",
     "www\\app\\js\\modules\\monopolyApp.js",
     "scripts\\angular-messages.js",
-    "scripts\\i18n\\angular-locale_pt-pt.js"
+    "scripts\\i18n\\angular-locale_pt-pt.js",
+    "www\\app\\views\\game.html~RF96a037.TMP",
+    "www\\images\\faucet.png",
+    "www\\images\\railroad.png"
   ],
   "deletedFilesIos": [],
   "addedPluginsIos": [],
   "deletedPluginsIos": [],
   "changedFiles": [
     "www\\scripts\\appBundle.js.map",
-    "www\\scripts\\appBundle.js"
+    "www\\scripts\\appBundle.js",
+    "www\\app\\views\\game.html",
+    "www\\images\\railroad.png"
   ],
   "deletedFiles": [],
   "addedPlugins": [],

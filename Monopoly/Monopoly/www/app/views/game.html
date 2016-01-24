@@ -12,13 +12,123 @@
         <tr style="height: 50%;"><td style="color: #C0B020; padding-left: 3px">{{gameController.playerModels[1].money}}</tdstyle="color:></tr>
     </table>
 </div>
-<div id="titleDeed" style="position: fixed; top: 10%; left: 30%; width: 40%; height: 80%; background-color: white; border: 2px; border-color: black; border-radius: 3px" ng-show="gameController.availableActions.buy">
-    <table style="width: 100%">
+<div id="titleDeed" style="position: fixed; top: 10%; left: 30%; width: 40%; height: 80%; background-color: white; border: 2px; border-radius: 3px; padding: 7px" ng-show="gameController.availableActions.buy">
+    <table style="width: 100%; height: 100%; border: 2px solid black; border-radius: 3px">
         <tr>
-            <td colspan="2" style="text-align: center; font-size: 12px">TITLE DEED</td>
-        </tr>
-        <tr>
-            <td colspan="2" style="text-align: center; font-size: 16px; font-weight: bold">{{gameController.assetToBuy.name}}</td>
+            <td>
+                <div id="titleDeedAsset" style="width: 100%; height: 100%; padding-left: 7px; padding-right: 7px; padding-top: 5px" ng-show="!gameController.assetToBuy.isUtility && !gameController.assetToBuy.isRailway">
+                    <table style="background-color: {{gameController.assetToBuy.color}}; width: 100% ; height: 20% ; border: 2px solid black; border-radius: 3px ">
+                        <tr>
+                            <td colspan="2" style="text-align: center; font-size: 12px">TITLE DEED</td>
+                        </tr>
+                        <tr>
+                            <td colspan="2" style="text-align: center; font-size: 16px; font-weight: bold">{{gameController.assetToBuy.name}}</td>
+                        </tr>
+                    </table>
+                    <table style="width: 100%; height: 80%">
+                        <tr style="height: 13%">
+                            <td colspan="2" style="text-align: center; font-weight: bold">RENT M{{gameController.assetToBuy.priceRent[0]}}</td>
+                        </tr>
+                        <tr style="height: 8%">
+                            <td style="width: 70%">With 1 House</td>
+                            <td style="text-align: right">M{{gameController.assetToBuy.priceRentHouse[0]}}</td>
+                        </tr>
+                        <tr style="height: 8%">
+                            <td style="width: 70%">With 2 Houses</td>
+                            <td style="text-align: right">M{{gameController.assetToBuy.priceRentHouse[1]}}</td>
+                        </tr>
+                        <tr style="height: 8%">
+                            <td style="width: 70%">With 3 Houses</td>
+                            <td style="text-align: right">M{{gameController.assetToBuy.priceRentHouse[2]}}</td>
+                        </tr>
+                        <tr style="height: 8%">
+                            <td style="width: 70%">With 4 Houses</td>
+                            <td style="text-align: right">M{{gameController.assetToBuy.priceRentHouse[3]}}</td>
+                        </tr>
+                        <tr style="height: 8%">
+                            <td style="width: 70%">With Hotel</td>
+                            <td style="text-align: right">M{{gameController.assetToBuy.priceRentHotel}}</td>
+                        </tr>
+                        <tr style="height: 13%">
+                            <td colspan="2" style="text-align: center; font-weight: bold">Mortage Value M{{gameController.assetToBuy.priceMortgage}}</td>
+                        </tr>
+                        <tr style="height: 10%">
+                            <td colspan="2" style="text-align: center;">Houses cost M{{gameController.assetToBuy.priceHouse}} each</td>
+                        </tr>
+                        <tr style="height: 10%">
+                            <td colspan="2" style="text-align: center;">Hotels, M{{gameController.assetToBuy.priceHotel}} each</td>
+                        </tr>
+                        <tr style="height: 8%">
+                            <td colspan="2" style="text-align: center;">plus 4 houses</td>
+                        </tr>
+                        <tr >
+                            <td colspan="2"></td>
+                        </tr>
+                    </table>
+                </div>
+                <div id="titleDeedUtility" style="width: 100%; height: 100%; padding-left: 7px; padding-right: 7px; padding-top: 5px" ng-show="gameController.assetToBuy.isUtility">
+                    <table style="width: 100%; height: 100%">
+                        <tr style="height: 30%">
+                            <td>
+                                <div style="background-image: url(../../images/lightbulb.png); background-size: contain; background-position: center; background-repeat: no-repeat; height: 100%; width: 100%" ng-show="gameController.assetToBuy.name == 'Javna razsvetljava'">
+                                </div>
+                                <div style="background-image: url(../../images/faucet.png); background-size: contain; background-position: center; background-repeat: no-repeat; height: 100%; width: 100%" ng-show="gameController.assetToBuy.name != 'Javna razsvetljava'">
+                                </div>
+                            </td>
+                        </tr>
+                        <tr style="height: 12%">
+                            <td style="text-align: center; font-weight: bold;">{{gameController.assetToBuy.name}}</td>
+                        </tr>
+                        <tr style="height: 16%">
+                            <td style="text-align: center">If one Utility is owned, rent is 4 times the amount shown on dice.</td>
+                        </tr>
+                        <tr style="height: 27%">
+                            <td style="text-align: center; vertical-align: top">If both Utilities are owned, rent is 10 times the amount shown on dice.</td>
+                        </tr>
+                        <tr style="height: 15%">
+                            <td style="text-align: center">Mortgage Value M{{gameController.assetToBuy.priceMortgage}}</td>
+                        </tr>
+                    </table>
+                </div>
+                <div id="titleDeedRailway" style="width: 100%; height: 100%; padding-left: 7px; padding-right: 7px; padding-top: 5px" ng-show="gameController.assetToBuy.isRailway">
+                    <table style="width: 100%; height: 100%">
+                        <tr style="height: 30%">
+                            <td>
+                                <div style="background-image: url(../../images/railroad.png); background-size: contain; background-position: center; background-repeat: no-repeat; height: 100%; width: 100%">
+                                </div>
+                            </td>
+                        </tr>
+                        <tr style="height: 15%">
+                            <td style="text-align: center; font-weight: bold; vertical-align: middle">{{gameController.assetToBuy.name}}</td>
+                        </tr>
+                        <tr style="height: 55%">
+                            <td>
+                                <table style="width: 100%; height: 100%">
+                                    <tr style="height: 15%">
+                                        <td>RENT</td>
+                                        <td style="text-align: right">M{{gameController.assetToBuy.priceRent[0]}}</td>
+                                    </tr>
+                                    <tr style="height: 15%">
+                                        <td style="width: 70%">If 2 Stations Owned</td>
+                                        <td style="text-align: right">M{{gameController.assetToBuy.priceRent[1]}}</td>
+                                    </tr>
+                                    <tr style="height: 15%">
+                                        <td style="width: 70%">If 3 Stations Owned</td>
+                                        <td style="text-align: right">M{{gameController.assetToBuy.priceRent[2]}}</td>
+                                    </tr>
+                                    <tr style="height: 15%">
+                                        <td style="width: 70%">If 4 Stations Owned</td>
+                                        <td style="text-align: right">M{{gameController.assetToBuy.priceRent[3]}}</td>
+                                    </tr>
+                                    <tr style="height: 40%">
+                                        <td colspan="2" style="text-align: center; vertical-align: middle">Mortage Value M{{gameController.assetToBuy.priceMortgage}}</td>
+                                    </tr>
+                                </table>                                
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </td>
         </tr>
     </table>
 </div>

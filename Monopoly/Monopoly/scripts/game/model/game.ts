@@ -14,6 +14,7 @@
         private _eventCards: Array<EventCard>;
         private previousState: GameState;
         private state: GameState;
+        private _moveContext: MoveContext;
 
         players: Array<Player>;
 
@@ -34,12 +35,17 @@
             return this._board;
         }
 
+        get moveContext(): MoveContext {
+            return this._moveContext;
+        }
+
         constructor() {
             this._currentPlayer = "";
             this.players = new Array<Player>();
             this._board = new Board();
             this._treasureCards = new Array<TreasureCard>();
             this._eventCards = new Array<EventCard>();
+            this._moveContext = new MoveContext();
             this.state = GameState.BeginTurn;
         }
 

@@ -85,6 +85,7 @@ module MonopolyApp.controllers {
             }
         }
 
+        // move player to a destination defined by last dice throw or by explicit parameter value (as requested by an event card, for instance)
         movePlayer(newPositionIndex?: number): JQueryDeferred<{}> {
             var d = $.Deferred();
             var oldPosition = this.gameService.getCurrentPlayerPosition();
@@ -118,6 +119,15 @@ module MonopolyApp.controllers {
                 }
                 var cameraMoveCompleted = drawingService.returnCameraToMainPosition(scene, camera, positionIndex, numFrames);
                 $.when(cameraMoveCompleted).done(() => {
+                    var processedEvent = gameController.gameService.processFlyBy(positionIndex);
+                    if (processedEvent !== Model.ProcessingEvent.None) {
+                        gameController.timeoutService(() => {
+                            gameController.scope.$apply(() => {
+                                gameController.updatePlayersForView();
+                            });
+                        });
+                    }
+                    gameController.showMessageForEvent(processedEvent);
                     gameController.followBoardFields(positionIndex, positionsLeftToMove, drawingService, scene, camera, gameController, fast);
                 });
             }
@@ -184,6 +194,14 @@ module MonopolyApp.controllers {
 
         executeCancelAction(data: any) {
             this.cancelButtonCallback(data);
+        }
+
+        showMessageForEvent(processingEvent: Model.ProcessingEvent) {
+            if (processingEvent === Model.ProcessingEvent.None) {
+                return;
+            } else if (processingEvent === Model.ProcessingEvent.PassGoAward) {
+                this.showMessage(this.gameService.getCurrentPlayer() + " passed GO and received M200.");
+            }
         }
 
         private createScene() {
@@ -502,8 +520,10 @@ module MonopolyApp.controllers {
                 }
 
                 $.when(addAction).done(() => {
-                    that.scope.$apply(() => {
-                        that.updatePlayersForView();
+                    that.timeoutService(() => {
+                        that.scope.$apply(() => {
+                            that.updatePlayersForView();
+                        });
                     });
                 });
             });
@@ -529,9 +549,28 @@ module MonopolyApp.controllers {
                 return this.gameService.getCurrentPlayer() + " received M" + card.money + " from " + type + ".";
             } else if (card.cardType === Model.CardType.PayMoney) {
                 return this.gameService.getCurrentPlayer() + " paid M" + card.money + (position.type === Model.BoardFieldType.Treasure ? " to " : " for ") + type + ".";
+            } else if (card.cardType === Model.CardType.AdvanceToField) {
+                return this.gameService.getCurrentPlayer() + " is advancing to " + this.getBoardFieldName(card.boardFieldIndex) + ".";
             }
 
             return this.gameService.getCurrentPlayer() + " landed on " + type + ".";
+        }
+
+        private getBoardFieldName(boardFieldIndex: number) {
+            if (boardFieldIndex === 0) {
+                return "GO";
+            }
+
+            var group = this.gameService.getBoardFieldGroup(boardFieldIndex);
+            if (group) {
+                var fields = this.gameService.getGroupBoardFields(group);
+                if (fields && fields.length > 0) {
+                    var field = fields.filter(f => f.index === boardFieldIndex)[0];
+                    return field.asset.name;
+                }
+            }
+
+            return "";
         }
     }
 

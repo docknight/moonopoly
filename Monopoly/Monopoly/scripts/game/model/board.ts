@@ -15,6 +15,7 @@
 
             var boardField = this.createAssetBoardField("Goriška Brda", this.fields.length, AssetGroup.First);
             boardField.asset.price = 60;
+            boardField.asset.color = "#723E00";
             boardField.asset.priceHouse = 50;
             boardField.asset.priceHotel = 50;
             boardField.asset.priceRent.push(2, 4);
@@ -30,6 +31,7 @@
 
             boardField = this.createAssetBoardField("Slovenske Gorice", this.fields.length, AssetGroup.First);
             boardField.asset.price = 60;
+            boardField.asset.color = "#723E00";
             boardField.asset.priceHouse = 50;
             boardField.asset.priceHotel = 50;
             boardField.asset.priceRent.push(4, 8);
@@ -45,12 +47,14 @@
 
             boardField = this.createAssetBoardField("Železniška postaja Jesenice", this.fields.length, AssetGroup.Railway);
             boardField.asset.price = 200;
+            boardField.asset.color = "#FFFFFF";
             boardField.asset.priceRent.push(25, 50, 100, 200);
             boardField.asset.priceMortgage = 100;
             this.fields.push(boardField);
 
             boardField = this.createAssetBoardField("Bogenšperk", this.fields.length, AssetGroup.Second);
             boardField.asset.price = 100;
+            boardField.asset.color = "#69EEF6";
             boardField.asset.priceHouse = 50;
             boardField.asset.priceHotel = 50;
             boardField.asset.priceRent.push(6, 6, 12);
@@ -65,6 +69,7 @@
             this.fields.push(eventField);
 
             boardField = this.createAssetBoardField("Predjamski grad", this.fields.length, AssetGroup.Second);
+            boardField.asset.color = "#69EEF6";
             boardField.asset.price = 100;
             boardField.asset.priceHouse = 50;
             boardField.asset.priceHotel = 50;
@@ -76,6 +81,7 @@
 
             boardField = this.createAssetBoardField("Otočec", this.fields.length, AssetGroup.Second);
             boardField.asset.price = 120;
+            boardField.asset.color = "#69EEF6";
             boardField.asset.priceHouse = 50;
             boardField.asset.priceHotel = 50;
             boardField.asset.priceRent.push(8, 8, 16);
@@ -91,6 +97,7 @@
 
             boardField = this.createAssetBoardField("Terme Čatež", this.fields.length, AssetGroup.Third);
             boardField.asset.price = 140;
+            boardField.asset.color = "#FD23BD";
             boardField.asset.priceHouse = 100;
             boardField.asset.priceHotel = 100;
             boardField.asset.priceRent.push(10, 10, 20);
@@ -101,12 +108,14 @@
 
             boardField = this.createAssetBoardField("Javna razsvetljava", this.fields.length, AssetGroup.Utility);
             boardField.asset.price = 150;
+            boardField.asset.color = "#FFFFFF";
             boardField.asset.priceMultiplierUtility.push(4, 10);
             boardField.asset.priceMortgage = 75;
             this.fields.push(boardField);
 
             boardField = this.createAssetBoardField("Dolenjske toplice", this.fields.length, AssetGroup.Third);
             boardField.asset.price = 140;
+            boardField.asset.color = "#FD23BD";
             boardField.asset.priceHouse = 100;
             boardField.asset.priceHotel = 100;
             boardField.asset.priceRent.push(10, 10, 20);
@@ -117,6 +126,7 @@
 
             boardField = this.createAssetBoardField("Moravske toplice", this.fields.length, AssetGroup.Third);
             boardField.asset.price = 160;
+            boardField.asset.color = "#FD23BD";
             boardField.asset.priceHouse = 100;
             boardField.asset.priceHotel = 100;
             boardField.asset.priceRent.push(12, 12, 24);
@@ -127,12 +137,14 @@
 
             boardField = this.createAssetBoardField("Glavni kolodvor Ljubljana", this.fields.length, AssetGroup.Railway);
             boardField.asset.price = 200;
+            boardField.asset.color = "#FFFFFF";
             boardField.asset.priceRent.push(25, 50, 100, 200);
             boardField.asset.priceMortgage = 100;
             this.fields.push(boardField);
 
             boardField = this.createAssetBoardField("Športni park Stožice", this.fields.length, AssetGroup.Fourth);
             boardField.asset.price = 180;
+            boardField.asset.color = "#F39D37";
             boardField.asset.priceHouse = 100;
             boardField.asset.priceHotel = 100;
             boardField.asset.priceRent.push(14, 14, 28);
@@ -148,6 +160,7 @@
 
             boardField = this.createAssetBoardField("Planica", this.fields.length, AssetGroup.Fourth);
             boardField.asset.price = 180;
+            boardField.asset.color = "#F39D37";
             boardField.asset.priceHouse = 100;
             boardField.asset.priceHotel = 100;
             boardField.asset.priceRent.push(14, 14, 28);
@@ -158,6 +171,7 @@
 
             boardField = this.createAssetBoardField("Mariborsko Pohorje", this.fields.length, AssetGroup.Fourth);
             boardField.asset.price = 200;
+            boardField.asset.color = "#F39D37";
             boardField.asset.priceHouse = 100;
             boardField.asset.priceHotel = 100;
             boardField.asset.priceRent.push(16, 16, 32);
@@ -173,6 +187,7 @@
 
             boardField = this.createAssetBoardField("Trenta", this.fields.length, AssetGroup.Fifth);
             boardField.asset.price = 220;
+            boardField.asset.color = "#E50E13";
             boardField.asset.priceHouse = 150;
             boardField.asset.priceHotel = 150;
             boardField.asset.priceRent.push(18, 18, 36);
@@ -188,6 +203,7 @@
 
             boardField = this.createAssetBoardField("Rakov Škocjan", this.fields.length, AssetGroup.Fifth);
             boardField.asset.price = 220;
+            boardField.asset.color = "#E50E13";
             boardField.asset.priceHouse = 150;
             boardField.asset.priceHotel = 150;
             boardField.asset.priceRent.push(18, 18, 36);
@@ -198,6 +214,7 @@
 
             boardField = this.createAssetBoardField("Logarska dolina", this.fields.length, AssetGroup.Fifth);
             boardField.asset.price = 240;
+            boardField.asset.color = "#E50E13";
             boardField.asset.priceHouse = 150;
             boardField.asset.priceHotel = 150;
             boardField.asset.priceRent.push(20, 20, 40);
@@ -208,12 +225,14 @@
 
             boardField = this.createAssetBoardField("Železniška postaja Zidani most", this.fields.length, AssetGroup.Railway);
             boardField.asset.price = 200;
+            boardField.asset.color = "#FFFFFF";
             boardField.asset.priceRent.push(25, 50, 100, 200);
             boardField.asset.priceMortgage = 100;
             this.fields.push(boardField);
 
             boardField = this.createAssetBoardField("Lipica", this.fields.length, AssetGroup.Sixth);
             boardField.asset.price = 260;
+            boardField.asset.color = "#F4F10B";
             boardField.asset.priceHouse = 150;
             boardField.asset.priceHotel = 150;
             boardField.asset.priceRent.push(22, 22, 44);
@@ -224,6 +243,7 @@
 
             boardField = this.createAssetBoardField("Volčji potok", this.fields.length, AssetGroup.Sixth);
             boardField.asset.price = 260;
+            boardField.asset.color = "#F4F10B";
             boardField.asset.priceHouse = 150;
             boardField.asset.priceHotel = 150;
             boardField.asset.priceRent.push(22, 22, 44);
@@ -234,12 +254,14 @@
 
             boardField = this.createAssetBoardField("Mestni vodovod", this.fields.length, AssetGroup.Utility);
             boardField.asset.price = 150;
+            boardField.asset.color = "#FFFFFF";
             boardField.asset.priceMultiplierUtility.push(4, 10);
             boardField.asset.priceMortgage = 75;
             this.fields.push(boardField);
 
             boardField = this.createAssetBoardField("Postojnska jama", this.fields.length, AssetGroup.Sixth);
             boardField.asset.price = 280;
+            boardField.asset.color = "#F4F10B";
             boardField.asset.priceHouse = 150;
             boardField.asset.priceHotel = 150;
             boardField.asset.priceRent.push(24, 24, 48);
@@ -255,6 +277,7 @@
 
             boardField = this.createAssetBoardField("Cerkniško jezero", this.fields.length, AssetGroup.Seventh);
             boardField.asset.price = 300;
+            boardField.asset.color = "#09C123";
             boardField.asset.priceHouse = 200;
             boardField.asset.priceHotel = 200;
             boardField.asset.priceRent.push(26, 26, 52);
@@ -265,6 +288,7 @@
 
             boardField = this.createAssetBoardField("Bohinj", this.fields.length, AssetGroup.Seventh);
             boardField.asset.price = 300;
+            boardField.asset.color = "#09C123";
             boardField.asset.priceHouse = 200;
             boardField.asset.priceHotel = 200;
             boardField.asset.priceRent.push(26, 26, 52);
@@ -280,6 +304,7 @@
 
             boardField = this.createAssetBoardField("Bled", this.fields.length, AssetGroup.Seventh);
             boardField.asset.price = 320;
+            boardField.asset.color = "#09C123";
             boardField.asset.priceHouse = 200;
             boardField.asset.priceHotel = 200;
             boardField.asset.priceRent.push(28, 28, 56);
@@ -290,6 +315,7 @@
 
             boardField = this.createAssetBoardField("Železniška postaja Koper", this.fields.length, AssetGroup.Railway);
             boardField.asset.price = 200;
+            boardField.asset.color = "#FFFFFF";
             boardField.asset.priceRent.push(25, 50, 100, 200);
             boardField.asset.priceMortgage = 100;
             this.fields.push(boardField);
@@ -301,6 +327,7 @@
 
             boardField = this.createAssetBoardField("Piran", this.fields.length, AssetGroup.Eighth);
             boardField.asset.price = 350;
+            boardField.asset.color = "#2231F8";
             boardField.asset.priceHouse = 200;
             boardField.asset.priceHotel = 200;
             boardField.asset.priceRent.push(35, 70);
@@ -316,6 +343,7 @@
 
             boardField = this.createAssetBoardField("Portorož", this.fields.length, AssetGroup.Eighth);
             boardField.asset.price = 400;
+            boardField.asset.color = "#2231F8";
             boardField.asset.priceHouse = 200;
             boardField.asset.priceHotel = 200;
             boardField.asset.priceRent.push(50, 100);
