@@ -1,0 +1,5 @@
+- preverimo, da imamo Gimp filter layerfx.scm v imeniku C:\Users\Tomaz\.gimp-2.8\scripts;
+- v Gimp osvežimo Script-Fu filtre;
+- v GIMPu oznaèimo ozadje (transparentna barva) in ga z Blend gradientom obarvamo zeleno;
+- uporabimo Script-Fu Inner Bevel efekt (depth cca. 8, size cca. 11)
+- uporabimo Script-Fu Inner Glow efekt (barva moèno rumena, opacity cca 85 %
