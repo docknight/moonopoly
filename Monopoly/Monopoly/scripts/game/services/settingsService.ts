@@ -10,11 +10,11 @@ module Services {
         }
 
         loadSettings = () => {
-            //For the purpose of this demo I am returning the hard coded values, hoever in real world application
+            //For the purpose of this demo I am returning the hard coded values, however in real world application
             //You would probably use "this.httpService.get" method to call backend REST apis to fetch the data from server.
             var settings: Model.Settings = new Model.Settings();
             settings.numPlayers = 2;
-            settings.playerName = "Enter name";
+            settings.playerName = "Player 1";
             return settings;
         }
 

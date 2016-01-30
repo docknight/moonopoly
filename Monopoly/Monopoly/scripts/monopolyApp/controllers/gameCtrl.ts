@@ -58,6 +58,61 @@ module MonopolyApp.controllers {
                 'end': (coords, event) => { this.swipeEnd(coords, event); },
                 'cancel': (event) => { this.swipeCancel(event); }
             });
+
+            $("#commandPanel").mousedown(e => {
+                this.highlightCommandButtons({ x: e.clientX, y: e.clientY });
+            });
+            $("#commandPanel").mouseup(e => {
+                if (!this.swipeInProgress) {
+                    this.unhighlightCommandButton("buttonThrowDice");
+                    this.unhighlightCommandButton("buttonBuy");
+                    this.unhighlightCommandButton("buttonManage");
+                    this.unhighlightCommandButton("buttonEndTurn");
+                }
+            });
+
+            this.swipeService.bind($("#commandPanel"), {
+                'move': (coords) => {
+                    if (!this.manageMode) {
+                        this.swipeInProgress = true;
+                        this.highlightCommandButtons(coords);
+                    }
+                },
+                'end': (coords, event) => {
+                    if (!this.manageMode) {
+                        if (!this.swipeInProgress) {
+                            return;
+                        }
+                        var elem = $(document.elementFromPoint(coords.x, coords.y));
+                        if (elem.attr("id") === "buttonThrowDice") {
+                            $("#buttonThrowDice").height(50);
+                            $("#buttonThrowDice").width(50);
+                            $("#buttonThrowDice").click();
+                        }
+                        if (elem.attr("id") === "buttonBuy") {
+                            $("#buttonBuy").height(50);
+                            $("#buttonBuy").width(50);
+                            $("#buttonBuy").click();
+                        }
+                        if (elem.attr("id") === "buttonManage") {
+                            $("#buttonManage").height(50);
+                            $("#buttonManage").width(50);
+                            $("#buttonManage").click();
+                        }
+                        if (elem.attr("id") === "buttonEndTurn") {
+                            $("#buttonEndTurn").height(50);
+                            $("#buttonEndTurn").width(50);
+                            $("#buttonEndTurn").click();
+                        }
+                        this.timeoutService(() => this.swipeInProgress = false, 100, false);
+                    }
+                },
+                'cancel': (event) => {
+                    if (!this.manageMode) {
+                        this.swipeInProgress = false;
+                    }
+                }
+            });
         }
 
         initGame() {
@@ -571,6 +626,42 @@ module MonopolyApp.controllers {
             }
 
             return "";
+        }
+
+        private highlightCommandButtons(coords) {
+            var elem = $(document.elementFromPoint(coords.x, coords.y));
+            if (elem.attr("id") === "buttonThrowDice") {
+                this.highlightCommandButton("buttonThrowDice");
+            } else {
+                this.unhighlightCommandButton("buttonThrowDice");
+            }
+            if (elem.attr("id") === "buttonBuy") {
+                this.highlightCommandButton("buttonBuy");
+            } else {
+                this.unhighlightCommandButton("buttonBuy");
+            }
+            if (elem.attr("id") === "buttonManage") {
+                this.highlightCommandButton("buttonManage");
+            } else {
+                this.unhighlightCommandButton("buttonManage");
+            }
+            if (elem.attr("id") === "buttonEndTurn") {
+                this.highlightCommandButton("buttonEndTurn");
+            } else {
+                this.unhighlightCommandButton("buttonEndTurn");
+            }            
+        }
+
+        private highlightCommandButton(buttonId: string) {
+            $(`#${buttonId}`).height(80);
+            $(`#${buttonId}`).width(80);
+
+        }
+
+        private unhighlightCommandButton(buttonId: string) {
+            $(`#${buttonId}`).height(50);
+            $(`#${buttonId}`).width(50);                    
+
         }
     }
 

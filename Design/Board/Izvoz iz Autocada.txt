@@ -10,7 +10,7 @@
 * z Bucket fill tool spremenimo ozadje, pri èemer moramo v bucket fill proeprties izbrati "Fill whole selection", da ne klikamo po vsaki zaprti regiji posebej
 * z bucket fill tool popravimo ozadje osrednjega napisa
 * z Select By Color izberemo ozadje srednjega zapisa
-* z Gradient toolom spremenimo ozadje v gradient (izberemo rdeèo in temno rdeèo barvo in bi-linear shape
+* z Gradient toolom (blend) spremenimo ozadje v gradient (izberemo rdeèo in temno rdeèo barvo in bi-linear shape
 * s Select by color izberemo napis
 * z bucket fill mu spremenimo barvo v belo (uporabimo opcijo Fill whole selection)
 * apliciramo filter Render -> Clouds -> Fog

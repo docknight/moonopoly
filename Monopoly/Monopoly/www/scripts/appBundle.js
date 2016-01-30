@@ -1553,8 +1553,6 @@ var Services;
         DrawingService.prototype.getDiceResult = function () {
             var rotationMatrix = new BABYLON.Matrix();
             this.diceMesh.rotationQuaternion.toRotationMatrix(rotationMatrix);
-            // temporarily
-            return 5;
             if (this.epsilonCompare(rotationMatrix.m[0], 0) && this.epsilonCompare(rotationMatrix.m[1], 1) && this.epsilonCompare(rotationMatrix.m[2], 0) && this.epsilonCompare(rotationMatrix.m[5], 0) && this.epsilonCompare(rotationMatrix.m[9], 0)) {
                 return 1;
             }
@@ -1631,11 +1629,11 @@ var Services;
     var SettingsService = (function () {
         function SettingsService($http) {
             this.loadSettings = function () {
-                //For the purpose of this demo I am returning the hard coded values, hoever in real world application
+                //For the purpose of this demo I am returning the hard coded values, however in real world application
                 //You would probably use "this.httpService.get" method to call backend REST apis to fetch the data from server.
                 var settings = new Model.Settings();
                 settings.numPlayers = 2;
-                settings.playerName = "Enter name";
+                settings.playerName = "Player 1";
                 return settings;
             };
             this.httpService = $http;
@@ -2150,6 +2148,59 @@ var MonopolyApp;
                     'end': function (coords, event) { _this.swipeEnd(coords, event); },
                     'cancel': function (event) { _this.swipeCancel(event); }
                 });
+                $("#commandPanel").mousedown(function (e) {
+                    _this.highlightCommandButtons({ x: e.clientX, y: e.clientY });
+                });
+                $("#commandPanel").mouseup(function (e) {
+                    if (!_this.swipeInProgress) {
+                        _this.unhighlightCommandButton("buttonThrowDice");
+                        _this.unhighlightCommandButton("buttonBuy");
+                        _this.unhighlightCommandButton("buttonManage");
+                        _this.unhighlightCommandButton("buttonEndTurn");
+                    }
+                });
+                this.swipeService.bind($("#commandPanel"), {
+                    'move': function (coords) {
+                        if (!_this.manageMode) {
+                            _this.swipeInProgress = true;
+                            _this.highlightCommandButtons(coords);
+                        }
+                    },
+                    'end': function (coords, event) {
+                        if (!_this.manageMode) {
+                            if (!_this.swipeInProgress) {
+                                return;
+                            }
+                            var elem = $(document.elementFromPoint(coords.x, coords.y));
+                            if (elem.attr("id") === "buttonThrowDice") {
+                                $("#buttonThrowDice").height(50);
+                                $("#buttonThrowDice").width(50);
+                                $("#buttonThrowDice").click();
+                            }
+                            if (elem.attr("id") === "buttonBuy") {
+                                $("#buttonBuy").height(50);
+                                $("#buttonBuy").width(50);
+                                $("#buttonBuy").click();
+                            }
+                            if (elem.attr("id") === "buttonManage") {
+                                $("#buttonManage").height(50);
+                                $("#buttonManage").width(50);
+                                $("#buttonManage").click();
+                            }
+                            if (elem.attr("id") === "buttonEndTurn") {
+                                $("#buttonEndTurn").height(50);
+                                $("#buttonEndTurn").width(50);
+                                $("#buttonEndTurn").click();
+                            }
+                            _this.timeoutService(function () { return _this.swipeInProgress = false; }, 100, false);
+                        }
+                    },
+                    'cancel': function (event) {
+                        if (!_this.manageMode) {
+                            _this.swipeInProgress = false;
+                        }
+                    }
+                });
             }
             Object.defineProperty(GameController.prototype, "currentPlayer", {
                 get: function () {
@@ -2633,6 +2684,41 @@ var MonopolyApp;
                     }
                 }
                 return "";
+            };
+            GameController.prototype.highlightCommandButtons = function (coords) {
+                var elem = $(document.elementFromPoint(coords.x, coords.y));
+                if (elem.attr("id") === "buttonThrowDice") {
+                    this.highlightCommandButton("buttonThrowDice");
+                }
+                else {
+                    this.unhighlightCommandButton("buttonThrowDice");
+                }
+                if (elem.attr("id") === "buttonBuy") {
+                    this.highlightCommandButton("buttonBuy");
+                }
+                else {
+                    this.unhighlightCommandButton("buttonBuy");
+                }
+                if (elem.attr("id") === "buttonManage") {
+                    this.highlightCommandButton("buttonManage");
+                }
+                else {
+                    this.unhighlightCommandButton("buttonManage");
+                }
+                if (elem.attr("id") === "buttonEndTurn") {
+                    this.highlightCommandButton("buttonEndTurn");
+                }
+                else {
+                    this.unhighlightCommandButton("buttonEndTurn");
+                }
+            };
+            GameController.prototype.highlightCommandButton = function (buttonId) {
+                $("#" + buttonId).height(80);
+                $("#" + buttonId).width(80);
+            };
+            GameController.prototype.unhighlightCommandButton = function (buttonId) {
+                $("#" + buttonId).height(50);
+                $("#" + buttonId).width(50);
             };
             GameController.$inject = ["$state", "$swipe", "$scope", "$timeout", "gameService", "drawingService"];
             return GameController;
