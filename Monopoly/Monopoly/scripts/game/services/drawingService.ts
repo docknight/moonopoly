@@ -90,6 +90,7 @@ module Services {
             var animationplayerRotation = new BABYLON.Animation("playerRotationAnimation", "rotationQuaternion", 30, BABYLON.Animation.ANIMATIONTYPE_QUATERNION, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
             animationplayerPosition.setKeys(positionKeys);
             animationplayerRotation.setKeys(rotationKeys);
+            playerModel.mesh.animations = [];
             playerModel.mesh.animations.push(animationplayerPosition);
             playerModel.mesh.animations.push(animationplayerRotation);
             var d = $.Deferred();
@@ -140,6 +141,7 @@ module Services {
 
             animationCameraPosition.setKeys(keys);
             animationCameraRotation.setKeys(keysRotation);
+            camera.animations = [];
             camera.animations.push(animationCameraPosition);
             camera.animations.push(animationCameraRotation);
             scene.beginAnimation(camera, 0, 30, false, undefined, () => { });            
@@ -191,6 +193,7 @@ module Services {
             animationCameraPosition.setKeys(keys);
             animationCameraRotation.setKeys(keysRotation);
             camera.animations.splice(0, camera.animations.length);
+            camera.animations = [];
             camera.animations.push(animationCameraPosition);
             camera.animations.push(animationCameraRotation);
             var speedRatio = 1;
@@ -231,8 +234,8 @@ module Services {
             return undefined;
         }
 
-        setGameCameraPosition(camera: BABYLON.FreeCamera) {
-            camera.position = this.getGameCameraPosition(this.gameService.getCurrentPlayerPosition().index);
+        setGameCameraInitialPosition(camera: BABYLON.FreeCamera) {
+            camera.position = this.getGameCameraPosition(this.gameService.getCurrentPlayerPosition().index, true);
             camera.setTarget(BABYLON.Vector3.Zero());
         }
 
@@ -841,14 +844,14 @@ module Services {
             return false;
         }
 
-        private getGameCameraPosition(currentPlayerPositionIndex: number): BABYLON.Vector3 {
+        private getGameCameraPosition(currentPlayerPositionIndex: number, center?: boolean): BABYLON.Vector3 {
             var boardFieldQuadrant = Math.floor(currentPlayerPositionIndex / (this.boardFieldsInQuadrant - 1));
             var runningCoordinate = this.getQuadrantRunningCoordinate(boardFieldQuadrant);
             var heightCoordinate = this.getQuadrantRunningCoordinate(boardFieldQuadrant) === "x" ? "z" : "x";
             var heightDirection = boardFieldQuadrant === 0 || boardFieldQuadrant === 1 ? -1 : 1;
             var position = new BABYLON.Vector3(0, 5, -10);
             position[heightCoordinate] = 10 * heightDirection;
-            position[runningCoordinate] = this.getPositionCoordinate(currentPlayerPositionIndex)[runningCoordinate];
+            position[runningCoordinate] = center ? 0 : this.getPositionCoordinate(currentPlayerPositionIndex)[runningCoordinate];
             return position;
         }
     }

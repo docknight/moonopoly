@@ -17,6 +17,19 @@ html, body {
     touch-action: none;
 }
 
+.commandButton {
+}
+
+.highlightedButton {
+    width: 80px;
+    height: 80px;        
+}
+
+.unhighlightedButton {
+    width: 50px;
+    height: 50px;        
+}
+
 .elegantshadow {
     color: #131313;
     background-color: #e7e5e4;

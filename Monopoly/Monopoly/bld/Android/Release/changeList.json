@@ -26,8 +26,6 @@
     "scripts\\i18n\\angular-locale_bs-cyrl-ba.js",
     "www\\images\\Gameboard-Model.png",
     "scripts\\i18n\\angular-locale_ug-arab-cn.js",
-    "www\\images\\back.jpg",
-    "www\\images\\back.png",
     "scripts\\i18n\\angular-locale_de-li.js",
     "scripts\\i18n\\angular-locale_de-lu.js",
     "scripts\\i18n\\angular-locale_ta-lk.js",
@@ -961,13 +959,7 @@
     "scripts\\i18n\\angular-locale_en-pw.js",
     "www\\app\\js\\modules\\monopolyApp.js",
     "scripts\\angular-messages.js",
-    "scripts\\i18n\\angular-locale_pt-pt.js",
-    "scripts\\monopolyApp\\controllers\\gameCtrl.ts~RF445310.TMP",
-    "www\\images\\Thumbs.db",
-    "scripts\\monopolyApp\\controllers\\gameCtrl.ts~RF8d38ce.TMP",
-    "scripts\\monopolyApp\\controllers\\gameCtrl.ts~RFa1cb7b.TMP",
-    "scripts\\monopolyApp\\controllers\\gameCtrl.ts~RFb48143.TMP",
-    "scripts\\monopolyApp\\controllers\\gameCtrl.ts~RFc04cfa.TMP"
+    "scripts\\i18n\\angular-locale_pt-pt.js"
   ],
   "deletedFilesIos": [],
   "addedPluginsIos": [],

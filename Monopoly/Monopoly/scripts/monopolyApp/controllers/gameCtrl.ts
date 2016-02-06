@@ -52,67 +52,7 @@ module MonopolyApp.controllers {
             this.setAvailableActions();
             this.messages = [];
             this.currentCard = new Viewmodels.Card();
-            $(window).on("click", null, this, this.handleClickEvent);
-            this.swipeService.bind($("#renderCanvas"), {
-                'move': (coords) => { this.swipeMove(coords); },
-                'end': (coords, event) => { this.swipeEnd(coords, event); },
-                'cancel': (event) => { this.swipeCancel(event); }
-            });
-
-            $("#commandPanel").mousedown(e => {
-                this.highlightCommandButtons({ x: e.clientX, y: e.clientY });
-            });
-            $("#commandPanel").mouseup(e => {
-                if (!this.swipeInProgress) {
-                    this.unhighlightCommandButton("buttonThrowDice");
-                    this.unhighlightCommandButton("buttonBuy");
-                    this.unhighlightCommandButton("buttonManage");
-                    this.unhighlightCommandButton("buttonEndTurn");
-                }
-            });
-
-            this.swipeService.bind($("#commandPanel"), {
-                'move': (coords) => {
-                    if (!this.manageMode) {
-                        this.swipeInProgress = true;
-                        this.highlightCommandButtons(coords);
-                    }
-                },
-                'end': (coords, event) => {
-                    if (!this.manageMode) {
-                        if (!this.swipeInProgress) {
-                            return;
-                        }
-                        var elem = $(document.elementFromPoint(coords.x, coords.y));
-                        if (elem.attr("id") === "buttonThrowDice") {
-                            $("#buttonThrowDice").height(50);
-                            $("#buttonThrowDice").width(50);
-                            $("#buttonThrowDice").click();
-                        }
-                        if (elem.attr("id") === "buttonBuy") {
-                            $("#buttonBuy").height(50);
-                            $("#buttonBuy").width(50);
-                            $("#buttonBuy").click();
-                        }
-                        if (elem.attr("id") === "buttonManage") {
-                            $("#buttonManage").height(50);
-                            $("#buttonManage").width(50);
-                            $("#buttonManage").click();
-                        }
-                        if (elem.attr("id") === "buttonEndTurn") {
-                            $("#buttonEndTurn").height(50);
-                            $("#buttonEndTurn").width(50);
-                            $("#buttonEndTurn").click();
-                        }
-                        this.timeoutService(() => this.swipeInProgress = false, 100, false);
-                    }
-                },
-                'cancel': (event) => {
-                    if (!this.manageMode) {
-                        this.swipeInProgress = false;
-                    }
-                }
-            });
+            this.bindInputEvents();
         }
 
         initGame() {
@@ -228,19 +168,24 @@ module MonopolyApp.controllers {
             //this.manageCamera.detachControl(canvas);            
             this.setAvailableActions();
             this.actionButtonsVisible = false;
-            $("#manageCommandPanel").hide();
-            $("#commandPanel").show();            
+            this.toggleManageCommandPanel(true);
+            // show command panel in the next event loop iteration to avoid its mouse event handler to process this event by highlighting one of its buttons
+            this.timeoutService(() => {
+                $("#commandPanel").show();
+            });           
         }
 
         endTurn() {
             if (this.gameService.canEndTurn) {
                 this.gameService.endTurn();
+                this.drawingService.returnCameraToMainPosition(this.scene, this.gameCamera, this.gameService.getCurrentPlayerPosition().index);
                 this.setAvailableActions();
             }
         }
 
         closeAssetManagementWindow() {
             $("#assetManagement").hide();
+            this.toggleManageCommandPanel();
         }
 
         executeConfirmAction(data: any) {
@@ -265,18 +210,20 @@ module MonopolyApp.controllers {
             var theScene = this.createBoard(engine, canvas);
             var that = this;
             engine.runRenderLoop(() => {
-                if (that.gameService.gameState === Model.GameState.ThrowDice && that.diceThrowCompleted) {
-                    // if the game is at the dice throw state and the dice throw has been triggered, verify if it is done, otherwise just follow with the camera
-                    if (that.drawingService.isDiceAtRestAfterThrowing(theScene)) {
-                        that.diceThrowCompleted.resolve();
-                    } else {
-                        var dicePhysicsLocation = that.drawingService.getDiceLocation(that.scene);
-                        if (dicePhysicsLocation) {
-                            that.gameCamera.setTarget(new BABYLON.Vector3(dicePhysicsLocation.x, dicePhysicsLocation.y, dicePhysicsLocation.z));
+                that.timeoutService(() => {
+                    if (that.gameService.gameState === Model.GameState.ThrowDice && that.diceThrowCompleted) {
+                        // if the game is at the dice throw state and the dice throw has been triggered, verify if it is done, otherwise just follow with the camera
+                        if (that.drawingService.isDiceAtRestAfterThrowing(theScene)) {
+                            that.diceThrowCompleted.resolve();
+                        } else {
+                            var dicePhysicsLocation = that.drawingService.getDiceLocation(that.scene);
+                            if (dicePhysicsLocation) {
+                                that.gameCamera.setTarget(new BABYLON.Vector3(dicePhysicsLocation.x, dicePhysicsLocation.y, dicePhysicsLocation.z));
+                            }
                         }
                     }
-                }
-                theScene.render();
+                    theScene.render();
+                }, 1, false);
             });
             window.addEventListener("resize", function () {
                 engine.resize();
@@ -296,7 +243,7 @@ module MonopolyApp.controllers {
 
             // This creates and positions a free camera (non-mesh)
             this.gameCamera = new BABYLON.FreeCamera("camera1", BABYLON.Vector3.Zero(), this.scene);
-            this.drawingService.setGameCameraPosition(this.gameCamera);
+            this.drawingService.setGameCameraInitialPosition(this.gameCamera);
             this.manageCamera = new BABYLON.ArcRotateCamera("camera2", 0,0,0,BABYLON.Vector3.Zero(), this.scene);
             this.scene.activeCamera = this.gameCamera;
 
@@ -425,8 +372,10 @@ module MonopolyApp.controllers {
 
         private handleClickEvent(eventObject: JQueryEventObject, ...data: any[]) {
             var thisInstance = <GameController>eventObject.data;
+            var mouseEventObject: TouchEvent;
             if (thisInstance.manageMode && !thisInstance.swipeInProgress) {
-                var pickedObject = thisInstance.drawingService.pickBoardElement(thisInstance.scene);
+                mouseEventObject = </*JQueryMouseEventObject*/TouchEvent>eventObject.originalEvent;
+                var pickedObject = thisInstance.drawingService.pickBoardElement(thisInstance.scene, mouseEventObject && mouseEventObject.changedTouches && mouseEventObject.changedTouches.length > 0 ? { x: mouseEventObject.changedTouches[0].clientX, y: mouseEventObject.changedTouches[0].clientY } : undefined);
                 if (pickedObject && pickedObject.pickedObjectType === Viewmodels.PickedObjectType.BoardField) {
                     var groupFields = thisInstance.gameService.getGroupBoardFields(thisInstance.focusedAssetGroup);
                     var clickedFields = groupFields.filter(f => f.index === pickedObject.position);
@@ -442,9 +391,9 @@ module MonopolyApp.controllers {
                     thisInstance.removeHousePreview(pickedObject.position);
                 }
             }
-
             if (thisInstance.gameService.gameState === Model.GameState.ThrowDice && !thisInstance.swipeInProgress) {
-                var pickedObject2 = thisInstance.drawingService.pickBoardElement(thisInstance.scene);
+                mouseEventObject = <TouchEvent>eventObject.originalEvent;
+                var pickedObject2 = thisInstance.drawingService.pickBoardElement(thisInstance.scene, mouseEventObject && mouseEventObject.changedTouches && mouseEventObject.changedTouches.length > 0 ? { x: mouseEventObject.changedTouches[0].clientX, y: mouseEventObject.changedTouches[0].clientY } : undefined);
                 if (pickedObject2 && pickedObject2.pickedObjectType === Viewmodels.PickedObjectType.Dice) {
                     thisInstance.throwDice(pickedObject2.pickedPoint);
                 }
@@ -453,7 +402,16 @@ module MonopolyApp.controllers {
 
         private manageField(asset: Model.Asset) {
             this.assetToManage = asset;
+            this.toggleManageCommandPanel();
             $("#assetManagement").show();
+        }
+
+        private toggleManageCommandPanel(hide?: boolean) {
+            if (hide) {
+                $("#manageCommandPanel").hide();
+                return;
+            }
+            $("#manageCommandPanel").toggle();
         }
 
         private swipeMove(coords: any) {
@@ -630,38 +588,95 @@ module MonopolyApp.controllers {
 
         private highlightCommandButtons(coords) {
             var elem = $(document.elementFromPoint(coords.x, coords.y));
-            if (elem.attr("id") === "buttonThrowDice") {
-                this.highlightCommandButton("buttonThrowDice");
-            } else {
-                this.unhighlightCommandButton("buttonThrowDice");
+            this.unhighlightCommandButton($(".highlightedButton"));
+            //$(".highlightedButton").addClass("unhighlightedButton").removeClass("highlightedButton");
+            if (elem.hasClass("commandButton")) {
+                this.highlightCommandButton(elem);
+                //elem.addClass("highlightedButton").removeClass("unhighlightedButton");
             }
-            if (elem.attr("id") === "buttonBuy") {
-                this.highlightCommandButton("buttonBuy");
-            } else {
-                this.unhighlightCommandButton("buttonBuy");
-            }
-            if (elem.attr("id") === "buttonManage") {
-                this.highlightCommandButton("buttonManage");
-            } else {
-                this.unhighlightCommandButton("buttonManage");
-            }
-            if (elem.attr("id") === "buttonEndTurn") {
-                this.highlightCommandButton("buttonEndTurn");
-            } else {
-                this.unhighlightCommandButton("buttonEndTurn");
-            }            
         }
 
-        private highlightCommandButton(buttonId: string) {
-            $(`#${buttonId}`).height(80);
-            $(`#${buttonId}`).width(80);
-
+        private highlightCommandButton(button: JQuery) {
+            button.addClass("highlightedButton").removeClass("unhighlightedButton");
         }
 
-        private unhighlightCommandButton(buttonId: string) {
-            $(`#${buttonId}`).height(50);
-            $(`#${buttonId}`).width(50);                    
+        private unhighlightCommandButton(button: JQuery) {
+            button.addClass("unhighlightedButton").removeClass("highlightedButton");
+        }
 
+        private bindInputEvents() {
+            //$(window).on("click", null, this, this.handleClickEvent);
+            if (window.navigator && window.navigator.pointerEnabled) {
+                //$("#renderCanvas").bind("MSPointerDown", this, this.handleClickEvent);
+                //$("#renderCanvas").bind("pointerdown", this, this.handleClickEvent);
+                $("#renderCanvas").bind("touchend", this, this.handleClickEvent);
+            } else {
+                $("#renderCanvas").bind("touchend", this, this.handleClickEvent);
+            }
+            this.swipeService.bind($("#renderCanvas"), {
+                'move': (coords) => { this.swipeMove(coords); },
+                'end': (coords, event) => { this.swipeEnd(coords, event); },
+                'cancel': (event) => { this.swipeCancel(event); }
+            });
+
+            $("#commandPanel").mousedown(e => {
+                this.highlightCommandButtons({ x: e.clientX, y: e.clientY });
+            });
+            $("#commandPanel").bind("touchstart", this, e => {
+                var mouseEventObject: TouchEvent = <TouchEvent>e.originalEvent;
+                if (mouseEventObject.changedTouches && mouseEventObject.changedTouches.length > 0) {
+                    var thisInstance = <GameController>e.data;
+                    thisInstance.highlightCommandButtons({ x: mouseEventObject.changedTouches[0].clientX, y: mouseEventObject.changedTouches[0].clientY });
+                }
+            });
+            $("#manageCommandPanel").mousedown(e => {
+                this.highlightCommandButtons({ x: e.clientX, y: e.clientY });
+            });
+            $("#manageCommandPanel").bind("touchstart", this, e => {
+                var mouseEventObject: TouchEvent = <TouchEvent>e.originalEvent;
+                if (mouseEventObject.changedTouches && mouseEventObject.changedTouches.length > 0) {
+                    var thisInstance = <GameController>e.data;
+                    thisInstance.highlightCommandButtons({ x: mouseEventObject.changedTouches[0].clientX, y: mouseEventObject.changedTouches[0].clientY });
+                }
+            });
+            $("#commandPanel").mouseup(e => {
+                if (!this.swipeInProgress) {
+                    this.unhighlightCommandButton($(".commandButton"));
+                }
+            });
+            $("#manageCommandPanel").mouseup(e => {
+                if (!this.swipeInProgress) {
+                    this.unhighlightCommandButton($("#buttonReturnFromManage"));
+                }
+            });
+
+            this.swipeService.bind($("#commandPanel"), {
+                'move': (coords) => {
+                    if (!this.manageMode) {
+                        this.swipeInProgress = true;
+                        this.highlightCommandButtons(coords);
+                    }
+                },
+                'end': (coords, event) => {
+                    if (!this.manageMode) {
+                        if (!this.swipeInProgress) {
+                            return;
+                        }
+                        var elem = $(document.elementFromPoint(coords.x, coords.y));
+                        if (elem.hasClass("commandButton")) {
+                            this.unhighlightCommandButton(elem);
+                            //elem.addClass("unhighlightedButton").removeClass("highlightedButton");
+                            elem.click();
+                        }
+                        this.timeoutService(() => this.swipeInProgress = false, 100, false);
+                    }
+                },
+                'cancel': (event) => {
+                    if (!this.manageMode) {
+                        this.swipeInProgress = false;
+                    }
+                }
+            });
         }
     }
 
