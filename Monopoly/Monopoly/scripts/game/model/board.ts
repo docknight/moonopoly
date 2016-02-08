@@ -21,7 +21,7 @@
             boardField.asset.priceRent.push(2, 4);
             boardField.asset.priceRentHouse.push(10, 30, 90, 160);
             boardField.asset.priceRentHotel = 250;
-            boardField.asset.priceMortgage = 30;
+            boardField.asset.valueMortgage = 30;
             this.fields.push(boardField);
 
             var treasureField = new BoardField(null);
@@ -37,19 +37,19 @@
             boardField.asset.priceRent.push(4, 8);
             boardField.asset.priceRentHouse.push(20, 60, 180, 320);
             boardField.asset.priceRentHotel = 450;
-            boardField.asset.priceMortgage = 30;
+            boardField.asset.valueMortgage = 30;
             this.fields.push(boardField);
 
             var taxField = new BoardField(null);
             taxField.index = this.fields.length;
-            taxField.type = BoardFieldType.Tax;
+            taxField.type = BoardFieldType.TaxIncome;
             this.fields.push(taxField);
 
             boardField = this.createAssetBoardField("Železniška postaja Jesenice", this.fields.length, AssetGroup.Railway);
             boardField.asset.price = 200;
             boardField.asset.color = "#FFFFFF";
             boardField.asset.priceRent.push(25, 50, 100, 200);
-            boardField.asset.priceMortgage = 100;
+            boardField.asset.valueMortgage = 100;
             this.fields.push(boardField);
 
             boardField = this.createAssetBoardField("Bogenšperk", this.fields.length, AssetGroup.Second);
@@ -60,7 +60,7 @@
             boardField.asset.priceRent.push(6, 6, 12);
             boardField.asset.priceRentHouse.push(30, 90, 270, 400);
             boardField.asset.priceRentHotel = 550;
-            boardField.asset.priceMortgage = 50;
+            boardField.asset.valueMortgage = 50;
             this.fields.push(boardField);
 
             var eventField = new BoardField(null);
@@ -76,7 +76,7 @@
             boardField.asset.priceRent.push(6, 6, 12);
             boardField.asset.priceRentHouse.push(30, 90, 270, 400);
             boardField.asset.priceRentHotel = 550;
-            boardField.asset.priceMortgage = 50;
+            boardField.asset.valueMortgage = 50;
             this.fields.push(boardField);
 
             boardField = this.createAssetBoardField("Otočec", this.fields.length, AssetGroup.Second);
@@ -87,7 +87,7 @@
             boardField.asset.priceRent.push(8, 8, 16);
             boardField.asset.priceRentHouse.push(40, 100, 300, 450);
             boardField.asset.priceRentHotel = 600;
-            boardField.asset.priceMortgage = 60;
+            boardField.asset.valueMortgage = 60;
             this.fields.push(boardField);
 
             var prisonAndVisitField = new BoardField(null);
@@ -103,14 +103,14 @@
             boardField.asset.priceRent.push(10, 10, 20);
             boardField.asset.priceRentHouse.push(50, 150, 450, 625);
             boardField.asset.priceRentHotel = 750;
-            boardField.asset.priceMortgage = 70;
+            boardField.asset.valueMortgage = 70;
             this.fields.push(boardField);
 
             boardField = this.createAssetBoardField("Javna razsvetljava", this.fields.length, AssetGroup.Utility);
             boardField.asset.price = 150;
             boardField.asset.color = "#FFFFFF";
             boardField.asset.priceMultiplierUtility.push(4, 10);
-            boardField.asset.priceMortgage = 75;
+            boardField.asset.valueMortgage = 75;
             this.fields.push(boardField);
 
             boardField = this.createAssetBoardField("Dolenjske toplice", this.fields.length, AssetGroup.Third);
@@ -121,7 +121,7 @@
             boardField.asset.priceRent.push(10, 10, 20);
             boardField.asset.priceRentHouse.push(50, 150, 450, 625);
             boardField.asset.priceRentHotel = 750;
-            boardField.asset.priceMortgage = 70;
+            boardField.asset.valueMortgage = 70;
             this.fields.push(boardField);
 
             boardField = this.createAssetBoardField("Moravske toplice", this.fields.length, AssetGroup.Third);
@@ -132,14 +132,14 @@
             boardField.asset.priceRent.push(12, 12, 24);
             boardField.asset.priceRentHouse.push(60, 180, 500, 700);
             boardField.asset.priceRentHotel = 900;
-            boardField.asset.priceMortgage = 80;
+            boardField.asset.valueMortgage = 80;
             this.fields.push(boardField);
 
             boardField = this.createAssetBoardField("Glavni kolodvor Ljubljana", this.fields.length, AssetGroup.Railway);
             boardField.asset.price = 200;
             boardField.asset.color = "#FFFFFF";
             boardField.asset.priceRent.push(25, 50, 100, 200);
-            boardField.asset.priceMortgage = 100;
+            boardField.asset.valueMortgage = 100;
             this.fields.push(boardField);
 
             boardField = this.createAssetBoardField("Športni park Stožice", this.fields.length, AssetGroup.Fourth);
@@ -150,7 +150,7 @@
             boardField.asset.priceRent.push(14, 14, 28);
             boardField.asset.priceRentHouse.push(70, 200, 550, 750);
             boardField.asset.priceRentHotel = 950;
-            boardField.asset.priceMortgage = 90;
+            boardField.asset.valueMortgage = 90;
             this.fields.push(boardField);
 
             treasureField = new BoardField(null);
@@ -166,7 +166,7 @@
             boardField.asset.priceRent.push(14, 14, 28);
             boardField.asset.priceRentHouse.push(70, 200, 550, 750);
             boardField.asset.priceRentHotel = 950;
-            boardField.asset.priceMortgage = 90;
+            boardField.asset.valueMortgage = 90;
             this.fields.push(boardField);
 
             boardField = this.createAssetBoardField("Mariborsko Pohorje", this.fields.length, AssetGroup.Fourth);
@@ -177,7 +177,7 @@
             boardField.asset.priceRent.push(16, 16, 32);
             boardField.asset.priceRentHouse.push(80, 220, 600, 800);
             boardField.asset.priceRentHotel = 1000;
-            boardField.asset.priceMortgage = 100;
+            boardField.asset.valueMortgage = 100;
             this.fields.push(boardField);
 
             var freeParkingField = new BoardField(null);
@@ -193,7 +193,7 @@
             boardField.asset.priceRent.push(18, 18, 36);
             boardField.asset.priceRentHouse.push(90, 250, 700, 875);
             boardField.asset.priceRentHotel = 1050;
-            boardField.asset.priceMortgage = 110;
+            boardField.asset.valueMortgage = 110;
             this.fields.push(boardField);
 
             eventField = new BoardField(null);
@@ -209,7 +209,7 @@
             boardField.asset.priceRent.push(18, 18, 36);
             boardField.asset.priceRentHouse.push(90, 250, 700, 875);
             boardField.asset.priceRentHotel = 1050;
-            boardField.asset.priceMortgage = 110;
+            boardField.asset.valueMortgage = 110;
             this.fields.push(boardField);
 
             boardField = this.createAssetBoardField("Logarska dolina", this.fields.length, AssetGroup.Fifth);
@@ -220,14 +220,14 @@
             boardField.asset.priceRent.push(20, 20, 40);
             boardField.asset.priceRentHouse.push(100, 300, 750, 925);
             boardField.asset.priceRentHotel = 1100;
-            boardField.asset.priceMortgage = 120;
+            boardField.asset.valueMortgage = 120;
             this.fields.push(boardField);
 
             boardField = this.createAssetBoardField("Železniška postaja Zidani most", this.fields.length, AssetGroup.Railway);
             boardField.asset.price = 200;
             boardField.asset.color = "#FFFFFF";
             boardField.asset.priceRent.push(25, 50, 100, 200);
-            boardField.asset.priceMortgage = 100;
+            boardField.asset.valueMortgage = 100;
             this.fields.push(boardField);
 
             boardField = this.createAssetBoardField("Lipica", this.fields.length, AssetGroup.Sixth);
@@ -238,7 +238,7 @@
             boardField.asset.priceRent.push(22, 22, 44);
             boardField.asset.priceRentHouse.push(110, 330, 800, 975);
             boardField.asset.priceRentHotel = 1150;
-            boardField.asset.priceMortgage = 130;
+            boardField.asset.valueMortgage = 130;
             this.fields.push(boardField);
 
             boardField = this.createAssetBoardField("Volčji potok", this.fields.length, AssetGroup.Sixth);
@@ -249,14 +249,14 @@
             boardField.asset.priceRent.push(22, 22, 44);
             boardField.asset.priceRentHouse.push(110, 330, 800, 975);
             boardField.asset.priceRentHotel = 1150;
-            boardField.asset.priceMortgage = 130;
+            boardField.asset.valueMortgage = 130;
             this.fields.push(boardField);
 
             boardField = this.createAssetBoardField("Mestni vodovod", this.fields.length, AssetGroup.Utility);
             boardField.asset.price = 150;
             boardField.asset.color = "#FFFFFF";
             boardField.asset.priceMultiplierUtility.push(4, 10);
-            boardField.asset.priceMortgage = 75;
+            boardField.asset.valueMortgage = 75;
             this.fields.push(boardField);
 
             boardField = this.createAssetBoardField("Postojnska jama", this.fields.length, AssetGroup.Sixth);
@@ -267,7 +267,7 @@
             boardField.asset.priceRent.push(24, 24, 48);
             boardField.asset.priceRentHouse.push(120, 360, 850, 1025);
             boardField.asset.priceRentHotel = 1200;
-            boardField.asset.priceMortgage = 140;
+            boardField.asset.valueMortgage = 140;
             this.fields.push(boardField);
 
             var goToPrisonField = new BoardField(null);
@@ -283,7 +283,7 @@
             boardField.asset.priceRent.push(26, 26, 52);
             boardField.asset.priceRentHouse.push(130, 390, 900, 1100);
             boardField.asset.priceRentHotel = 1275;
-            boardField.asset.priceMortgage = 150;
+            boardField.asset.valueMortgage = 150;
             this.fields.push(boardField);
 
             boardField = this.createAssetBoardField("Bohinj", this.fields.length, AssetGroup.Seventh);
@@ -294,7 +294,7 @@
             boardField.asset.priceRent.push(26, 26, 52);
             boardField.asset.priceRentHouse.push(130, 390, 900, 1100);
             boardField.asset.priceRentHotel = 1275;
-            boardField.asset.priceMortgage = 150;
+            boardField.asset.valueMortgage = 150;
             this.fields.push(boardField);
 
             treasureField = new BoardField(null);
@@ -310,14 +310,14 @@
             boardField.asset.priceRent.push(28, 28, 56);
             boardField.asset.priceRentHouse.push(150, 450, 1000, 1200);
             boardField.asset.priceRentHotel = 1400;
-            boardField.asset.priceMortgage = 160;
+            boardField.asset.valueMortgage = 160;
             this.fields.push(boardField);
 
             boardField = this.createAssetBoardField("Železniška postaja Koper", this.fields.length, AssetGroup.Railway);
             boardField.asset.price = 200;
             boardField.asset.color = "#FFFFFF";
             boardField.asset.priceRent.push(25, 50, 100, 200);
-            boardField.asset.priceMortgage = 100;
+            boardField.asset.valueMortgage = 100;
             this.fields.push(boardField);
 
             eventField = new BoardField(null);
@@ -333,12 +333,12 @@
             boardField.asset.priceRent.push(35, 70);
             boardField.asset.priceRentHouse.push(175, 500, 1100, 1300);
             boardField.asset.priceRentHotel = 1500;
-            boardField.asset.priceMortgage = 175;
+            boardField.asset.valueMortgage = 175;
             this.fields.push(boardField);
 
             taxField = new BoardField(null);
             taxField.index = this.fields.length;
-            taxField.type = BoardFieldType.TaxIncome;
+            taxField.type = BoardFieldType.Tax;
             this.fields.push(taxField);
 
             boardField = this.createAssetBoardField("Portorož", this.fields.length, AssetGroup.Eighth);
@@ -349,7 +349,7 @@
             boardField.asset.priceRent.push(50, 100);
             boardField.asset.priceRentHouse.push(200, 600, 1400, 1700);
             boardField.asset.priceRentHotel = 2000;
-            boardField.asset.priceMortgage = 200;
+            boardField.asset.valueMortgage = 200;
             this.fields.push(boardField);
         }
 

@@ -19,37 +19,45 @@
         moveCurrentPlayer(newPositionIndex?: number): Model.BoardField;
         buy(): boolean;
         processOwnedFieldVisit(): Model.ProcessResult;
-        manage(): Model.AssetGroup;
+        manage(): number;
         manageFocusChange(left: boolean): Model.AssetGroup;
         returnFromManage();
         getGroupBoardFields(assetGroup: Model.AssetGroup): Array<Model.BoardField>;
         getBoardFieldGroup(boardFieldIndex: number): Model.AssetGroup;
-        hasMonopoly(player: string, assetGroup: Model.AssetGroup): boolean;
+        hasMonopoly(player: string, focusedAssetGroupIndex: number): boolean;
         addHousePreview(playerName: string, position: number): boolean;
         removeHousePreview(playerName: string, position: number): boolean;
-        commitHouseOrHotel(playerName: string, assetGroup: Model.AssetGroup): boolean;
-        rollbackHouseOrHotel(playerName: string, assetGroup: Model.AssetGroup): boolean;
+        commitHouseOrHotel(playerName: string, focusedAssetGroupIndex: number): boolean;
+        rollbackHouseOrHotel(playerName: string, focusedAssetGroupIndex: number): boolean;
         canUpgradeAsset(asset: Model.Asset, playerName: string): boolean;
+        canDowngradeAsset(asset: Model.Asset, playerName: string): boolean;
         setDiceResult(diceResult: number);
         getNextTreasureCard(): Model.TreasureCard;
         getNextEventCard(): Model.EventCard;
         processCard(card: Model.Card);
+        processTax(boardFieldType: Model.BoardFieldType): number;
         processFlyBy(positionIndex: number): Model.ProcessingEvent;
+        toggleMortgageAsset(asset: Model.Asset): boolean;
+        
+        // get fields in management group, identified by its index in the manage group array
+        getBoardFieldsInGroup(focusedAssetGroupIndex: number): Array<Model.BoardField>;
+        canMortgage(asset: Model.Asset): boolean;
     }
     export interface IDrawingService {
         boardSize: number;
         framesToMoveOneBoardField: number;
         positionPlayer(playerModel: MonopolyApp.Viewmodels.Player);
         animatePlayerMove(oldPositionIndex: Model.BoardField, newPosition: Model.BoardField, playerModel: MonopolyApp.Viewmodels.Player, scene: BABYLON.Scene, fast?: boolean): JQueryDeferred<{}>;
+        animatePlayerPrisonMove(newPosition: Model.BoardField, playerModel: MonopolyApp.Viewmodels.Player, scene: BABYLON.Scene, camera: BABYLON.FreeCamera): JQueryDeferred<{}>;
         setGameCameraInitialPosition(camera: BABYLON.FreeCamera);
-        setManageCameraPosition(camera: BABYLON.ArcRotateCamera, group: Model.AssetGroup, scene: BABYLON.Scene);
+        setManageCameraPosition(camera: BABYLON.ArcRotateCamera, focusedAssetGroupIndex: number, scene: BABYLON.Scene);
         returnFromManage(scene: BABYLON.Scene);
         pickBoardElement(scene: BABYLON.Scene, coords?: any): MonopolyApp.Viewmodels.PickedObject;
         createBoard(scene: BABYLON.Scene);
         setBoardFieldOwner(boardField: MonopolyApp.Viewmodels.BoardField, asset: Model.Asset, scene: BABYLON.Scene);
         setBoardFieldHouses(viewBoardField: MonopolyApp.Viewmodels.BoardField, houses: number, hotel: boolean, scene: BABYLON.Scene);
         loadMeshes(players: MonopolyApp.Viewmodels.Player[], scene: BABYLON.Scene, gameController: MonopolyApp.controllers.GameController): JQueryDeferred<{}>[];
-        showHouseButtons(focusedAssetGroup: Model.AssetGroup, scene: BABYLON.Scene);
+        showHouseButtons(focusedAssetGroupIndex: number, scene: BABYLON.Scene);
         onSwipeMove(scene: BABYLON.Scene, coords: any);
         onSwipeEnd(scene: BABYLON.Scene, coords: any): MonopolyApp.Viewmodels.PickedObject;
         showActionButtons();

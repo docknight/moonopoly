@@ -271,7 +271,7 @@ var Model;
             boardField.asset.priceRent.push(2, 4);
             boardField.asset.priceRentHouse.push(10, 30, 90, 160);
             boardField.asset.priceRentHotel = 250;
-            boardField.asset.priceMortgage = 30;
+            boardField.asset.valueMortgage = 30;
             this.fields.push(boardField);
             var treasureField = new Model.BoardField(null);
             treasureField.index = this.fields.length;
@@ -285,17 +285,17 @@ var Model;
             boardField.asset.priceRent.push(4, 8);
             boardField.asset.priceRentHouse.push(20, 60, 180, 320);
             boardField.asset.priceRentHotel = 450;
-            boardField.asset.priceMortgage = 30;
+            boardField.asset.valueMortgage = 30;
             this.fields.push(boardField);
             var taxField = new Model.BoardField(null);
             taxField.index = this.fields.length;
-            taxField.type = Model.BoardFieldType.Tax;
+            taxField.type = Model.BoardFieldType.TaxIncome;
             this.fields.push(taxField);
             boardField = this.createAssetBoardField("Železniška postaja Jesenice", this.fields.length, Model.AssetGroup.Railway);
             boardField.asset.price = 200;
             boardField.asset.color = "#FFFFFF";
             boardField.asset.priceRent.push(25, 50, 100, 200);
-            boardField.asset.priceMortgage = 100;
+            boardField.asset.valueMortgage = 100;
             this.fields.push(boardField);
             boardField = this.createAssetBoardField("Bogenšperk", this.fields.length, Model.AssetGroup.Second);
             boardField.asset.price = 100;
@@ -305,7 +305,7 @@ var Model;
             boardField.asset.priceRent.push(6, 6, 12);
             boardField.asset.priceRentHouse.push(30, 90, 270, 400);
             boardField.asset.priceRentHotel = 550;
-            boardField.asset.priceMortgage = 50;
+            boardField.asset.valueMortgage = 50;
             this.fields.push(boardField);
             var eventField = new Model.BoardField(null);
             eventField.index = this.fields.length;
@@ -319,7 +319,7 @@ var Model;
             boardField.asset.priceRent.push(6, 6, 12);
             boardField.asset.priceRentHouse.push(30, 90, 270, 400);
             boardField.asset.priceRentHotel = 550;
-            boardField.asset.priceMortgage = 50;
+            boardField.asset.valueMortgage = 50;
             this.fields.push(boardField);
             boardField = this.createAssetBoardField("Otočec", this.fields.length, Model.AssetGroup.Second);
             boardField.asset.price = 120;
@@ -329,7 +329,7 @@ var Model;
             boardField.asset.priceRent.push(8, 8, 16);
             boardField.asset.priceRentHouse.push(40, 100, 300, 450);
             boardField.asset.priceRentHotel = 600;
-            boardField.asset.priceMortgage = 60;
+            boardField.asset.valueMortgage = 60;
             this.fields.push(boardField);
             var prisonAndVisitField = new Model.BoardField(null);
             prisonAndVisitField.index = this.fields.length;
@@ -343,13 +343,13 @@ var Model;
             boardField.asset.priceRent.push(10, 10, 20);
             boardField.asset.priceRentHouse.push(50, 150, 450, 625);
             boardField.asset.priceRentHotel = 750;
-            boardField.asset.priceMortgage = 70;
+            boardField.asset.valueMortgage = 70;
             this.fields.push(boardField);
             boardField = this.createAssetBoardField("Javna razsvetljava", this.fields.length, Model.AssetGroup.Utility);
             boardField.asset.price = 150;
             boardField.asset.color = "#FFFFFF";
             boardField.asset.priceMultiplierUtility.push(4, 10);
-            boardField.asset.priceMortgage = 75;
+            boardField.asset.valueMortgage = 75;
             this.fields.push(boardField);
             boardField = this.createAssetBoardField("Dolenjske toplice", this.fields.length, Model.AssetGroup.Third);
             boardField.asset.price = 140;
@@ -359,7 +359,7 @@ var Model;
             boardField.asset.priceRent.push(10, 10, 20);
             boardField.asset.priceRentHouse.push(50, 150, 450, 625);
             boardField.asset.priceRentHotel = 750;
-            boardField.asset.priceMortgage = 70;
+            boardField.asset.valueMortgage = 70;
             this.fields.push(boardField);
             boardField = this.createAssetBoardField("Moravske toplice", this.fields.length, Model.AssetGroup.Third);
             boardField.asset.price = 160;
@@ -369,13 +369,13 @@ var Model;
             boardField.asset.priceRent.push(12, 12, 24);
             boardField.asset.priceRentHouse.push(60, 180, 500, 700);
             boardField.asset.priceRentHotel = 900;
-            boardField.asset.priceMortgage = 80;
+            boardField.asset.valueMortgage = 80;
             this.fields.push(boardField);
             boardField = this.createAssetBoardField("Glavni kolodvor Ljubljana", this.fields.length, Model.AssetGroup.Railway);
             boardField.asset.price = 200;
             boardField.asset.color = "#FFFFFF";
             boardField.asset.priceRent.push(25, 50, 100, 200);
-            boardField.asset.priceMortgage = 100;
+            boardField.asset.valueMortgage = 100;
             this.fields.push(boardField);
             boardField = this.createAssetBoardField("Športni park Stožice", this.fields.length, Model.AssetGroup.Fourth);
             boardField.asset.price = 180;
@@ -385,7 +385,7 @@ var Model;
             boardField.asset.priceRent.push(14, 14, 28);
             boardField.asset.priceRentHouse.push(70, 200, 550, 750);
             boardField.asset.priceRentHotel = 950;
-            boardField.asset.priceMortgage = 90;
+            boardField.asset.valueMortgage = 90;
             this.fields.push(boardField);
             treasureField = new Model.BoardField(null);
             treasureField.index = this.fields.length;
@@ -399,7 +399,7 @@ var Model;
             boardField.asset.priceRent.push(14, 14, 28);
             boardField.asset.priceRentHouse.push(70, 200, 550, 750);
             boardField.asset.priceRentHotel = 950;
-            boardField.asset.priceMortgage = 90;
+            boardField.asset.valueMortgage = 90;
             this.fields.push(boardField);
             boardField = this.createAssetBoardField("Mariborsko Pohorje", this.fields.length, Model.AssetGroup.Fourth);
             boardField.asset.price = 200;
@@ -409,7 +409,7 @@ var Model;
             boardField.asset.priceRent.push(16, 16, 32);
             boardField.asset.priceRentHouse.push(80, 220, 600, 800);
             boardField.asset.priceRentHotel = 1000;
-            boardField.asset.priceMortgage = 100;
+            boardField.asset.valueMortgage = 100;
             this.fields.push(boardField);
             var freeParkingField = new Model.BoardField(null);
             freeParkingField.index = this.fields.length;
@@ -423,7 +423,7 @@ var Model;
             boardField.asset.priceRent.push(18, 18, 36);
             boardField.asset.priceRentHouse.push(90, 250, 700, 875);
             boardField.asset.priceRentHotel = 1050;
-            boardField.asset.priceMortgage = 110;
+            boardField.asset.valueMortgage = 110;
             this.fields.push(boardField);
             eventField = new Model.BoardField(null);
             eventField.index = this.fields.length;
@@ -437,7 +437,7 @@ var Model;
             boardField.asset.priceRent.push(18, 18, 36);
             boardField.asset.priceRentHouse.push(90, 250, 700, 875);
             boardField.asset.priceRentHotel = 1050;
-            boardField.asset.priceMortgage = 110;
+            boardField.asset.valueMortgage = 110;
             this.fields.push(boardField);
             boardField = this.createAssetBoardField("Logarska dolina", this.fields.length, Model.AssetGroup.Fifth);
             boardField.asset.price = 240;
@@ -447,13 +447,13 @@ var Model;
             boardField.asset.priceRent.push(20, 20, 40);
             boardField.asset.priceRentHouse.push(100, 300, 750, 925);
             boardField.asset.priceRentHotel = 1100;
-            boardField.asset.priceMortgage = 120;
+            boardField.asset.valueMortgage = 120;
             this.fields.push(boardField);
             boardField = this.createAssetBoardField("Železniška postaja Zidani most", this.fields.length, Model.AssetGroup.Railway);
             boardField.asset.price = 200;
             boardField.asset.color = "#FFFFFF";
             boardField.asset.priceRent.push(25, 50, 100, 200);
-            boardField.asset.priceMortgage = 100;
+            boardField.asset.valueMortgage = 100;
             this.fields.push(boardField);
             boardField = this.createAssetBoardField("Lipica", this.fields.length, Model.AssetGroup.Sixth);
             boardField.asset.price = 260;
@@ -463,7 +463,7 @@ var Model;
             boardField.asset.priceRent.push(22, 22, 44);
             boardField.asset.priceRentHouse.push(110, 330, 800, 975);
             boardField.asset.priceRentHotel = 1150;
-            boardField.asset.priceMortgage = 130;
+            boardField.asset.valueMortgage = 130;
             this.fields.push(boardField);
             boardField = this.createAssetBoardField("Volčji potok", this.fields.length, Model.AssetGroup.Sixth);
             boardField.asset.price = 260;
@@ -473,13 +473,13 @@ var Model;
             boardField.asset.priceRent.push(22, 22, 44);
             boardField.asset.priceRentHouse.push(110, 330, 800, 975);
             boardField.asset.priceRentHotel = 1150;
-            boardField.asset.priceMortgage = 130;
+            boardField.asset.valueMortgage = 130;
             this.fields.push(boardField);
             boardField = this.createAssetBoardField("Mestni vodovod", this.fields.length, Model.AssetGroup.Utility);
             boardField.asset.price = 150;
             boardField.asset.color = "#FFFFFF";
             boardField.asset.priceMultiplierUtility.push(4, 10);
-            boardField.asset.priceMortgage = 75;
+            boardField.asset.valueMortgage = 75;
             this.fields.push(boardField);
             boardField = this.createAssetBoardField("Postojnska jama", this.fields.length, Model.AssetGroup.Sixth);
             boardField.asset.price = 280;
@@ -489,7 +489,7 @@ var Model;
             boardField.asset.priceRent.push(24, 24, 48);
             boardField.asset.priceRentHouse.push(120, 360, 850, 1025);
             boardField.asset.priceRentHotel = 1200;
-            boardField.asset.priceMortgage = 140;
+            boardField.asset.valueMortgage = 140;
             this.fields.push(boardField);
             var goToPrisonField = new Model.BoardField(null);
             goToPrisonField.index = this.fields.length;
@@ -503,7 +503,7 @@ var Model;
             boardField.asset.priceRent.push(26, 26, 52);
             boardField.asset.priceRentHouse.push(130, 390, 900, 1100);
             boardField.asset.priceRentHotel = 1275;
-            boardField.asset.priceMortgage = 150;
+            boardField.asset.valueMortgage = 150;
             this.fields.push(boardField);
             boardField = this.createAssetBoardField("Bohinj", this.fields.length, Model.AssetGroup.Seventh);
             boardField.asset.price = 300;
@@ -513,7 +513,7 @@ var Model;
             boardField.asset.priceRent.push(26, 26, 52);
             boardField.asset.priceRentHouse.push(130, 390, 900, 1100);
             boardField.asset.priceRentHotel = 1275;
-            boardField.asset.priceMortgage = 150;
+            boardField.asset.valueMortgage = 150;
             this.fields.push(boardField);
             treasureField = new Model.BoardField(null);
             treasureField.index = this.fields.length;
@@ -527,13 +527,13 @@ var Model;
             boardField.asset.priceRent.push(28, 28, 56);
             boardField.asset.priceRentHouse.push(150, 450, 1000, 1200);
             boardField.asset.priceRentHotel = 1400;
-            boardField.asset.priceMortgage = 160;
+            boardField.asset.valueMortgage = 160;
             this.fields.push(boardField);
             boardField = this.createAssetBoardField("Železniška postaja Koper", this.fields.length, Model.AssetGroup.Railway);
             boardField.asset.price = 200;
             boardField.asset.color = "#FFFFFF";
             boardField.asset.priceRent.push(25, 50, 100, 200);
-            boardField.asset.priceMortgage = 100;
+            boardField.asset.valueMortgage = 100;
             this.fields.push(boardField);
             eventField = new Model.BoardField(null);
             eventField.index = this.fields.length;
@@ -547,11 +547,11 @@ var Model;
             boardField.asset.priceRent.push(35, 70);
             boardField.asset.priceRentHouse.push(175, 500, 1100, 1300);
             boardField.asset.priceRentHotel = 1500;
-            boardField.asset.priceMortgage = 175;
+            boardField.asset.valueMortgage = 175;
             this.fields.push(boardField);
             taxField = new Model.BoardField(null);
             taxField.index = this.fields.length;
-            taxField.type = Model.BoardFieldType.TaxIncome;
+            taxField.type = Model.BoardFieldType.Tax;
             this.fields.push(taxField);
             boardField = this.createAssetBoardField("Portorož", this.fields.length, Model.AssetGroup.Eighth);
             boardField.asset.price = 400;
@@ -561,7 +561,7 @@ var Model;
             boardField.asset.priceRent.push(50, 100);
             boardField.asset.priceRentHouse.push(200, 600, 1400, 1700);
             boardField.asset.priceRentHotel = 2000;
-            boardField.asset.priceMortgage = 200;
+            boardField.asset.valueMortgage = 200;
             this.fields.push(boardField);
         };
         Board.prototype.createAssetBoardField = function (assetName, boardFieldIndex, assetGroup) {
@@ -889,6 +889,45 @@ var Services;
             scene.beginAnimation(playerModel.mesh, 0, runningFrame, false, undefined, function () { d.resolve(); });
             return d;
         };
+        DrawingService.prototype.animatePlayerPrisonMove = function (newPosition, playerModel, scene, camera) {
+            var _this = this;
+            var positionKeys = [];
+            var playerPosition = new BABYLON.Vector3(playerModel.mesh.position.x, playerModel.mesh.position.y, playerModel.mesh.position.z);
+            positionKeys.push({ frame: 0, value: playerPosition });
+            var playerTopPosition = new BABYLON.Vector3(playerModel.mesh.position.x, playerModel.mesh.position.y + 10, playerModel.mesh.position.z);
+            positionKeys.push({ frame: 30, value: playerTopPosition });
+            var animationplayerPosition = new BABYLON.Animation("playerPositionAnimation", "position", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
+            animationplayerPosition.setKeys(positionKeys);
+            playerModel.mesh.animations = [];
+            playerModel.mesh.animations.push(animationplayerPosition);
+            var firstAnim = $.Deferred();
+            var secondAnim = $.Deferred();
+            scene.beginAnimation(playerModel.mesh, 0, 30, false, undefined, function () { firstAnim.resolve(); });
+            var that = this;
+            $.when(firstAnim).done(function () {
+                var cameraMovement = that.returnCameraToMainPosition(scene, camera, newPosition.index);
+                $.when(cameraMovement).done(function () {
+                    var finalPosition = that.getPlayerPositionOnBoardField(playerModel, newPosition.index);
+                    playerTopPosition = new BABYLON.Vector3(finalPosition.x, playerTopPosition.y, finalPosition.z);
+                    playerPosition = new BABYLON.Vector3(finalPosition.x, playerTopPosition.y - 10, finalPosition.z);
+                    positionKeys = [];
+                    var rotationKeys = [];
+                    positionKeys.push({ frame: 0, value: playerTopPosition });
+                    positionKeys.push({ frame: 30, value: playerPosition });
+                    rotationKeys.push({ frame: 0, value: playerModel.mesh.rotationQuaternion });
+                    rotationKeys.push({ frame: 30, value: _this.getPlayerRotationOnBoardField(playerModel, newPosition.index) });
+                    animationplayerPosition = new BABYLON.Animation("playerPositionAnimation", "position", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
+                    animationplayerPosition.setKeys(positionKeys);
+                    var animationplayerRotation = new BABYLON.Animation("playerRotationAnimation", "rotationQuaternion", 30, BABYLON.Animation.ANIMATIONTYPE_QUATERNION, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
+                    animationplayerRotation.setKeys(rotationKeys);
+                    playerModel.mesh.animations = [];
+                    playerModel.mesh.animations.push(animationplayerPosition);
+                    playerModel.mesh.animations.push(animationplayerRotation);
+                    scene.beginAnimation(playerModel.mesh, 0, 30, false, undefined, function () { secondAnim.resolve(); });
+                });
+            });
+            return secondAnim;
+        };
         DrawingService.prototype.setupDiceForThrow = function (scene) {
             this.diceMesh.position.x = this.dicePosition.x;
             this.diceMesh.position.y = this.dicePosition.y;
@@ -937,11 +976,11 @@ var Services;
         };
         DrawingService.prototype.animateDiceThrow = function (impulsePoint, scene) {
             this.numFramesDiceIsAtRest = 0;
-            this.diceMesh.setPhysicsState({ impostor: BABYLON.PhysicsEngine.BoxImpostor, mass: 0.2, friction: 0.5, restitution: 0.5 });
+            this.diceMesh.setPhysicsState({ impostor: BABYLON.PhysicsEngine.BoxImpostor, mass: 0.1, friction: 0.5, restitution: 0.5 });
             this.diceMesh.checkCollisions = true;
             var dir = impulsePoint.subtract(scene.activeCamera.position);
             dir.normalize();
-            this.diceMesh.applyImpulse(dir.scale(0.1), impulsePoint);
+            this.diceMesh.applyImpulse(dir.scale(0.2), impulsePoint);
             this.throwingDice = true;
         };
         // animates camera back to the base viewing position; returns the deferred object that will be resolved when the animation finishes
@@ -1021,14 +1060,23 @@ var Services;
             camera.position = this.getGameCameraPosition(this.gameService.getCurrentPlayerPosition().index, true);
             camera.setTarget(BABYLON.Vector3.Zero());
         };
-        DrawingService.prototype.setManageCameraPosition = function (camera, group, scene) {
+        DrawingService.prototype.setManageCameraPosition = function (camera, focusedAssetGroupIndex, scene) {
+            var firstFocusedBoardField = this.gameService.getBoardFieldsInGroup(focusedAssetGroupIndex)[0];
             if (!this.boardGroupLeftCoordinate) {
                 this.initBoardGroupCoordinates();
             }
-            var groupLeftCoordinate = this.boardGroupLeftCoordinate[group];
-            var groupRightCoordinate = this.boardGroupRightCoordinate[group];
-            var groupQuadrant = Math.floor((group - 1) / 2);
-            var centerVector = BABYLON.Vector3.Center(new BABYLON.Vector3(groupLeftCoordinate.x, 0, groupLeftCoordinate.z), new BABYLON.Vector3(groupRightCoordinate.x, 0, groupRightCoordinate.z));
+            var group = firstFocusedBoardField.asset.group;
+            var centerVector;
+            if (group !== Model.AssetGroup.Railway) {
+                var groupLeftCoordinate = this.boardGroupLeftCoordinate[group];
+                var groupRightCoordinate = this.boardGroupRightCoordinate[group];
+                centerVector = BABYLON.Vector3.Center(new BABYLON.Vector3(groupLeftCoordinate.x, 0, groupLeftCoordinate.z), new BABYLON.Vector3(groupRightCoordinate.x, 0, groupRightCoordinate.z));
+            }
+            else {
+                var centerCoordinate = this.getPositionCoordinate(firstFocusedBoardField.index);
+                centerVector = new BABYLON.Vector3(centerCoordinate.x, 0, centerCoordinate.z);
+            }
+            var groupQuadrant = group === Model.AssetGroup.Railway ? Math.floor(firstFocusedBoardField.index / 10) : Math.floor((group - 1) / 2);
             camera.setTarget(centerVector);
             camera.target = centerVector;
             if (groupQuadrant === 0) {
@@ -1044,7 +1092,7 @@ var Services;
                 camera.setPosition(new BABYLON.Vector3(7, 2, centerVector.z));
             }
             this.cleanupHouseButtons(scene);
-            this.highlightGroupFields(group, groupQuadrant, centerVector, scene);
+            this.highlightGroupFields(focusedAssetGroupIndex, groupQuadrant, centerVector, scene);
         };
         DrawingService.prototype.returnFromManage = function (scene) {
             this.cleanupHighlights(scene);
@@ -1270,11 +1318,12 @@ var Services;
             scene.removeMesh(this.houseRemoveButtonMeshTemplate);
             return meshLoads;
         };
-        DrawingService.prototype.showHouseButtons = function (focusedAssetGroup, scene) {
+        DrawingService.prototype.showHouseButtons = function (focusedAssetGroupIndex, scene) {
             var _this = this;
+            var focusedFields = this.gameService.getBoardFieldsInGroup(focusedAssetGroupIndex);
+            var focusedAssetGroup = focusedFields[0].asset.group;
             this.cleanupHouseButtons(scene);
             var groupBoardFields = this.gameService.getGroupBoardFields(focusedAssetGroup);
-            //var groupBoardPositions = $.map(groupBoardFields, (f, i) => f.index);
             var that = this;
             groupBoardFields.forEach(function (field) {
                 var topLeft = that.getPositionCoordinate(field.index, true);
@@ -1288,29 +1337,37 @@ var Services;
                     scene.addMesh(houseButtonMesh);
                     houseButtonMesh.position[runningCoordinate] = topLeft[runningCoordinate] + (0.5 * _this.getQuadrantRunningDirection(boardFieldQuadrant) * -1);
                     houseButtonMesh.position[heightCoordinate] = topLeft[heightCoordinate] + (that.boardFieldHeight - 0.2) * heightDirection;
+                    if (boardFieldQuadrant === 1) {
+                        houseButtonMesh.rotation.y = Math.PI / 2;
+                    }
+                    else if (boardFieldQuadrant === 2) {
+                        houseButtonMesh.rotation.y = Math.PI;
+                    }
+                    else if (boardFieldQuadrant === 3) {
+                        houseButtonMesh.rotation.y = Math.PI * 3 / 2;
+                    }
                     //houseButtonMesh.actionManager = new BABYLON.ActionManager(scene);
                     //houseButtonMesh.actionManager.registerAction(new BABYLON.InterpolateValueAction(BABYLON.ActionManager.OnPointerOverTrigger, houseButtonMesh, "scaling", new BABYLON.Vector3(1.5, 1, 1.5), 100));
                     //houseButtonMesh.actionManager.registerAction(new BABYLON.InterpolateValueAction(BABYLON.ActionManager.OnPointerOutTrigger, houseButtonMesh, "scaling", new BABYLON.Vector3(1, 1, 1), 100));
                     that.houseButtonMeshes.push(houseButtonMesh);
                 }
-                var houseRemoveButtonMesh = that.houseRemoveButtonMeshTemplate.clone("houseRemoveButton_" + field.index);
-                houseRemoveButtonMesh.material = that.houseRemoveButtonMaterial;
-                scene.addMesh(houseRemoveButtonMesh);
-                houseRemoveButtonMesh.position[runningCoordinate] = topLeft[runningCoordinate] + (0.2 * that.getQuadrantRunningDirection(boardFieldQuadrant) * -1);
-                houseRemoveButtonMesh.position[heightCoordinate] = topLeft[heightCoordinate] + (that.boardFieldHeight - 0.2) * heightDirection;
-                houseRemoveButtonMesh.actionManager = new BABYLON.ActionManager(scene);
-                that.houseRemoveButtonMeshes.push(houseRemoveButtonMesh);
-                if (boardFieldQuadrant === 1) {
-                    houseButtonMesh.rotation.y = Math.PI / 2;
-                    houseRemoveButtonMesh.rotation.y = Math.PI / 2;
-                }
-                else if (boardFieldQuadrant === 2) {
-                    houseButtonMesh.rotation.y = Math.PI;
-                    houseRemoveButtonMesh.rotation.y = Math.PI;
-                }
-                else if (boardFieldQuadrant === 3) {
-                    houseButtonMesh.rotation.y = Math.PI * 3 / 2;
-                    houseRemoveButtonMesh.rotation.y = Math.PI * 3 / 2;
+                if (that.gameService.canDowngradeAsset(field.asset, that.gameService.getCurrentPlayer())) {
+                    var houseRemoveButtonMesh = that.houseRemoveButtonMeshTemplate.clone("houseRemoveButton_" + field.index);
+                    houseRemoveButtonMesh.material = that.houseRemoveButtonMaterial;
+                    scene.addMesh(houseRemoveButtonMesh);
+                    houseRemoveButtonMesh.position[runningCoordinate] = topLeft[runningCoordinate] + (0.2 * that.getQuadrantRunningDirection(boardFieldQuadrant) * -1);
+                    houseRemoveButtonMesh.position[heightCoordinate] = topLeft[heightCoordinate] + (that.boardFieldHeight - 0.2) * heightDirection;
+                    houseRemoveButtonMesh.actionManager = new BABYLON.ActionManager(scene);
+                    that.houseRemoveButtonMeshes.push(houseRemoveButtonMesh);
+                    if (boardFieldQuadrant === 1) {
+                        houseRemoveButtonMesh.rotation.y = Math.PI / 2;
+                    }
+                    else if (boardFieldQuadrant === 2) {
+                        houseRemoveButtonMesh.rotation.y = Math.PI;
+                    }
+                    else if (boardFieldQuadrant === 3) {
+                        houseRemoveButtonMesh.rotation.y = Math.PI * 3 / 2;
+                    }
                 }
             });
         };
@@ -1413,7 +1470,7 @@ var Services;
             }
             return coordinate;
         };
-        DrawingService.prototype.highlightGroupFields = function (assetGroup, groupQuadrantIndex, groupCenter, scene) {
+        DrawingService.prototype.highlightGroupFields = function (focusedAssetGroupIndex, groupQuadrantIndex, groupCenter, scene) {
             var _this = this;
             this.cleanupHighlights(scene);
             var meshes = [];
@@ -1424,7 +1481,8 @@ var Services;
             this.highlightLight = new BABYLON.SpotLight("Spot0", new BABYLON.Vector3(groupCenter.x, 10, groupCenter.z), new BABYLON.Vector3(0, -1, 0), 0.8, 2, scene);
             this.highlightLight.diffuse = new BABYLON.Color3(1, 0, 0);
             this.highlightLight.specular = new BABYLON.Color3(1, 1, 1);
-            var groupBoardFields = this.gameService.getGroupBoardFields(assetGroup);
+            var groupBoardFields = this.gameService.getBoardFieldsInGroup(focusedAssetGroupIndex);
+            groupBoardFields = groupBoardFields.filter(function (f) { return Math.floor(f.index / 10) === groupQuadrantIndex; });
             var groupBoardPositions = $.map(groupBoardFields, function (f, i) { return f.index; });
             var highlightBoxWidth = 0.03;
             var cornerLength = 0.05;
@@ -1485,12 +1543,32 @@ var Services;
             this.quadrantStartingCoordinate.forEach(function (quadrant, index) {
                 var topRightCorner = quadrant[_this.getQuadrantRunningCoordinate(index)] + _this.boardFieldEdgeWidth * _this.getQuadrantRunningDirection(index) * -1;
                 var topLeftCorner = topRightCorner + (_this.boardSize - _this.boardFieldEdgeWidth) * _this.getQuadrantRunningDirection(index);
+                var upperBound = topRightCorner >= topLeftCorner ? topRightCorner : topLeftCorner;
+                var lowerBound = topRightCorner >= topLeftCorner ? topLeftCorner : topRightCorner;
                 var heightCoordinate = _this.getQuadrantRunningCoordinate(index) === "x" ? "z" : "x";
                 var heightDirection = index === 0 || index === 1 ? -1 : 1;
-                if (pickedPoint[_this.getQuadrantRunningCoordinate(index)] < topRightCorner && pickedPoint[_this.getQuadrantRunningCoordinate(index)] > topLeftCorner &&
-                    pickedPoint[heightCoordinate] < quadrant[heightCoordinate] && pickedPoint[heightCoordinate] > quadrant[heightCoordinate] + _this.boardFieldHeight * heightDirection) {
-                    var quadrantOffset = pickedPoint[_this.getQuadrantRunningCoordinate(index)] > topRightCorner + _this.boardFieldEdgeWidth * _this.getQuadrantRunningDirection(index) ? 0 :
-                        Math.ceil(Math.abs((pickedPoint[_this.getQuadrantRunningCoordinate(index)] - (topRightCorner + _this.boardFieldEdgeWidth * _this.getQuadrantRunningDirection(index))) / _this.boardFieldWidth));
+                var heightTop = quadrant[heightCoordinate];
+                var heightBottom = quadrant[heightCoordinate] + _this.boardFieldHeight * heightDirection;
+                if (heightTop < heightBottom) {
+                    var temp = heightTop;
+                    heightTop = heightBottom;
+                    heightBottom = temp;
+                }
+                if (pickedPoint[_this.getQuadrantRunningCoordinate(index)] < upperBound && pickedPoint[_this.getQuadrantRunningCoordinate(index)] > lowerBound &&
+                    pickedPoint[heightCoordinate] < heightTop && pickedPoint[heightCoordinate] > heightBottom) {
+                    var quadrantOffset = 0;
+                    if (index === 0 || index === 3) {
+                        quadrantOffset = pickedPoint[_this.getQuadrantRunningCoordinate(index)] > topRightCorner + _this.boardFieldEdgeWidth * _this.getQuadrantRunningDirection(index) ? 0 :
+                            Math.ceil(Math.abs((pickedPoint[_this.getQuadrantRunningCoordinate(index)] - (topRightCorner + _this.boardFieldEdgeWidth * _this.getQuadrantRunningDirection(index))) / _this.boardFieldWidth));
+                    }
+                    else if (index === 1) {
+                        quadrantOffset = pickedPoint[_this.getQuadrantRunningCoordinate(index)] < topRightCorner - _this.boardFieldEdgeWidth * _this.getQuadrantRunningDirection(index) ? 0 :
+                            Math.ceil(Math.abs((pickedPoint[_this.getQuadrantRunningCoordinate(index)] - (topRightCorner + _this.boardFieldEdgeWidth * _this.getQuadrantRunningDirection(index))) / _this.boardFieldWidth));
+                    }
+                    else if (index === 2) {
+                        quadrantOffset = pickedPoint[_this.getQuadrantRunningCoordinate(index)] < topRightCorner - _this.boardFieldEdgeWidth * _this.getQuadrantRunningDirection(index) ? 0 :
+                            Math.ceil(Math.abs((pickedPoint[_this.getQuadrantRunningCoordinate(index)] - (topRightCorner + _this.boardFieldEdgeWidth * _this.getQuadrantRunningDirection(index))) / _this.boardFieldWidth));
+                    }
                     boardFieldIndex = index * (_this.boardFieldsInQuadrant - 1) + quadrantOffset;
                 }
             }, this);
@@ -1664,6 +1742,7 @@ var Services;
             this.game = new Model.Game();
             this.initPlayers();
             this.initCards();
+            this.initManageGroups();
             this.game.advanceToNextPlayer();
             this.uncommittedHousesPrice = 0;
         };
@@ -1774,29 +1853,29 @@ var Services;
         GameService.prototype.manage = function () {
             if (this.canManage) {
                 this.game.setState(Model.GameState.Manage);
-                this.currentManageGroup = Model.AssetGroup.First;
+                this.currentManageGroupIndex = 0;
             }
             else {
-                this.currentManageGroup = undefined;
+                this.currentManageGroupIndex = undefined;
             }
-            return this.currentManageGroup;
+            return this.currentManageGroupIndex;
         };
         GameService.prototype.manageFocusChange = function (left) {
             if (this.game.getState() === Model.GameState.Manage) {
                 if (left) {
-                    this.currentManageGroup -= 1;
-                    if (this.currentManageGroup < Model.AssetGroup.First) {
-                        this.currentManageGroup = Model.AssetGroup.Eighth;
+                    this.currentManageGroupIndex -= 1;
+                    if (this.currentManageGroupIndex < 0) {
+                        this.currentManageGroupIndex = this.manageGroups.length - 1;
                     }
                 }
                 else {
-                    this.currentManageGroup += 1;
-                    if (this.currentManageGroup > Model.AssetGroup.Eighth) {
-                        this.currentManageGroup = Model.AssetGroup.First;
+                    this.currentManageGroupIndex += 1;
+                    if (this.currentManageGroupIndex >= this.manageGroups.length) {
+                        this.currentManageGroupIndex = 0;
                     }
                 }
             }
-            return this.currentManageGroup;
+            return this.currentManageGroupIndex;
         };
         GameService.prototype.returnFromManage = function () {
             if (this.game.getState() === Model.GameState.Manage) {
@@ -1872,13 +1951,14 @@ var Services;
                 return undefined;
             }
         };
-        GameService.prototype.hasMonopoly = function (player, assetGroup) {
+        GameService.prototype.hasMonopoly = function (player, focusedAssetGroupIndex) {
             var _this = this;
             var monopoly = true;
-            // temporarily
-            //return monopoly;
+            var firstAssetIndex = this.manageGroups[focusedAssetGroupIndex][0];
+            var assetGroup = this.getBoardFieldGroup(firstAssetIndex);
             if (assetGroup < Model.AssetGroup.First || assetGroup > Model.AssetGroup.Eighth) {
                 monopoly = false;
+                return;
             }
             var groupFields = this.getGroupBoardFields(assetGroup);
             groupFields.forEach(function (field) {
@@ -1967,11 +2047,12 @@ var Services;
             this.uncommittedHousesPrice -= sellPrice;
             return true;
         };
-        GameService.prototype.commitHouseOrHotel = function (playerName, assetGroup) {
-            if (!this.hasMonopoly(playerName, assetGroup)) {
+        GameService.prototype.commitHouseOrHotel = function (playerName, focusedAssetGroupIndex) {
+            if (!this.hasMonopoly(playerName, focusedAssetGroupIndex)) {
                 return false;
             }
-            var boardFields = this.game.board.fields.filter(function (f) { return f.type === Model.BoardFieldType.Asset && f.asset.group === assetGroup; });
+            var firstFocusedBoardField = this.getBoardFieldsInGroup(focusedAssetGroupIndex)[0];
+            var boardFields = this.game.board.fields.filter(function (f) { return f.type === Model.BoardFieldType.Asset && f.asset.group === firstFocusedBoardField.asset.group; });
             var totalPrice = 0;
             var that = this;
             boardFields.forEach(function (boardField) {
@@ -1982,11 +2063,12 @@ var Services;
             player.money -= totalPrice;
             return true;
         };
-        GameService.prototype.rollbackHouseOrHotel = function (playerName, assetGroup) {
-            if (!this.hasMonopoly(playerName, assetGroup)) {
+        GameService.prototype.rollbackHouseOrHotel = function (playerName, focusedAssetGroupIndex) {
+            if (!this.hasMonopoly(playerName, focusedAssetGroupIndex)) {
                 return false;
             }
-            var boardFields = this.game.board.fields.filter(function (f) { return f.type === Model.BoardFieldType.Asset && f.asset.group === assetGroup; });
+            var firstFocusedBoardField = this.getBoardFieldsInGroup(focusedAssetGroupIndex)[0];
+            var boardFields = this.game.board.fields.filter(function (f) { return f.type === Model.BoardFieldType.Asset && f.asset.group === firstFocusedBoardField.asset.group; });
             boardFields.forEach(function (boardField) {
                 boardField.asset.rollbackHouseOrHotel();
             });
@@ -1999,9 +2081,22 @@ var Services;
             if (asset.hotel) {
                 return false;
             }
+            var groupAssets = this.getGroupBoardFields(asset.group).map(function (f) { return f.asset; });
+            if (groupAssets.filter(function (a) { return a.mortgage; }).length > 0) {
+                return false;
+            }
             var player = this.players.filter(function (p) { return p.playerName === playerName; })[0];
             var requiredPrice = !asset.houses || asset.houses <= 3 ? asset.getPriceForHouseDuringManage(false) : asset.getPriceForHotelDuringManage(false);
             return player.money >= requiredPrice;
+        };
+        GameService.prototype.canDowngradeAsset = function (asset, playerName) {
+            if (!asset || asset.unowned || asset.owner !== playerName || !this.hasMonopoly(playerName, asset.group)) {
+                return false;
+            }
+            if ((!asset.houses || asset.houses === 0) && !asset.hotel) {
+                return false;
+            }
+            return true;
         };
         GameService.prototype.setDiceResult = function (diceResult) {
             this.lastDiceResult1 = diceResult;
@@ -2042,6 +2137,19 @@ var Services;
                 }
             }
         };
+        GameService.prototype.processTax = function (boardFieldType) {
+            var _this = this;
+            var player = this.game.players.filter(function (p) { return p.playerName === _this.getCurrentPlayer(); })[0];
+            if (boardFieldType === Model.BoardFieldType.Tax) {
+                player.money -= 100;
+                return 100;
+            }
+            if (boardFieldType === Model.BoardFieldType.TaxIncome) {
+                player.money -= 200;
+                return 200;
+            }
+            return 0;
+        };
         // process intermediate board fields while moving a player to its destination field
         GameService.prototype.processFlyBy = function (positionIndex) {
             var _this = this;
@@ -2054,6 +2162,46 @@ var Services;
                 }
             }
             return processedEvent;
+        };
+        GameService.prototype.toggleMortgageAsset = function (asset) {
+            var owner = this.players.filter(function (p) { return p.playerName === asset.owner; })[0];
+            if (asset.mortgage) {
+                if (owner.money >= Math.floor(asset.valueMortgage * 1.1)) {
+                    owner.money -= Math.floor(asset.valueMortgage * 1.1);
+                    asset.releaseMortgage();
+                }
+                else {
+                    return false;
+                }
+            }
+            else {
+                owner.money += asset.valueMortgage;
+                asset.putUnderMortgage();
+            }
+            return true;
+        };
+        // get fields in management group, identified by its index in the manage group array
+        GameService.prototype.getBoardFieldsInGroup = function (focusedAssetGroupIndex) {
+            var groupFieldIndexes = this.manageGroups[focusedAssetGroupIndex];
+            return this.game.board.fields.filter(function (f) { return groupFieldIndexes.filter(function (g) { return g === f.index; }).length > 0; });
+        };
+        GameService.prototype.canMortgage = function (asset) {
+            if (!asset) {
+                return false;
+            }
+            var canMortgage = !asset.unowned && asset.owner === this.getCurrentPlayer();
+            if (asset.group === Model.AssetGroup.Railway || asset.group === Model.AssetGroup.Utility) {
+                return canMortgage;
+            }
+            if (canMortgage) {
+                var groupAssets = this.getGroupBoardFields(asset.group).map(function (f) { return f.asset; });
+                groupAssets.forEach(function (a) {
+                    if ((a.houses && a.houses > 0) || a.hotel) {
+                        canMortgage = false;
+                    }
+                });
+            }
+            return canMortgage;
         };
         GameService.prototype.initPlayers = function () {
             var settings = this.settingsService.loadSettings();
@@ -2115,6 +2263,35 @@ var Services;
             eventCard.message = "Bank has issued dividends worth of M50.";
             eventCard.money = 50;
             this.game.eventCards.push(eventCard);
+        };
+        GameService.prototype.initManageGroups = function () {
+            this.manageGroups = new Array();
+            var manageGroup = this.getGroupBoardFields(Model.AssetGroup.First).map(function (f) { return f.index; });
+            this.manageGroups.push(manageGroup);
+            manageGroup = [5];
+            this.manageGroups.push(manageGroup);
+            manageGroup = this.getGroupBoardFields(Model.AssetGroup.Second).map(function (f) { return f.index; });
+            this.manageGroups.push(manageGroup);
+            manageGroup = this.getGroupBoardFields(Model.AssetGroup.Third).map(function (f) { return f.index; });
+            manageGroup.push(12);
+            this.manageGroups.push(manageGroup);
+            manageGroup = [15];
+            this.manageGroups.push(manageGroup);
+            manageGroup = this.getGroupBoardFields(Model.AssetGroup.Fourth).map(function (f) { return f.index; });
+            this.manageGroups.push(manageGroup);
+            manageGroup = this.getGroupBoardFields(Model.AssetGroup.Fifth).map(function (f) { return f.index; });
+            this.manageGroups.push(manageGroup);
+            manageGroup = [25];
+            this.manageGroups.push(manageGroup);
+            manageGroup = this.getGroupBoardFields(Model.AssetGroup.Sixth).map(function (f) { return f.index; });
+            manageGroup.push(28);
+            this.manageGroups.push(manageGroup);
+            manageGroup = this.getGroupBoardFields(Model.AssetGroup.Seventh).map(function (f) { return f.index; });
+            this.manageGroups.push(manageGroup);
+            manageGroup = [35];
+            this.manageGroups.push(manageGroup);
+            manageGroup = this.getGroupBoardFields(Model.AssetGroup.Eighth).map(function (f) { return f.index; });
+            this.manageGroups.push(manageGroup);
         };
         GameService.$inject = ["$http", "settingsService"];
         return GameService;
@@ -2240,7 +2417,7 @@ var MonopolyApp;
             GameController.prototype.manage = function () {
                 if (!this.manageMode) {
                     this.manageMode = true;
-                    this.focusedAssetGroup = this.gameService.manage();
+                    this.focusedAssetGroupIndex = this.gameService.manage();
                     this.setupManageHighlight();
                     this.scene.activeCamera = this.manageCamera;
                     //var canvas = <HTMLCanvasElement>document.getElementById("renderCanvas");
@@ -2270,13 +2447,8 @@ var MonopolyApp;
             GameController.prototype.endTurn = function () {
                 if (this.gameService.canEndTurn) {
                     this.gameService.endTurn();
-                    var cameraMovement = this.drawingService.returnCameraToMainPosition(this.scene, this.gameCamera, this.gameService.getCurrentPlayerPosition().index);
-                    var that = this;
-                    $.when(cameraMovement).done(function () {
-                        that.scope.$apply(function () {
-                            that.setAvailableActions();
-                        });
-                    });
+                    this.drawingService.returnCameraToMainPosition(this.scene, this.gameCamera, this.gameService.getCurrentPlayerPosition().index);
+                    this.setAvailableActions();
                 }
             };
             GameController.prototype.closeAssetManagementWindow = function () {
@@ -2296,6 +2468,64 @@ var MonopolyApp;
                 else if (processingEvent === Model.ProcessingEvent.PassGoAward) {
                     this.showMessage(this.gameService.getCurrentPlayer() + " passed GO and received M200.");
                 }
+            };
+            GameController.prototype.toggleMortgageConfirm = function () {
+                if (this.gameService.canMortgage(this.assetToManage)) {
+                    var that = this;
+                    if (!this.assetToManage.mortgage) {
+                        $("#mortgageConfirmText").text("Do you wish to mortgage " + this.assetToManage.name + " for M" + this.assetToManage.valueMortgage + "?");
+                    }
+                    else {
+                        $("#mortgageConfirmText").text("Do you wish to pay off mortgage " + this.assetToManage.name + " for M" + (Math.floor(this.assetToManage.valueMortgage * 1.1)) + "?");
+                    }
+                    $("#mortgageConfirmDialog").dialog({
+                        autoOpen: true,
+                        dialogClass: "no-close",
+                        width: 300,
+                        buttons: [
+                            {
+                                text: "Yes",
+                                click: function () {
+                                    $(this).dialog("close");
+                                    if (!that.toggleMortgageAsset(that.assetToManage)) {
+                                        that.showConfirmationPopup("Sorry, you do not have enough money!");
+                                    }
+                                    that.scope.$apply(function () {
+                                        that.updatePlayersForView();
+                                    });
+                                }
+                            },
+                            {
+                                text: "No",
+                                click: function () {
+                                    $(this).dialog("close");
+                                }
+                            }
+                        ]
+                    });
+                }
+            };
+            GameController.prototype.toggleMortgageAsset = function (asset) {
+                return this.gameService.toggleMortgageAsset(asset);
+            };
+            GameController.prototype.showConfirmationPopup = function (text) {
+                $("#generalPopupDialog").text(text);
+                $("#generalPopupDialog").dialog({
+                    autoOpen: true,
+                    dialogClass: "no-close",
+                    width: 300,
+                    buttons: [
+                        {
+                            text: "Ok",
+                            click: function () {
+                                $(this).dialog("close");
+                            }
+                        }
+                    ]
+                });
+            };
+            GameController.prototype.canMortgageSelected = function () {
+                return this.gameService.canMortgage(this.assetToManage);
             };
             GameController.prototype.createScene = function () {
                 var canvas = document.getElementById("renderCanvas");
@@ -2407,6 +2637,12 @@ var MonopolyApp;
                 if (this.gameService.getCurrentPlayerPosition().type === Model.BoardFieldType.Treasure || this.gameService.getCurrentPlayerPosition().type === Model.BoardFieldType.Event) {
                     this.processCardField(this.gameService.getCurrentPlayerPosition());
                 }
+                if (this.gameService.getCurrentPlayerPosition().type === Model.BoardFieldType.Tax || this.gameService.getCurrentPlayerPosition().type === Model.BoardFieldType.TaxIncome) {
+                    this.processTaxField(this.gameService.getCurrentPlayerPosition().type);
+                }
+                if (this.gameService.getCurrentPlayerPosition().type === Model.BoardFieldType.GoToPrison) {
+                    this.processGoToPrisonField();
+                }
             };
             GameController.prototype.processAssetField = function (position) {
                 if (this.availableActions.buy) {
@@ -2434,18 +2670,14 @@ var MonopolyApp;
             };
             GameController.prototype.handleSwipe = function (left) {
                 if (this.manageMode) {
-                    this.focusedAssetGroup = this.gameService.manageFocusChange(left);
+                    this.focusedAssetGroupIndex = this.gameService.manageFocusChange(left);
                     this.setupManageHighlight();
-                    this.drawingService.setManageCameraPosition(this.manageCamera, this.focusedAssetGroup, this.scene);
-                    if (this.gameService.hasMonopoly(this.gameService.getCurrentPlayer(), this.focusedAssetGroup)) {
-                        this.drawingService.showHouseButtons(this.focusedAssetGroup, this.scene);
-                    }
                 }
             };
             GameController.prototype.setupManageHighlight = function () {
-                this.drawingService.setManageCameraPosition(this.manageCamera, this.focusedAssetGroup, this.scene);
-                if (this.gameService.hasMonopoly(this.gameService.getCurrentPlayer(), this.focusedAssetGroup)) {
-                    this.drawingService.showHouseButtons(this.focusedAssetGroup, this.scene);
+                this.drawingService.setManageCameraPosition(this.manageCamera, this.focusedAssetGroupIndex, this.scene);
+                if (this.gameService.hasMonopoly(this.gameService.getCurrentPlayer(), this.focusedAssetGroupIndex)) {
+                    this.drawingService.showHouseButtons(this.focusedAssetGroupIndex, this.scene);
                 }
             };
             GameController.prototype.handleClickEvent = function (eventObject) {
@@ -2459,7 +2691,7 @@ var MonopolyApp;
                     mouseEventObject = eventObject.originalEvent;
                     var pickedObject = thisInstance.drawingService.pickBoardElement(thisInstance.scene, mouseEventObject && mouseEventObject.changedTouches && mouseEventObject.changedTouches.length > 0 ? { x: mouseEventObject.changedTouches[0].clientX, y: mouseEventObject.changedTouches[0].clientY } : undefined);
                     if (pickedObject && pickedObject.pickedObjectType === MonopolyApp.Viewmodels.PickedObjectType.BoardField) {
-                        var groupFields = thisInstance.gameService.getGroupBoardFields(thisInstance.focusedAssetGroup);
+                        var groupFields = thisInstance.gameService.getBoardFieldsInGroup(thisInstance.focusedAssetGroupIndex);
                         var clickedFields = groupFields.filter(function (f) { return f.index === pickedObject.position; });
                         if (clickedFields.length > 0) {
                             // user clicked a field that is currently focused - show its details
@@ -2553,8 +2785,9 @@ var MonopolyApp;
                     that.actionButtonsVisible = true;
                 });
             };
-            GameController.prototype.refreshBoardFieldGroupHouses = function (assetGroup) {
-                var fields = this.gameService.getGroupBoardFields(assetGroup);
+            GameController.prototype.refreshBoardFieldGroupHouses = function (focusedAssetGroupIndex) {
+                var firstFocusedBoardField = this.gameService.getBoardFieldsInGroup(focusedAssetGroupIndex)[0];
+                var fields = this.gameService.getGroupBoardFields(firstFocusedBoardField.asset.group);
                 var fieldIndexes = $.map(fields, function (f) { return f.index; });
                 var viewGroupBoardFields = this.boardFields.filter(function (viewBoardField) { return $.inArray(viewBoardField.index, fieldIndexes) >= 0; });
                 var that = this;
@@ -2564,14 +2797,14 @@ var MonopolyApp;
                 });
             };
             GameController.prototype.commitHouses = function (data) {
-                this.gameService.commitHouseOrHotel(this.gameService.getCurrentPlayer(), this.focusedAssetGroup);
+                this.gameService.commitHouseOrHotel(this.gameService.getCurrentPlayer(), this.focusedAssetGroupIndex);
                 this.actionButtonsVisible = false;
                 this.updatePlayersForView();
             };
             GameController.prototype.rollbackHouses = function (data) {
-                this.gameService.rollbackHouseOrHotel(this.gameService.getCurrentPlayer(), this.focusedAssetGroup);
+                this.gameService.rollbackHouseOrHotel(this.gameService.getCurrentPlayer(), this.focusedAssetGroupIndex);
                 this.actionButtonsVisible = false;
-                this.refreshBoardFieldGroupHouses(this.focusedAssetGroup);
+                this.refreshBoardFieldGroupHouses(this.focusedAssetGroupIndex);
                 this.updatePlayersForView();
             };
             GameController.prototype.updatePlayersForView = function () {
@@ -2609,6 +2842,23 @@ var MonopolyApp;
                             });
                         });
                     });
+                });
+            };
+            GameController.prototype.processTaxField = function (boardFieldType) {
+                var paid = this.gameService.processTax(boardFieldType);
+                this.updatePlayersForView();
+                this.showMessage(this.currentPlayer + " paid M" + paid + " of income tax.");
+            };
+            GameController.prototype.processGoToPrisonField = function () {
+                var _this = this;
+                var d = $.Deferred();
+                var oldPosition = this.gameService.getCurrentPlayerPosition();
+                var newPosition = this.gameService.moveCurrentPlayer(10);
+                var playerModel = this.players.filter(function (p) { return p.name === _this.gameService.getCurrentPlayer(); })[0];
+                var moveToPrison = this.drawingService.animatePlayerPrisonMove(newPosition, playerModel, this.scene, this.gameCamera);
+                var that = this;
+                $.when(moveToPrison).done(function () {
+                    that.showMessage(that.currentPlayer + " landed in prison.");
                 });
             };
             GameController.prototype.showCard = function (card, title) {
@@ -2662,9 +2912,11 @@ var MonopolyApp;
             };
             GameController.prototype.highlightCommandButton = function (button) {
                 button.addClass("highlightedButton").removeClass("unhighlightedButton");
+                button.parent().children().children(".commandButtonOverlayText").show();
             };
             GameController.prototype.unhighlightCommandButton = function (button) {
                 button.addClass("unhighlightedButton").removeClass("highlightedButton");
+                button.parent().children().children(".commandButtonOverlayText").hide();
             };
             GameController.prototype.bindInputEvents = function () {
                 var _this = this;

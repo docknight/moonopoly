@@ -137,10 +137,30 @@
         <tr>
             <td style="width: 47%; height: 100%">
                 <div style="position: relative; padding: 10px; box-shadow: 10px 10px 5px #888888; width: 100%; height: 100%; border: 2px double black">
-                    <div style="text-align: center">Mortgage property</div>
-                    <div style="position: absolute; top: 5px; left: 5px">
-                        <a ng-click="gameController.closeAssetManagementWindow()"><img id="buttoncloseAssetManagementWindow" class="commandButton unhighlightedButton" src="images/back.png" draggable="false" /></a>
-                    </div>
+                    <table style="width: 100%; height: 100%">
+                        <tr style="height: 50px">
+                            <td>
+                                <a ng-click="gameController.closeAssetManagementWindow()"><img id="buttoncloseAssetManagementWindow" class="commandButton unhighlightedButton" src="images/back.png" draggable="false"/></a>
+                            </td>
+                        </tr>
+                        <tr style="height: 60px">
+                            <td>
+                                <div style="display: table; margin-left: auto; margin-right: auto; width: auto">
+                                    <a ng-disabled="!gameController.canMortgageSelected()" ng-click="gameController.toggleMortgageConfirm()"><img id="buttonToggleMortgage" class="commandButton unhighlightedButton" src="images/home-price-hi.png" draggable="false"/></a>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr style="height: 20px">
+                            <td style="text-align: center">
+                                <div ng-show="!gameController.assetToManage.unowned">
+                                    Owned by {{gameController.assetToManage.owner}}
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td></td>
+                        </tr>
+                    </table>
                 </div>
             </td>
             <td style="width: 10px"></td>
@@ -179,10 +199,38 @@
 
 <div id="commandPanel" style="position: fixed; bottom: 2%; left: 0px; width: 100%">
     <div style="display: table; margin-left: auto; margin-right: auto; width:auto">
-        <a ng-show="gameController.availableActions.throwDice" ng-click="gameController.setupThrowDice()"><img id="buttonThrowDice" class="commandButton unhighlightedButton" src="images/Dice2.png" draggable="false"/></a>
-        <a ng-show="gameController.availableActions.buy" ng-click="gameController.buy()" style="margin-left: 2px"><img id="buttonBuy" class="commandButton unhighlightedButton" src="images/buy.png" draggable="false"/></a>
-        <a ng-show="gameController.availableActions.manage" ng-click="gameController.manage()" style="margin-left: 2px"><img id="buttonManage" class="commandButton unhighlightedButton" src="images/management.png" draggable="false"/></a>
-        <a ng-show="gameController.availableActions.endTurn" ng-click="gameController.endTurn()" style="margin-left: 2px"><img id="buttonEndTurn" class="commandButton unhighlightedButton" src="images/next.png" draggable="false"/></a>
+        <a ng-show="gameController.availableActions.throwDice" ng-click="gameController.setupThrowDice()" style="position: relative">
+            <div style="position: absolute; top: -53px; left: 0px; width: 80px;">
+                <div class="commandButtonOverlayText" style="display: none">
+                    Throw dice
+                </div>
+            </div>
+            <img id="buttonThrowDice" class="commandButton unhighlightedButton" src="images/Dice2.png" draggable="false"/>
+        </a>
+        <a ng-show="gameController.availableActions.buy" ng-click="gameController.buy()" style="position: relative">
+            <div style="position: absolute; top: -53px; left: 0px; width: 80px;">
+                <div class="commandButtonOverlayText" style="display: none">
+                    Buy
+                </div>
+            </div>
+            <img id="buttonBuy" class="commandButton unhighlightedButton" src="images/buy.png" draggable="false" />
+        </a>
+        <a ng-show="gameController.availableActions.manage" ng-click="gameController.manage()" style="position: relative">
+            <div style="position: absolute; top: -53px; left: 0px; width: 80px;">
+                <div class="commandButtonOverlayText" style="display: none">
+                    Manage
+                </div>
+            </div>
+            <img id="buttonManage" class="commandButton unhighlightedButton" src="images/management.png" draggable="false" />
+        </a>
+        <a ng-show="gameController.availableActions.endTurn" ng-click="gameController.endTurn()" style="position: relative">
+            <div style="position: absolute; top: -53px; left: 0px; width: 80px;">
+                <div class="commandButtonOverlayText" style="display: none">
+                    End turn
+                </div>
+            </div>
+            <img id="buttonEndTurn" class="commandButton unhighlightedButton" src="images/next.png" draggable="false" />
+        </a>
     </div>
 </div>
 <div id="manageCommandPanel" style="position: fixed; bottom: 2%; left: 0px; width: 100%; display: none">
@@ -191,9 +239,14 @@
     </div>
 </div>
 <div id="actionButtonPanel" style="position: fixed; bottom: 8%; width: 100%;" ng-show="gameController.actionButtonsVisible">
-    <div style="display: block; margin-left: auto; margin-right: auto; width:120px">
-        <a ng-click="gameController.executeCancelAction({})"><img style="width: 40px; height: 40px" src="images/Cancel.png" /></a>
-        <a ng-click="gameController.executeConfirmAction({})" style="margin-left: 20px"><img style="width: 40px; height: 40px" src="images/CheckMark.png" /></a>
+    <div style="display: block; margin-left: auto; margin-right: auto; width: 120px">
+        <a ng-click="gameController.executeCancelAction({})"><img style="width: 40px; height: 40px" src="images/Cancel.png"/></a>
+        <a ng-click="gameController.executeConfirmAction({})" style="margin-left: 20px"><img style="width: 40px; height: 40px" src="images/CheckMark.png"/></a>
     </div>
+</div>
+<div id="mortgageConfirmDialog" style="display: none">
+    <div id="mortgageConfirmText">Confirm mortgage</div>
+</div>
+<div id="generalPopupDialog" style="display: none">    
 </div>
 

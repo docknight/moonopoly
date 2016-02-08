@@ -11,10 +11,11 @@ module Services {
         private game: Model.Game;
         private lastDiceResult1: number;
         private lastDiceResult2: number;
-        private currentManageGroup: Model.AssetGroup;
+        private currentManageGroupIndex: number;
         private uncommittedHousesPrice: number; // price sum of currently uncommitted house deals
         private currentTreasureCardIndex: number;
         private currentEventCardIndex: number;
+        private manageGroups: Array<Array<number>>;
 
         static $inject = ["$http", "settingsService"];
         constructor($http: ng.IHttpService, settingsService: Interfaces.ISettingsService) {
@@ -26,6 +27,7 @@ module Services {
             this.game = new Model.Game();
             this.initPlayers();
             this.initCards();
+            this.initManageGroups();
             this.game.advanceToNextPlayer();
             this.uncommittedHousesPrice = 0;
         }
@@ -119,33 +121,33 @@ module Services {
             return false;
         }
 
-        manage(): Model.AssetGroup {
+        manage(): number {
             if (this.canManage) {
                 this.game.setState(Model.GameState.Manage);
-                this.currentManageGroup = Model.AssetGroup.First;
+                this.currentManageGroupIndex = 0;
             } else {
-                this.currentManageGroup = undefined;
+                this.currentManageGroupIndex = undefined;
             }
 
-            return this.currentManageGroup;
+            return this.currentManageGroupIndex;
         }
 
-        manageFocusChange(left: boolean): Model.AssetGroup {
+        manageFocusChange(left: boolean): number {
             if (this.game.getState() === Model.GameState.Manage) {
                 if (left) {
-                    this.currentManageGroup -= 1;
-                    if (this.currentManageGroup < Model.AssetGroup.First) {
-                        this.currentManageGroup = Model.AssetGroup.Eighth;
+                    this.currentManageGroupIndex -= 1;
+                    if (this.currentManageGroupIndex < 0) {
+                        this.currentManageGroupIndex = this.manageGroups.length - 1;
                     }                    
                 } else {
-                    this.currentManageGroup += 1;
-                    if (this.currentManageGroup > Model.AssetGroup.Eighth) {
-                        this.currentManageGroup = Model.AssetGroup.First;
+                    this.currentManageGroupIndex += 1;
+                    if (this.currentManageGroupIndex >= this.manageGroups.length) {
+                        this.currentManageGroupIndex = 0;
                     }
                 }
             }
 
-            return this.currentManageGroup;
+            return this.currentManageGroupIndex;
         }
 
         returnFromManage() {
@@ -224,12 +226,13 @@ module Services {
             }
         }
 
-        hasMonopoly(player: string, assetGroup: Model.AssetGroup): boolean {
+        hasMonopoly(player: string, focusedAssetGroupIndex: number): boolean {
             var monopoly = true;
-            // temporarily
-            //return monopoly;
+            var firstAssetIndex = this.manageGroups[focusedAssetGroupIndex][0];
+            var assetGroup = this.getBoardFieldGroup(firstAssetIndex);
             if (assetGroup < Model.AssetGroup.First || assetGroup > Model.AssetGroup.Eighth) {
                 monopoly = false;
+                return;
             }
 
             var groupFields = this.getGroupBoardFields(assetGroup);
@@ -326,11 +329,12 @@ module Services {
             return true;
         }
 
-        commitHouseOrHotel(playerName: string, assetGroup: Model.AssetGroup): boolean {
-            if (!this.hasMonopoly(playerName, assetGroup)) {
+        commitHouseOrHotel(playerName: string, focusedAssetGroupIndex: number): boolean {
+            if (!this.hasMonopoly(playerName, focusedAssetGroupIndex)) {
                 return false;
             }    
-            var boardFields = this.game.board.fields.filter(f => f.type === Model.BoardFieldType.Asset && f.asset.group === assetGroup);
+            var firstFocusedBoardField = this.getBoardFieldsInGroup(focusedAssetGroupIndex)[0];
+            var boardFields = this.game.board.fields.filter(f => f.type === Model.BoardFieldType.Asset && f.asset.group === firstFocusedBoardField.asset.group);
             var totalPrice = 0;
             var that = this;
             boardFields.forEach(boardField => {
@@ -342,11 +346,12 @@ module Services {
             return true;
         }
 
-        rollbackHouseOrHotel(playerName: string, assetGroup: Model.AssetGroup): boolean {
-            if (!this.hasMonopoly(playerName, assetGroup)) {
+        rollbackHouseOrHotel(playerName: string, focusedAssetGroupIndex: number): boolean {
+            if (!this.hasMonopoly(playerName, focusedAssetGroupIndex)) {
                 return false;
             }
-            var boardFields = this.game.board.fields.filter(f => f.type === Model.BoardFieldType.Asset && f.asset.group === assetGroup);
+            var firstFocusedBoardField = this.getBoardFieldsInGroup(focusedAssetGroupIndex)[0];
+            var boardFields = this.game.board.fields.filter(f => f.type === Model.BoardFieldType.Asset && f.asset.group === firstFocusedBoardField.asset.group);
             boardFields.forEach(boardField => {
                 boardField.asset.rollbackHouseOrHotel();
             });
@@ -360,9 +365,24 @@ module Services {
             if (asset.hotel) {
                 return false;
             }
+            var groupAssets = this.getGroupBoardFields(asset.group).map(f => f.asset);
+            if (groupAssets.filter(a => a.mortgage).length > 0) {
+                return false;
+            }
             var player = this.players.filter(p => p.playerName === playerName)[0];
             var requiredPrice = !asset.houses || asset.houses <= 3 ? asset.getPriceForHouseDuringManage(false) : asset.getPriceForHotelDuringManage(false);
             return player.money >= requiredPrice;
+        }
+
+        canDowngradeAsset(asset: Model.Asset, playerName: string): boolean {
+            if (!asset || asset.unowned || asset.owner !== playerName || !this.hasMonopoly(playerName, asset.group)) {
+                return false;
+            }
+
+            if ((!asset.houses || asset.houses === 0) && !asset.hotel) {
+                return false;
+            }
+            return true;
         }
 
         setDiceResult(diceResult: number) {
@@ -405,6 +425,19 @@ module Services {
             }
         }
 
+        processTax(boardFieldType: Model.BoardFieldType): number {
+            var player = this.game.players.filter(p => p.playerName === this.getCurrentPlayer())[0];
+            if (boardFieldType === Model.BoardFieldType.Tax) {
+                player.money -= 100;
+                return 100;
+            }
+            if (boardFieldType === Model.BoardFieldType.TaxIncome) {
+                player.money -= 200;
+                return 200;
+            }
+            return 0;
+        }
+
         // process intermediate board fields while moving a player to its destination field
         processFlyBy(positionIndex: number): Model.ProcessingEvent {
             var processedEvent = Model.ProcessingEvent.None;
@@ -417,6 +450,47 @@ module Services {
             }
 
             return processedEvent;
+        }
+
+        toggleMortgageAsset(asset: Model.Asset): boolean {
+            var owner = this.players.filter(p => p.playerName === asset.owner)[0];
+            if (asset.mortgage) {                
+                if (owner.money >= Math.floor(asset.valueMortgage * 1.1)) {
+                    owner.money -= Math.floor(asset.valueMortgage * 1.1);
+                    asset.releaseMortgage();
+                } else {
+                    return false;
+                }
+            } else {
+                owner.money += asset.valueMortgage;
+                asset.putUnderMortgage();
+            }
+            return true;
+        }
+
+        // get fields in management group, identified by its index in the manage group array
+        getBoardFieldsInGroup(focusedAssetGroupIndex: number): Model.BoardField[] {
+            var groupFieldIndexes = this.manageGroups[focusedAssetGroupIndex];
+            return this.game.board.fields.filter(f => groupFieldIndexes.filter(g => g === f.index).length > 0);
+        }
+
+        canMortgage(asset: Model.Asset): boolean {
+            if (!asset) {
+                return false;
+            }
+            var canMortgage = !asset.unowned && asset.owner === this.getCurrentPlayer();
+            if (asset.group === Model.AssetGroup.Railway || asset.group === Model.AssetGroup.Utility) {
+                return canMortgage;
+            } 
+            if (canMortgage) {
+                var groupAssets = this.getGroupBoardFields(asset.group).map(f => f.asset);
+                groupAssets.forEach(a => {
+                    if ((a.houses && a.houses > 0) || a.hotel) {
+                        canMortgage = false;
+                    }
+                });
+            }
+            return canMortgage;
         }
 
         private initPlayers() {
@@ -486,6 +560,36 @@ module Services {
             eventCard.message = "Bank has issued dividends worth of M50.";
             eventCard.money = 50;
             this.game.eventCards.push(eventCard);
+        }
+
+        private initManageGroups() {
+            this.manageGroups = new Array<Array<number>>();
+            var manageGroup = this.getGroupBoardFields(Model.AssetGroup.First).map(f => f.index);
+            this.manageGroups.push(manageGroup);
+            manageGroup = [5];
+            this.manageGroups.push(manageGroup);
+            manageGroup = this.getGroupBoardFields(Model.AssetGroup.Second).map(f => f.index);
+            this.manageGroups.push(manageGroup);
+            manageGroup = this.getGroupBoardFields(Model.AssetGroup.Third).map(f => f.index);
+            manageGroup.push(12);
+            this.manageGroups.push(manageGroup);
+            manageGroup = [15];
+            this.manageGroups.push(manageGroup);
+            manageGroup = this.getGroupBoardFields(Model.AssetGroup.Fourth).map(f => f.index);
+            this.manageGroups.push(manageGroup);
+            manageGroup = this.getGroupBoardFields(Model.AssetGroup.Fifth).map(f => f.index);
+            this.manageGroups.push(manageGroup);
+            manageGroup = [25];
+            this.manageGroups.push(manageGroup);
+            manageGroup = this.getGroupBoardFields(Model.AssetGroup.Sixth).map(f => f.index);
+            manageGroup.push(28);
+            this.manageGroups.push(manageGroup);
+            manageGroup = this.getGroupBoardFields(Model.AssetGroup.Seventh).map(f => f.index);
+            this.manageGroups.push(manageGroup);
+            manageGroup = [35];
+            this.manageGroups.push(manageGroup);
+            manageGroup = this.getGroupBoardFields(Model.AssetGroup.Eighth).map(f => f.index);
+            this.manageGroups.push(manageGroup);
         }
     }
 

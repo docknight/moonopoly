@@ -31,7 +31,7 @@
         priceRentHotel: number;
         priceHouse: number;
         priceHotel: number;
-        priceMortgage: number;
+        valueMortgage: number;
         priceMultiplierUtility: number[];
 
         get owner(): string {

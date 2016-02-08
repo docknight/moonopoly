@@ -19,7 +19,7 @@ module MonopolyApp.controllers {
         private gameCamera: BABYLON.FreeCamera;
         private manageCamera: BABYLON.ArcRotateCamera;
         private manageMode: boolean;
-        private focusedAssetGroup: Model.AssetGroup; // currently focused asset group in manage mode
+        private focusedAssetGroupIndex: number; // currently focused asset group in manage mode
         private swipeInProgress: boolean;
         private confirmButtonCallback: (data: any) => void; // callbacks currently assigned to action buttons
         private cancelButtonCallback: (data: any) => void;
@@ -141,7 +141,7 @@ module MonopolyApp.controllers {
         manage() {
             if (!this.manageMode) {
                 this.manageMode = true;
-                this.focusedAssetGroup = this.gameService.manage();
+                this.focusedAssetGroupIndex = this.gameService.manage();
                 this.setupManageHighlight();
                 this.scene.activeCamera = this.manageCamera;
                 //var canvas = <HTMLCanvasElement>document.getElementById("renderCanvas");
@@ -202,6 +202,67 @@ module MonopolyApp.controllers {
             } else if (processingEvent === Model.ProcessingEvent.PassGoAward) {
                 this.showMessage(this.gameService.getCurrentPlayer() + " passed GO and received M200.");
             }
+        }
+
+        toggleMortgageConfirm() {
+            if (this.gameService.canMortgage(this.assetToManage)) {
+                var that = this;
+                if (!this.assetToManage.mortgage) {
+                    $("#mortgageConfirmText").text("Do you wish to mortgage " + this.assetToManage.name + " for M" + this.assetToManage.valueMortgage + "?");
+                } else {
+                    $("#mortgageConfirmText").text("Do you wish to pay off mortgage " + this.assetToManage.name + " for M" + (Math.floor(this.assetToManage.valueMortgage * 1.1)) + "?");
+                }
+                $("#mortgageConfirmDialog").dialog({
+                    autoOpen: true,
+                    dialogClass: "no-close",
+                    width: 300,
+                    buttons: [
+                        {
+                            text: "Yes",
+                            click: function () {
+                                $(this).dialog("close");
+                                if (!that.toggleMortgageAsset(that.assetToManage)) {
+                                    that.showConfirmationPopup("Sorry, you do not have enough money!");
+                                }
+                                that.scope.$apply(() => {
+                                    that.updatePlayersForView();
+                                });
+                            }
+                        },
+                        {
+                            text: "No",
+                            click: function () {
+                                $(this).dialog("close");
+                            }
+                        }
+                    ]
+                });
+            }
+        }
+
+        toggleMortgageAsset(asset: Model.Asset): boolean {
+            return this.gameService.toggleMortgageAsset(asset);
+        }
+
+        showConfirmationPopup(text: string) {
+            $("#generalPopupDialog").text(text);
+            $("#generalPopupDialog").dialog({
+                autoOpen: true,
+                dialogClass: "no-close",
+                width: 300,
+                buttons: [
+                    {
+                        text: "Ok",
+                        click: function () {
+                            $(this).dialog("close");
+                        }
+                    }
+                ]
+            });            
+        }
+
+        canMortgageSelected(): boolean {
+            return this.gameService.canMortgage(this.assetToManage);
         }
 
         private createScene() {
@@ -326,6 +387,12 @@ module MonopolyApp.controllers {
             if (this.gameService.getCurrentPlayerPosition().type === Model.BoardFieldType.Treasure || this.gameService.getCurrentPlayerPosition().type === Model.BoardFieldType.Event) {
                 this.processCardField(this.gameService.getCurrentPlayerPosition());
             }
+            if (this.gameService.getCurrentPlayerPosition().type === Model.BoardFieldType.Tax || this.gameService.getCurrentPlayerPosition().type === Model.BoardFieldType.TaxIncome) {
+                this.processTaxField(this.gameService.getCurrentPlayerPosition().type);
+            }
+            if (this.gameService.getCurrentPlayerPosition().type === Model.BoardFieldType.GoToPrison) {
+                this.processGoToPrisonField();
+            }
         }
 
         private processAssetField(position: Model.BoardField) {
@@ -354,19 +421,15 @@ module MonopolyApp.controllers {
 
         private handleSwipe(left: boolean) {
             if (this.manageMode) {
-                this.focusedAssetGroup = this.gameService.manageFocusChange(left);
+                this.focusedAssetGroupIndex = this.gameService.manageFocusChange(left);
                 this.setupManageHighlight();
-                this.drawingService.setManageCameraPosition(this.manageCamera, this.focusedAssetGroup, this.scene);
-                if (this.gameService.hasMonopoly(this.gameService.getCurrentPlayer(), this.focusedAssetGroup)) {
-                    this.drawingService.showHouseButtons(this.focusedAssetGroup, this.scene);
-                }
             }
         }
 
         private setupManageHighlight() {
-            this.drawingService.setManageCameraPosition(this.manageCamera, this.focusedAssetGroup, this.scene);
-            if (this.gameService.hasMonopoly(this.gameService.getCurrentPlayer(), this.focusedAssetGroup)) {
-                this.drawingService.showHouseButtons(this.focusedAssetGroup, this.scene);
+            this.drawingService.setManageCameraPosition(this.manageCamera, this.focusedAssetGroupIndex, this.scene);
+            if (this.gameService.hasMonopoly(this.gameService.getCurrentPlayer(), this.focusedAssetGroupIndex)) {
+                this.drawingService.showHouseButtons(this.focusedAssetGroupIndex, this.scene);
             }            
         }
 
@@ -377,7 +440,7 @@ module MonopolyApp.controllers {
                 mouseEventObject = </*JQueryMouseEventObject*/TouchEvent>eventObject.originalEvent;
                 var pickedObject = thisInstance.drawingService.pickBoardElement(thisInstance.scene, mouseEventObject && mouseEventObject.changedTouches && mouseEventObject.changedTouches.length > 0 ? { x: mouseEventObject.changedTouches[0].clientX, y: mouseEventObject.changedTouches[0].clientY } : undefined);
                 if (pickedObject && pickedObject.pickedObjectType === Viewmodels.PickedObjectType.BoardField) {
-                    var groupFields = thisInstance.gameService.getGroupBoardFields(thisInstance.focusedAssetGroup);
+                    var groupFields = thisInstance.gameService.getBoardFieldsInGroup(thisInstance.focusedAssetGroupIndex);
                     var clickedFields = groupFields.filter(f => f.index === pickedObject.position);
                     if (clickedFields.length > 0) {
                         // user clicked a field that is currently focused - show its details
@@ -478,8 +541,9 @@ module MonopolyApp.controllers {
             });            
         }
 
-        private refreshBoardFieldGroupHouses(assetGroup: Model.AssetGroup) {
-            var fields = this.gameService.getGroupBoardFields(assetGroup);
+        private refreshBoardFieldGroupHouses(focusedAssetGroupIndex: number) {
+            var firstFocusedBoardField = this.gameService.getBoardFieldsInGroup(focusedAssetGroupIndex)[0];
+            var fields = this.gameService.getGroupBoardFields(firstFocusedBoardField.asset.group);
 
             var fieldIndexes = $.map(fields, f => f.index);
             var viewGroupBoardFields = this.boardFields.filter(viewBoardField => $.inArray(viewBoardField.index, fieldIndexes) >= 0);
@@ -492,15 +556,15 @@ module MonopolyApp.controllers {
         }
 
         private commitHouses(data: any) {
-            this.gameService.commitHouseOrHotel(this.gameService.getCurrentPlayer(), this.focusedAssetGroup);
+            this.gameService.commitHouseOrHotel(this.gameService.getCurrentPlayer(), this.focusedAssetGroupIndex);
             this.actionButtonsVisible = false;
             this.updatePlayersForView();
         }
 
         private rollbackHouses(data: any) {
-            this.gameService.rollbackHouseOrHotel(this.gameService.getCurrentPlayer(), this.focusedAssetGroup);
+            this.gameService.rollbackHouseOrHotel(this.gameService.getCurrentPlayer(), this.focusedAssetGroupIndex);
             this.actionButtonsVisible = false;
-            this.refreshBoardFieldGroupHouses(this.focusedAssetGroup);
+            this.refreshBoardFieldGroupHouses(this.focusedAssetGroupIndex);
             this.updatePlayersForView();
         }
 
@@ -540,6 +604,24 @@ module MonopolyApp.controllers {
                     });
                 });
             });
+        }
+
+        private processTaxField(boardFieldType: Model.BoardFieldType) {
+            var paid = this.gameService.processTax(boardFieldType);
+            this.updatePlayersForView();
+            this.showMessage(this.currentPlayer + " paid M" + paid + " of income tax.");
+        }
+
+        private processGoToPrisonField() {
+            var d = $.Deferred();
+            var oldPosition = this.gameService.getCurrentPlayerPosition();
+            var newPosition = this.gameService.moveCurrentPlayer(10);
+            var playerModel = this.players.filter(p => p.name === this.gameService.getCurrentPlayer())[0];
+            var moveToPrison = this.drawingService.animatePlayerPrisonMove(newPosition, playerModel, this.scene, this.gameCamera);
+            var that = this;
+            $.when(moveToPrison).done(() => {
+                that.showMessage(that.currentPlayer + " landed in prison.");
+            });            
         }
 
         private showCard(card: Model.Card, title: string): JQueryDeferred<{}> {
@@ -598,10 +680,12 @@ module MonopolyApp.controllers {
 
         private highlightCommandButton(button: JQuery) {
             button.addClass("highlightedButton").removeClass("unhighlightedButton");
+            button.parent().children().children(".commandButtonOverlayText").show();
         }
 
         private unhighlightCommandButton(button: JQuery) {
             button.addClass("unhighlightedButton").removeClass("highlightedButton");
+            button.parent().children().children(".commandButtonOverlayText").hide();
         }
 
         private bindInputEvents() {

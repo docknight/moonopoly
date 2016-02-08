@@ -98,6 +98,45 @@ module Services {
             return d;
         }
 
+        animatePlayerPrisonMove(newPosition: Model.BoardField, playerModel: MonopolyApp.Viewmodels.Player, scene: BABYLON.Scene, camera: BABYLON.FreeCamera): JQueryDeferred<{}> {
+            var positionKeys = [];
+            var playerPosition = new BABYLON.Vector3(playerModel.mesh.position.x, playerModel.mesh.position.y, playerModel.mesh.position.z);
+            positionKeys.push({ frame: 0, value: playerPosition });
+            var playerTopPosition = new BABYLON.Vector3(playerModel.mesh.position.x, playerModel.mesh.position.y + 10, playerModel.mesh.position.z);
+            positionKeys.push({ frame: 30, value: playerTopPosition });
+            var animationplayerPosition = new BABYLON.Animation("playerPositionAnimation", "position", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
+            animationplayerPosition.setKeys(positionKeys);
+            playerModel.mesh.animations = [];
+            playerModel.mesh.animations.push(animationplayerPosition);
+            var firstAnim = $.Deferred();
+            var secondAnim = $.Deferred();
+            scene.beginAnimation(playerModel.mesh, 0, 30, false, undefined, () => { firstAnim.resolve() });
+            var that = this;
+            $.when(firstAnim).done(() => {
+                var cameraMovement = that.returnCameraToMainPosition(scene, camera, newPosition.index);
+                $.when(cameraMovement).done(() => {
+                    var finalPosition = that.getPlayerPositionOnBoardField(playerModel, newPosition.index);
+                    playerTopPosition = new BABYLON.Vector3(finalPosition.x, playerTopPosition.y, finalPosition.z);
+                    playerPosition = new BABYLON.Vector3(finalPosition.x, playerTopPosition.y - 10, finalPosition.z);
+                    positionKeys = [];
+                    var rotationKeys = [];
+                    positionKeys.push({ frame: 0, value: playerTopPosition });
+                    positionKeys.push({ frame: 30, value: playerPosition });
+                    rotationKeys.push({ frame: 0, value: playerModel.mesh.rotationQuaternion });
+                    rotationKeys.push({ frame: 30, value: this.getPlayerRotationOnBoardField(playerModel, newPosition.index) });
+                    animationplayerPosition = new BABYLON.Animation("playerPositionAnimation", "position", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
+                    animationplayerPosition.setKeys(positionKeys);
+                    var animationplayerRotation = new BABYLON.Animation("playerRotationAnimation", "rotationQuaternion", 30, BABYLON.Animation.ANIMATIONTYPE_QUATERNION, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
+                    animationplayerRotation.setKeys(rotationKeys);
+                    playerModel.mesh.animations = [];
+                    playerModel.mesh.animations.push(animationplayerPosition);
+                    playerModel.mesh.animations.push(animationplayerRotation);
+                    scene.beginAnimation(playerModel.mesh, 0, 30, false, undefined, () => { secondAnim.resolve() });
+                });
+            });
+            return secondAnim;
+        }
+
         setupDiceForThrow(scene: BABYLON.Scene) {
             this.diceMesh.position.x = this.dicePosition.x;
             this.diceMesh.position.y = this.dicePosition.y;
@@ -149,11 +188,11 @@ module Services {
 
         animateDiceThrow(impulsePoint: BABYLON.Vector3, scene: BABYLON.Scene) {
             this.numFramesDiceIsAtRest = 0;
-            this.diceMesh.setPhysicsState({ impostor: BABYLON.PhysicsEngine.BoxImpostor, mass: 0.2, friction: 0.5, restitution: 0.5 });
+            this.diceMesh.setPhysicsState({ impostor: BABYLON.PhysicsEngine.BoxImpostor, mass: 0.1, friction: 0.5, restitution: 0.5 });
             this.diceMesh.checkCollisions = true;
             var dir = impulsePoint.subtract(scene.activeCamera.position);
             dir.normalize();
-            this.diceMesh.applyImpulse(dir.scale(0.1), impulsePoint);
+            this.diceMesh.applyImpulse(dir.scale(0.2), impulsePoint);
             this.throwingDice = true;
         }
 
@@ -239,14 +278,22 @@ module Services {
             camera.setTarget(BABYLON.Vector3.Zero());
         }
 
-        setManageCameraPosition(camera: BABYLON.ArcRotateCamera, group: Model.AssetGroup, scene: BABYLON.Scene) {
+        setManageCameraPosition(camera: BABYLON.ArcRotateCamera, focusedAssetGroupIndex: number, scene: BABYLON.Scene) {
+            var firstFocusedBoardField = this.gameService.getBoardFieldsInGroup(focusedAssetGroupIndex)[0];
             if (!this.boardGroupLeftCoordinate) {
                 this.initBoardGroupCoordinates();
             }
-            var groupLeftCoordinate = this.boardGroupLeftCoordinate[group];
-            var groupRightCoordinate = this.boardGroupRightCoordinate[group];
-            var groupQuadrant = Math.floor((group - 1) / 2);
-            var centerVector = BABYLON.Vector3.Center(new BABYLON.Vector3(groupLeftCoordinate.x, 0, groupLeftCoordinate.z), new BABYLON.Vector3(groupRightCoordinate.x, 0, groupRightCoordinate.z));
+            var group = firstFocusedBoardField.asset.group;
+            var centerVector: BABYLON.Vector3;
+            if (group !== Model.AssetGroup.Railway) {
+                var groupLeftCoordinate = this.boardGroupLeftCoordinate[group];
+                var groupRightCoordinate = this.boardGroupRightCoordinate[group];
+                centerVector = BABYLON.Vector3.Center(new BABYLON.Vector3(groupLeftCoordinate.x, 0, groupLeftCoordinate.z), new BABYLON.Vector3(groupRightCoordinate.x, 0, groupRightCoordinate.z));
+            } else {
+                var centerCoordinate = this.getPositionCoordinate(firstFocusedBoardField.index);
+                centerVector = new BABYLON.Vector3(centerCoordinate.x, 0, centerCoordinate.z);
+            }
+            var groupQuadrant = group === Model.AssetGroup.Railway ? Math.floor(firstFocusedBoardField.index / 10) : Math.floor((group - 1) / 2);
             camera.setTarget(centerVector);
             camera.target = centerVector;
             if (groupQuadrant === 0) {
@@ -263,7 +310,7 @@ module Services {
             }
 
             this.cleanupHouseButtons(scene);
-            this.highlightGroupFields(group, groupQuadrant, centerVector, scene);
+            this.highlightGroupFields(focusedAssetGroupIndex, groupQuadrant, centerVector, scene);
         }
 
         returnFromManage(scene: BABYLON.Scene) {
@@ -499,10 +546,11 @@ module Services {
             return meshLoads;
         }
 
-        showHouseButtons(focusedAssetGroup: Model.AssetGroup, scene: BABYLON.Scene) {
+        showHouseButtons(focusedAssetGroupIndex: number, scene: BABYLON.Scene) {
+            var focusedFields = this.gameService.getBoardFieldsInGroup(focusedAssetGroupIndex);
+            var focusedAssetGroup = focusedFields[0].asset.group;
             this.cleanupHouseButtons(scene);
             var groupBoardFields = this.gameService.getGroupBoardFields(focusedAssetGroup);
-            //var groupBoardPositions = $.map(groupBoardFields, (f, i) => f.index);
             var that = this;
             groupBoardFields.forEach(field => {
                 var topLeft = that.getPositionCoordinate(field.index, true);
@@ -516,28 +564,34 @@ module Services {
                     scene.addMesh(houseButtonMesh);
                     houseButtonMesh.position[runningCoordinate] = topLeft[runningCoordinate] + (0.5 * this.getQuadrantRunningDirection(boardFieldQuadrant) * -1);
                     houseButtonMesh.position[heightCoordinate] = topLeft[heightCoordinate] + (that.boardFieldHeight - 0.2) * heightDirection;
+                    if (boardFieldQuadrant === 1) {
+                        houseButtonMesh.rotation.y = Math.PI / 2;
+                    } else if (boardFieldQuadrant === 2) {
+                        houseButtonMesh.rotation.y = Math.PI;
+                    } else if (boardFieldQuadrant === 3) {
+                        houseButtonMesh.rotation.y = Math.PI * 3 / 2;
+                    }
                     //houseButtonMesh.actionManager = new BABYLON.ActionManager(scene);
                     //houseButtonMesh.actionManager.registerAction(new BABYLON.InterpolateValueAction(BABYLON.ActionManager.OnPointerOverTrigger, houseButtonMesh, "scaling", new BABYLON.Vector3(1.5, 1, 1.5), 100));
                     //houseButtonMesh.actionManager.registerAction(new BABYLON.InterpolateValueAction(BABYLON.ActionManager.OnPointerOutTrigger, houseButtonMesh, "scaling", new BABYLON.Vector3(1, 1, 1), 100));
                     that.houseButtonMeshes.push(houseButtonMesh);
                 }
 
-                var houseRemoveButtonMesh = that.houseRemoveButtonMeshTemplate.clone(`houseRemoveButton_${field.index}`);
-                houseRemoveButtonMesh.material = that.houseRemoveButtonMaterial;
-                scene.addMesh(houseRemoveButtonMesh);
-                houseRemoveButtonMesh.position[runningCoordinate] = topLeft[runningCoordinate] + (0.2 * that.getQuadrantRunningDirection(boardFieldQuadrant) * -1);
-                houseRemoveButtonMesh.position[heightCoordinate] = topLeft[heightCoordinate] + (that.boardFieldHeight - 0.2) * heightDirection;
-                houseRemoveButtonMesh.actionManager = new BABYLON.ActionManager(scene);
-                that.houseRemoveButtonMeshes.push(houseRemoveButtonMesh);
-                if (boardFieldQuadrant === 1) {
-                    houseButtonMesh.rotation.y = Math.PI / 2;
-                    houseRemoveButtonMesh.rotation.y = Math.PI / 2;
-                } else if (boardFieldQuadrant === 2) {
-                    houseButtonMesh.rotation.y = Math.PI;
-                    houseRemoveButtonMesh.rotation.y = Math.PI;
-                } else if (boardFieldQuadrant === 3) {
-                    houseButtonMesh.rotation.y = Math.PI * 3 / 2;
-                    houseRemoveButtonMesh.rotation.y = Math.PI * 3 / 2;
+                if (that.gameService.canDowngradeAsset(field.asset, that.gameService.getCurrentPlayer())) {
+                    var houseRemoveButtonMesh = that.houseRemoveButtonMeshTemplate.clone(`houseRemoveButton_${field.index}`);
+                    houseRemoveButtonMesh.material = that.houseRemoveButtonMaterial;
+                    scene.addMesh(houseRemoveButtonMesh);
+                    houseRemoveButtonMesh.position[runningCoordinate] = topLeft[runningCoordinate] + (0.2 * that.getQuadrantRunningDirection(boardFieldQuadrant) * -1);
+                    houseRemoveButtonMesh.position[heightCoordinate] = topLeft[heightCoordinate] + (that.boardFieldHeight - 0.2) * heightDirection;
+                    houseRemoveButtonMesh.actionManager = new BABYLON.ActionManager(scene);
+                    that.houseRemoveButtonMeshes.push(houseRemoveButtonMesh);
+                    if (boardFieldQuadrant === 1) {
+                        houseRemoveButtonMesh.rotation.y = Math.PI / 2;
+                    } else if (boardFieldQuadrant === 2) {
+                        houseRemoveButtonMesh.rotation.y = Math.PI;
+                    } else if (boardFieldQuadrant === 3) {
+                        houseRemoveButtonMesh.rotation.y = Math.PI * 3 / 2;
+                    }
                 }
             });
         }
@@ -643,7 +697,7 @@ module Services {
             return coordinate;
         }
 
-        private highlightGroupFields(assetGroup: Model.AssetGroup, groupQuadrantIndex: number, groupCenter: BABYLON.Vector3, scene: BABYLON.Scene) {
+        private highlightGroupFields(focusedAssetGroupIndex: number, groupQuadrantIndex: number, groupCenter: BABYLON.Vector3, scene: BABYLON.Scene) {
             this.cleanupHighlights(scene);
             var meshes = [];
             var mat = new BABYLON.StandardMaterial("mat1", scene);
@@ -654,7 +708,8 @@ module Services {
             this.highlightLight.diffuse = new BABYLON.Color3(1, 0, 0);
             this.highlightLight.specular = new BABYLON.Color3(1, 1, 1);
 
-            var groupBoardFields = this.gameService.getGroupBoardFields(assetGroup);
+            var groupBoardFields = this.gameService.getBoardFieldsInGroup(focusedAssetGroupIndex);
+            groupBoardFields = groupBoardFields.filter(f => Math.floor(f.index / 10) === groupQuadrantIndex);
             var groupBoardPositions = $.map(groupBoardFields, (f, i) => f.index);
             var highlightBoxWidth = 0.03;
             var cornerLength = 0.05;
@@ -717,12 +772,30 @@ module Services {
             this.quadrantStartingCoordinate.forEach((quadrant, index) => {
                 var topRightCorner = quadrant[this.getQuadrantRunningCoordinate(index)] + this.boardFieldEdgeWidth * this.getQuadrantRunningDirection(index) * -1;
                 var topLeftCorner = topRightCorner + (this.boardSize - this.boardFieldEdgeWidth) * this.getQuadrantRunningDirection(index);
+                var upperBound = topRightCorner >= topLeftCorner ? topRightCorner : topLeftCorner;
+                var lowerBound = topRightCorner >= topLeftCorner ? topLeftCorner : topRightCorner;
                 var heightCoordinate = this.getQuadrantRunningCoordinate(index) === "x" ? "z" : "x";
                 var heightDirection = index === 0 || index === 1 ? -1 : 1;
-                if (pickedPoint[this.getQuadrantRunningCoordinate(index)] < topRightCorner && pickedPoint[this.getQuadrantRunningCoordinate(index)] > topLeftCorner &&
-                    pickedPoint[heightCoordinate] < quadrant[heightCoordinate] && pickedPoint[heightCoordinate] > quadrant[heightCoordinate] + this.boardFieldHeight * heightDirection) {
-                    var quadrantOffset = pickedPoint[this.getQuadrantRunningCoordinate(index)] > topRightCorner + this.boardFieldEdgeWidth * this.getQuadrantRunningDirection(index) ? 0 :
-                        Math.ceil(Math.abs((pickedPoint[this.getQuadrantRunningCoordinate(index)] - (topRightCorner + this.boardFieldEdgeWidth * this.getQuadrantRunningDirection(index))) / this.boardFieldWidth));
+                var heightTop = quadrant[heightCoordinate];
+                var heightBottom = quadrant[heightCoordinate] + this.boardFieldHeight * heightDirection;
+                if (heightTop < heightBottom) {
+                    var temp = heightTop;
+                    heightTop = heightBottom;
+                    heightBottom = temp;
+                }
+                if (pickedPoint[this.getQuadrantRunningCoordinate(index)] < upperBound && pickedPoint[this.getQuadrantRunningCoordinate(index)] > lowerBound &&
+                    pickedPoint[heightCoordinate] < heightTop && pickedPoint[heightCoordinate] > heightBottom) {
+                    var quadrantOffset = 0;
+                    if (index === 0 || index === 3) {
+                        quadrantOffset = pickedPoint[this.getQuadrantRunningCoordinate(index)] > topRightCorner + this.boardFieldEdgeWidth * this.getQuadrantRunningDirection(index) ? 0 :
+                            Math.ceil(Math.abs((pickedPoint[this.getQuadrantRunningCoordinate(index)] - (topRightCorner + this.boardFieldEdgeWidth * this.getQuadrantRunningDirection(index))) / this.boardFieldWidth));
+                    } else if (index === 1) {
+                        quadrantOffset = pickedPoint[this.getQuadrantRunningCoordinate(index)] < topRightCorner - this.boardFieldEdgeWidth * this.getQuadrantRunningDirection(index) ? 0 :
+                            Math.ceil(Math.abs((pickedPoint[this.getQuadrantRunningCoordinate(index)] - (topRightCorner + this.boardFieldEdgeWidth * this.getQuadrantRunningDirection(index))) / this.boardFieldWidth));                        
+                    } else if (index === 2) {
+                        quadrantOffset = pickedPoint[this.getQuadrantRunningCoordinate(index)] < topRightCorner - this.boardFieldEdgeWidth * this.getQuadrantRunningDirection(index) ? 0 :
+                            Math.ceil(Math.abs((pickedPoint[this.getQuadrantRunningCoordinate(index)] - (topRightCorner + this.boardFieldEdgeWidth * this.getQuadrantRunningDirection(index))) / this.boardFieldWidth));
+                    }
                     boardFieldIndex = index * (this.boardFieldsInQuadrant - 1) + quadrantOffset;
                 }
             }, this);
