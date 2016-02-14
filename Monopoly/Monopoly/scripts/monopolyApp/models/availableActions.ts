@@ -4,5 +4,7 @@
         endTurn: boolean;
         buy: boolean;
         manage: boolean;
+        getOutOfJail: boolean;
+        surrender: boolean;
     }
 }

@@ -36,6 +36,8 @@ module Services {
             if (this.canEndTurn) {
                 this.game.advanceToNextPlayer();
                 this.game.setState(Model.GameState.BeginTurn);
+                this.lastDiceResult1 = undefined;
+                this.lastDiceResult2 = undefined;
             }
         }
 
@@ -48,18 +50,32 @@ module Services {
         }
 
         get lastDiceResult(): number {
+            if (!this.lastDiceResult1 && !this.lastDiceResult2) {
+                return undefined;
+            }
             return this.lastDiceResult1 + this.lastDiceResult2;
         }
 
         get canThrowDice() {
             if (this.game.getState() === Model.GameState.BeginTurn) {
-                return true;
+                var player = this.game.players.filter(p => p.playerName === this.getCurrentPlayer())[0];
+                if (player.money >= 0) {
+                    return true;
+                }
             }
             return false;
         }
 
         get canEndTurn() {
             if (this.game.getState() !== Model.GameState.BeginTurn) {
+                var player = this.game.players.filter(p => p.playerName === this.getCurrentPlayer())[0];
+                if (player.turnsInPrison === 0) {
+                    // must pay off bail before leaving prison
+                    return false;
+                }
+                if (player.money < 0) {
+                    return false;
+                }
                 return true;
             }
             return false;
@@ -88,8 +104,45 @@ module Services {
             return true;
         }
 
+        get canGetOutOfJail(): boolean {
+            if (this.game.getState() === Model.GameState.BeginTurn || this.game.getState() === Model.GameState.Process) {
+                var currentPosition = this.getCurrentPlayerPosition();
+                if (currentPosition.type === Model.BoardFieldType.PrisonAndVisit) {
+                    var player = this.game.players.filter(p => p.playerName === this.getCurrentPlayer())[0];
+                    if (player.turnsInPrison !== undefined && player.money >= 50) {
+                        if (this.game.getState() === Model.GameState.BeginTurn) {
+                            return true;
+                        }
+                        if (this.game.getState() === Model.GameState.Process && player.turnsInPrison === 0 && this.lastDiceResult !== 6) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+        get canSurrender(): boolean {
+            if (this.game.getState() === Model.GameState.BeginTurn || this.game.getState() === Model.GameState.Process) {
+                var player = this.game.players.filter(p => p.playerName === this.getCurrentPlayer())[0];
+                if (player.money < 0 && player.active) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         get gameState(): Model.GameState {
             return this.game.getState();
+        }
+
+        get winner(): string {
+            var activePlayers = this.game.players.filter(p => p.active);
+            if (activePlayers && activePlayers.length === 1) {
+                return activePlayers[0].playerName;
+            }
+
+            return undefined;
         }
 
         setPlayerPosition(player: Model.Player, boardFieldIndex: number) {
@@ -156,6 +209,26 @@ module Services {
             }
         }
 
+        getOutOfJail() {
+            if (this.canGetOutOfJail) {
+                var player = this.game.players.filter(p => p.playerName === this.getCurrentPlayer())[0];
+                player.money -= 50;
+                player.turnsInPrison = undefined;
+                //this.game.setState(Model.GameState.BeginTurn);
+            }    
+        }
+
+        surrender() {
+            if (this.canSurrender) {
+                var player = this.game.players.filter(p => p.playerName === this.getCurrentPlayer())[0];
+                player.active = false;
+                var activePlayers = this.game.players.filter(p => p.active);
+                if (activePlayers && activePlayers.length === 1) {
+                    this.game.setState(Model.GameState.EndOfGame);
+                }
+            }
+        }
+
         getCurrentPlayerPosition(): Model.BoardField {
             var player = this.game.players.filter(p => p.playerName === this.getCurrentPlayer())[0];
             return player.position;
@@ -166,10 +239,17 @@ module Services {
             this.game.moveContext.reset();
             var player = this.game.players.filter(p => p.playerName === this.getCurrentPlayer())[0];
             var currentPositionIndex = player.position.index;
-            newPositionIndex = newPositionIndex !== undefined ? newPositionIndex : Math.floor((currentPositionIndex + this.lastDiceResult1 + this.lastDiceResult2) % 40);
-            player.position = this.game.board.fields[newPositionIndex];
-            this.game.board.fields[currentPositionIndex].occupiedBy.splice(this.game.board.fields[currentPositionIndex].occupiedBy.indexOf(player.playerName), 1);
-            player.position.occupiedBy.push(player.playerName);
+            if (player.turnsInPrison === undefined || this.letOutOfPrison(player)) {
+                newPositionIndex = newPositionIndex !== undefined ? newPositionIndex : Math.floor((currentPositionIndex + this.lastDiceResult1 + this.lastDiceResult2) % 40);
+                player.position = this.game.board.fields[newPositionIndex];
+                this.game.board.fields[currentPositionIndex].occupiedBy.splice(this.game.board.fields[currentPositionIndex].occupiedBy.indexOf(player.playerName), 1);
+                player.position.occupiedBy.push(player.playerName);
+            } else {
+                if (player.turnsInPrison !== undefined) {
+                    this.game.setState(Model.GameState.Process);
+                    return null;
+                }
+            }
             this.game.setState(Model.GameState.Process);
             return player.position;
         }
@@ -438,6 +518,19 @@ module Services {
             return 0;
         }
 
+        processPrison(wasSentToPrison: boolean) {
+            var player = this.game.players.filter(p => p.playerName === this.getCurrentPlayer())[0];
+            if (player.turnsInPrison === undefined) {
+                if (wasSentToPrison) {
+                    player.turnsInPrison = 3;
+                }
+            } else {
+                if (player.turnsInPrison > 0) {
+                    player.turnsInPrison--;
+                }
+            }
+        }
+
         // process intermediate board fields while moving a player to its destination field
         processFlyBy(positionIndex: number): Model.ProcessingEvent {
             var processedEvent = Model.ProcessingEvent.None;
@@ -502,6 +595,7 @@ module Services {
                 player.human = i === 0;
                 player.money = 1500;
                 player.color = i;
+                player.active = true;
                 this.game.players.push(player);
                 this.setPlayerPosition(player, 0);
             }
@@ -590,6 +684,20 @@ module Services {
             this.manageGroups.push(manageGroup);
             manageGroup = this.getGroupBoardFields(Model.AssetGroup.Eighth).map(f => f.index);
             this.manageGroups.push(manageGroup);
+        }
+
+        private letOutOfPrison(player: Model.Player): boolean {
+            if (player.turnsInPrison === undefined) {
+                return true;
+            }
+            if (this.lastDiceResult1 === 6) {
+                player.turnsInPrison = undefined;
+                return true;
+            }
+            if (player.turnsInPrison && player.turnsInPrison > 0) {
+                return false;
+            }
+            return false;
         }
     }
 

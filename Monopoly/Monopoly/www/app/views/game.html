@@ -207,6 +207,14 @@
             </div>
             <img id="buttonThrowDice" class="commandButton unhighlightedButton" src="images/Dice2.png" draggable="false"/>
         </a>
+        <a ng-show="gameController.availableActions.getOutOfJail" ng-click="gameController.getOutOfJail()" style="position: relative">
+            <div style="position: absolute; top: -53px; left: 0px; width: 80px;">
+                <div class="commandButtonOverlayText" style="display: none">
+                    Bail out
+                </div>
+            </div>
+            <img id="buttonGetOutOfJail" class="commandButton unhighlightedButton" src="images/out_of_jail.png" draggable="false" />
+        </a>
         <a ng-show="gameController.availableActions.buy" ng-click="gameController.buy()" style="position: relative">
             <div style="position: absolute; top: -53px; left: 0px; width: 80px;">
                 <div class="commandButtonOverlayText" style="display: none">
@@ -222,6 +230,14 @@
                 </div>
             </div>
             <img id="buttonManage" class="commandButton unhighlightedButton" src="images/management.png" draggable="false" />
+        </a>
+        <a ng-show="gameController.availableActions.surrender" ng-click="gameController.surrender()" style="position: relative">
+            <div style="position: absolute; top: -53px; left: 0px; width: 80px;">
+                <div class="commandButtonOverlayText" style="display: none">
+                    Surrender
+                </div>
+            </div>
+            <img id="buttonSurrender" class="commandButton unhighlightedButton" src="images/surrender.png" draggable="false" />
         </a>
         <a ng-show="gameController.availableActions.endTurn" ng-click="gameController.endTurn()" style="position: relative">
             <div style="position: absolute; top: -53px; left: 0px; width: 80px;">

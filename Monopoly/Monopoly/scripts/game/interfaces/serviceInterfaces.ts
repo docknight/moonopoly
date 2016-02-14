@@ -10,6 +10,9 @@
         canEndTurn: boolean;
         canBuy: boolean;
         canManage: boolean;
+        canGetOutOfJail: boolean;
+        canSurrender: boolean;
+        winner: string;
         gameState: Model.GameState;
         initGame();
         getCurrentPlayer(): string;
@@ -18,6 +21,7 @@
         getCurrentPlayerPosition(): Model.BoardField;
         moveCurrentPlayer(newPositionIndex?: number): Model.BoardField;
         buy(): boolean;
+        surrender();
         processOwnedFieldVisit(): Model.ProcessResult;
         manage(): number;
         manageFocusChange(left: boolean): Model.AssetGroup;
@@ -37,11 +41,13 @@
         processCard(card: Model.Card);
         processTax(boardFieldType: Model.BoardFieldType): number;
         processFlyBy(positionIndex: number): Model.ProcessingEvent;
+        processPrison(wasSentToPrison: boolean);
         toggleMortgageAsset(asset: Model.Asset): boolean;
         
         // get fields in management group, identified by its index in the manage group array
         getBoardFieldsInGroup(focusedAssetGroupIndex: number): Array<Model.BoardField>;
         canMortgage(asset: Model.Asset): boolean;
+        getOutOfJail();
     }
     export interface IDrawingService {
         boardSize: number;

@@ -88,14 +88,20 @@ module MonopolyApp.controllers {
             var cameraMovementCompleted = this.drawingService.returnCameraToMainPosition(this.scene, this.gameCamera, oldPosition.index);
             var that = this;
             $.when(cameraMovementCompleted).done(() => {
-                var animateMoveCompleted = that.animateMove(oldPosition, newPosition, newPositionIndex !== undefined);
-                //that.drawingService.returnCameraToMainPosition(that.scene, that.gameCamera, newPosition.index, that.drawingService.framesToMoveOneBoardField * that.gameService.lastDiceResult);
-                var positionsToMove = oldPosition.index < newPosition.index ? newPosition.index - oldPosition.index : (40 - oldPosition.index) + newPosition.index;
-                that.followBoardFields(oldPosition.index, positionsToMove, that.drawingService, that.scene, that.gameCamera, that, newPositionIndex !== undefined);
+                var animateMoveCompleted: JQueryDeferred<{}>;
+                if (newPosition) {
+                    animateMoveCompleted = that.animateMove(oldPosition, newPosition, newPositionIndex !== undefined);
+                    //that.drawingService.returnCameraToMainPosition(that.scene, that.gameCamera, newPosition.index, that.drawingService.framesToMoveOneBoardField * that.gameService.lastDiceResult);
+                    var positionsToMove = oldPosition.index < newPosition.index ? newPosition.index - oldPosition.index : (40 - oldPosition.index) + newPosition.index;
+                    that.followBoardFields(oldPosition.index, positionsToMove, that.drawingService, that.scene, that.gameCamera, that, newPositionIndex !== undefined);
+                } else {
+                    animateMoveCompleted = $.Deferred().resolve();
+                }
                 $.when(animateMoveCompleted).done(() => {
                     that.scope.$apply(() => {
                         that.setAvailableActions();
                         that.processDestinationField();
+                        that.setAvailableActions();
                         d.resolve();
                     });
                 });
@@ -261,8 +267,52 @@ module MonopolyApp.controllers {
             });            
         }
 
+        showActionPopup(text: string, onConfirm: () => any, onCancel: () => any) {
+            $("#generalPopupDialog").text(text);
+            $("#generalPopupDialog").dialog({
+                autoOpen: true,
+                dialogClass: "no-close",
+                width: 300,
+                buttons: [
+                    {
+                        text: "Yes",
+                        click: function () {
+                            $(this).dialog("close");
+                            onConfirm();
+                        }
+                    },
+                    {
+                        text: "No",
+                        click: function () {
+                            $(this).dialog("close");
+                            onCancel();
+                        }
+                    }
+                ]
+            });
+        }
+
         canMortgageSelected(): boolean {
             return this.gameService.canMortgage(this.assetToManage);
+        }
+
+        getOutOfJail() {
+            this.gameService.getOutOfJail();
+            this.setAvailableActions();
+            if (this.gameService.lastDiceResult) {
+                this.movePlayer();
+            }
+        }
+
+        surrender() {
+            this.showActionPopup("Are you sure you wish to surrender?", () => {
+                this.gameService.surrender();
+                this.showMessage(this.currentPlayer + " has surrendered!");
+                this.setAvailableActions();
+                if (this.gameService.gameState === Model.GameState.EndOfGame) {
+                    this.showConfirmationPopup(this.gameService.winner + " has won the game!");
+                }
+            }, () => {});
         }
 
         private createScene() {
@@ -369,6 +419,8 @@ module MonopolyApp.controllers {
             this.availableActions.throwDice = this.gameService.canThrowDice;
             this.availableActions.buy = this.gameService.canBuy;
             this.availableActions.manage = this.gameService.canManage;
+            this.availableActions.getOutOfJail = this.gameService.canGetOutOfJail;
+            this.availableActions.surrender = this.gameService.canSurrender;
         }
 
         private animateMove(oldPosition: Model.BoardField, newPosition: Model.BoardField, fast?: boolean): JQueryDeferred<{}> {
@@ -392,6 +444,8 @@ module MonopolyApp.controllers {
             }
             if (this.gameService.getCurrentPlayerPosition().type === Model.BoardFieldType.GoToPrison) {
                 this.processGoToPrisonField();
+            } else if (this.gameService.getCurrentPlayerPosition().type === Model.BoardFieldType.PrisonAndVisit) {
+                this.processPrisonField();
             }
         }
 
@@ -613,15 +667,19 @@ module MonopolyApp.controllers {
         }
 
         private processGoToPrisonField() {
-            var d = $.Deferred();
-            var oldPosition = this.gameService.getCurrentPlayerPosition();
             var newPosition = this.gameService.moveCurrentPlayer(10);
             var playerModel = this.players.filter(p => p.name === this.gameService.getCurrentPlayer())[0];
             var moveToPrison = this.drawingService.animatePlayerPrisonMove(newPosition, playerModel, this.scene, this.gameCamera);
             var that = this;
             $.when(moveToPrison).done(() => {
                 that.showMessage(that.currentPlayer + " landed in prison.");
+                that.gameService.processPrison(true);
             });            
+        }
+
+        private processPrisonField() {
+            this.showMessage(this.currentPlayer + " remains in prison.");
+            this.gameService.processPrison(false);
         }
 
         private showCard(card: Model.Card, title: string): JQueryDeferred<{}> {

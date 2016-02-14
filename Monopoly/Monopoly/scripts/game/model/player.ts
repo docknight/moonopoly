@@ -11,5 +11,7 @@
         color: PlayerColor;
         money: number;
         position: BoardField;
+        turnsInPrison: number;
+        active: boolean;
     }
 } 

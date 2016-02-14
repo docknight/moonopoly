@@ -4,7 +4,8 @@
         ThrowDice, // player is throwing the dice
         Move, // the move to the next board field is being made
         Process, // destination field processing
-        Manage // the game is paused and the player is managing his assets
+        Manage, // the game is paused and the player is managing his assets
+        EndOfGame // the game has ended and we have a winner
     };
 
     export class Game {

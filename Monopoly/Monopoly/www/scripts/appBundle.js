@@ -650,7 +650,8 @@ var Model;
         GameState[GameState["ThrowDice"] = 1] = "ThrowDice";
         GameState[GameState["Move"] = 2] = "Move";
         GameState[GameState["Process"] = 3] = "Process";
-        GameState[GameState["Manage"] = 4] = "Manage"; // the game is paused and the player is managing his assets
+        GameState[GameState["Manage"] = 4] = "Manage";
+        GameState[GameState["EndOfGame"] = 5] = "EndOfGame"; // the game has ended and we have a winner
     })(Model.GameState || (Model.GameState = {}));
     var GameState = Model.GameState;
     ;
@@ -1632,6 +1633,8 @@ var Services;
         This has been coded with the help of http://www.euclideanspace.com/maths/discrete/groups/categorise/finite/cube/
         */
         DrawingService.prototype.getDiceResult = function () {
+            var x = 1;
+            return x;
             var rotationMatrix = new BABYLON.Matrix();
             this.diceMesh.rotationQuaternion.toRotationMatrix(rotationMatrix);
             if (this.epsilonCompare(rotationMatrix.m[0], 0) && this.epsilonCompare(rotationMatrix.m[1], 1) && this.epsilonCompare(rotationMatrix.m[2], 0) && this.epsilonCompare(rotationMatrix.m[5], 0) && this.epsilonCompare(rotationMatrix.m[9], 0)) {
@@ -1750,6 +1753,8 @@ var Services;
             if (this.canEndTurn) {
                 this.game.advanceToNextPlayer();
                 this.game.setState(Model.GameState.BeginTurn);
+                this.lastDiceResult1 = undefined;
+                this.lastDiceResult2 = undefined;
             }
         };
         GameService.prototype.getCurrentPlayer = function () {
@@ -1764,6 +1769,9 @@ var Services;
         });
         Object.defineProperty(GameService.prototype, "lastDiceResult", {
             get: function () {
+                if (!this.lastDiceResult1 && !this.lastDiceResult2) {
+                    return undefined;
+                }
                 return this.lastDiceResult1 + this.lastDiceResult2;
             },
             enumerable: true,
@@ -1771,8 +1779,12 @@ var Services;
         });
         Object.defineProperty(GameService.prototype, "canThrowDice", {
             get: function () {
+                var _this = this;
                 if (this.game.getState() === Model.GameState.BeginTurn) {
-                    return true;
+                    var player = this.game.players.filter(function (p) { return p.playerName === _this.getCurrentPlayer(); })[0];
+                    if (player.money >= 0) {
+                        return true;
+                    }
                 }
                 return false;
             },
@@ -1781,7 +1793,16 @@ var Services;
         });
         Object.defineProperty(GameService.prototype, "canEndTurn", {
             get: function () {
+                var _this = this;
                 if (this.game.getState() !== Model.GameState.BeginTurn) {
+                    var player = this.game.players.filter(function (p) { return p.playerName === _this.getCurrentPlayer(); })[0];
+                    if (player.turnsInPrison === 0) {
+                        // must pay off bail before leaving prison
+                        return false;
+                    }
+                    if (player.money < 0) {
+                        return false;
+                    }
                     return true;
                 }
                 return false;
@@ -1818,9 +1839,56 @@ var Services;
             enumerable: true,
             configurable: true
         });
+        Object.defineProperty(GameService.prototype, "canGetOutOfJail", {
+            get: function () {
+                var _this = this;
+                if (this.game.getState() === Model.GameState.BeginTurn || this.game.getState() === Model.GameState.Process) {
+                    var currentPosition = this.getCurrentPlayerPosition();
+                    if (currentPosition.type === Model.BoardFieldType.PrisonAndVisit) {
+                        var player = this.game.players.filter(function (p) { return p.playerName === _this.getCurrentPlayer(); })[0];
+                        if (player.turnsInPrison !== undefined && player.money >= 50) {
+                            if (this.game.getState() === Model.GameState.BeginTurn) {
+                                return true;
+                            }
+                            if (this.game.getState() === Model.GameState.Process && player.turnsInPrison === 0 && this.lastDiceResult !== 6) {
+                                return true;
+                            }
+                        }
+                    }
+                }
+                return false;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(GameService.prototype, "canSurrender", {
+            get: function () {
+                var _this = this;
+                if (this.game.getState() === Model.GameState.BeginTurn || this.game.getState() === Model.GameState.Process) {
+                    var player = this.game.players.filter(function (p) { return p.playerName === _this.getCurrentPlayer(); })[0];
+                    if (player.money < 0) {
+                        return true;
+                    }
+                }
+                return false;
+            },
+            enumerable: true,
+            configurable: true
+        });
         Object.defineProperty(GameService.prototype, "gameState", {
             get: function () {
                 return this.game.getState();
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(GameService.prototype, "winner", {
+            get: function () {
+                var activePlayers = this.game.players.filter(function (p) { return p.active; });
+                if (activePlayers && activePlayers.length === 1) {
+                    return activePlayers[0].playerName;
+                }
+                return undefined;
             },
             enumerable: true,
             configurable: true
@@ -1882,6 +1950,25 @@ var Services;
                 this.game.setPreviousState();
             }
         };
+        GameService.prototype.getOutOfJail = function () {
+            var _this = this;
+            if (this.canGetOutOfJail) {
+                var player = this.game.players.filter(function (p) { return p.playerName === _this.getCurrentPlayer(); })[0];
+                player.money -= 50;
+                player.turnsInPrison = undefined;
+            }
+        };
+        GameService.prototype.surrender = function () {
+            var _this = this;
+            if (this.canSurrender) {
+                var player = this.game.players.filter(function (p) { return p.playerName === _this.getCurrentPlayer(); })[0];
+                player.active = false;
+                var activePlayers = this.game.players.filter(function (p) { return p.active; });
+                if (activePlayers && activePlayers.length === 1) {
+                    this.game.setState(Model.GameState.EndOfGame);
+                }
+            }
+        };
         GameService.prototype.getCurrentPlayerPosition = function () {
             var _this = this;
             var player = this.game.players.filter(function (p) { return p.playerName === _this.getCurrentPlayer(); })[0];
@@ -1893,10 +1980,18 @@ var Services;
             this.game.moveContext.reset();
             var player = this.game.players.filter(function (p) { return p.playerName === _this.getCurrentPlayer(); })[0];
             var currentPositionIndex = player.position.index;
-            newPositionIndex = newPositionIndex !== undefined ? newPositionIndex : Math.floor((currentPositionIndex + this.lastDiceResult1 + this.lastDiceResult2) % 40);
-            player.position = this.game.board.fields[newPositionIndex];
-            this.game.board.fields[currentPositionIndex].occupiedBy.splice(this.game.board.fields[currentPositionIndex].occupiedBy.indexOf(player.playerName), 1);
-            player.position.occupiedBy.push(player.playerName);
+            if (player.turnsInPrison === undefined || this.letOutOfPrison(player)) {
+                newPositionIndex = newPositionIndex !== undefined ? newPositionIndex : Math.floor((currentPositionIndex + this.lastDiceResult1 + this.lastDiceResult2) % 40);
+                player.position = this.game.board.fields[newPositionIndex];
+                this.game.board.fields[currentPositionIndex].occupiedBy.splice(this.game.board.fields[currentPositionIndex].occupiedBy.indexOf(player.playerName), 1);
+                player.position.occupiedBy.push(player.playerName);
+            }
+            else {
+                if (player.turnsInPrison !== undefined) {
+                    this.game.setState(Model.GameState.Process);
+                    return null;
+                }
+            }
             this.game.setState(Model.GameState.Process);
             return player.position;
         };
@@ -2150,6 +2245,20 @@ var Services;
             }
             return 0;
         };
+        GameService.prototype.processPrison = function (wasSentToPrison) {
+            var _this = this;
+            var player = this.game.players.filter(function (p) { return p.playerName === _this.getCurrentPlayer(); })[0];
+            if (player.turnsInPrison === undefined) {
+                if (wasSentToPrison) {
+                    player.turnsInPrison = 3;
+                }
+            }
+            else {
+                if (player.turnsInPrison > 0) {
+                    player.turnsInPrison--;
+                }
+            }
+        };
         // process intermediate board fields while moving a player to its destination field
         GameService.prototype.processFlyBy = function (positionIndex) {
             var _this = this;
@@ -2210,8 +2319,9 @@ var Services;
                 var player = new Model.Player();
                 player.playerName = i === 0 ? settings.playerName : "Computer " + i;
                 player.human = i === 0;
-                player.money = 1500;
+                player.money = 100; //1500;
                 player.color = i;
+                player.active = true;
                 this.game.players.push(player);
                 this.setPlayerPosition(player, 0);
             }
@@ -2293,6 +2403,19 @@ var Services;
             manageGroup = this.getGroupBoardFields(Model.AssetGroup.Eighth).map(function (f) { return f.index; });
             this.manageGroups.push(manageGroup);
         };
+        GameService.prototype.letOutOfPrison = function (player) {
+            if (player.turnsInPrison === undefined) {
+                return true;
+            }
+            if (this.lastDiceResult1 === 6) {
+                player.turnsInPrison = undefined;
+                return true;
+            }
+            if (player.turnsInPrison && player.turnsInPrison > 0) {
+                return false;
+            }
+            return false;
+        };
         GameService.$inject = ["$http", "settingsService"];
         return GameService;
     })();
@@ -2367,14 +2490,21 @@ var MonopolyApp;
                 var cameraMovementCompleted = this.drawingService.returnCameraToMainPosition(this.scene, this.gameCamera, oldPosition.index);
                 var that = this;
                 $.when(cameraMovementCompleted).done(function () {
-                    var animateMoveCompleted = that.animateMove(oldPosition, newPosition, newPositionIndex !== undefined);
-                    //that.drawingService.returnCameraToMainPosition(that.scene, that.gameCamera, newPosition.index, that.drawingService.framesToMoveOneBoardField * that.gameService.lastDiceResult);
-                    var positionsToMove = oldPosition.index < newPosition.index ? newPosition.index - oldPosition.index : (40 - oldPosition.index) + newPosition.index;
-                    that.followBoardFields(oldPosition.index, positionsToMove, that.drawingService, that.scene, that.gameCamera, that, newPositionIndex !== undefined);
+                    var animateMoveCompleted;
+                    if (newPosition) {
+                        animateMoveCompleted = that.animateMove(oldPosition, newPosition, newPositionIndex !== undefined);
+                        //that.drawingService.returnCameraToMainPosition(that.scene, that.gameCamera, newPosition.index, that.drawingService.framesToMoveOneBoardField * that.gameService.lastDiceResult);
+                        var positionsToMove = oldPosition.index < newPosition.index ? newPosition.index - oldPosition.index : (40 - oldPosition.index) + newPosition.index;
+                        that.followBoardFields(oldPosition.index, positionsToMove, that.drawingService, that.scene, that.gameCamera, that, newPositionIndex !== undefined);
+                    }
+                    else {
+                        animateMoveCompleted = $.Deferred().resolve();
+                    }
                     $.when(animateMoveCompleted).done(function () {
                         that.scope.$apply(function () {
                             that.setAvailableActions();
                             that.processDestinationField();
+                            that.setAvailableActions();
                             d.resolve();
                         });
                     });
@@ -2524,8 +2654,50 @@ var MonopolyApp;
                     ]
                 });
             };
+            GameController.prototype.showActionPopup = function (text, onConfirm, onCancel) {
+                $("#generalPopupDialog").text(text);
+                $("#generalPopupDialog").dialog({
+                    autoOpen: true,
+                    dialogClass: "no-close",
+                    width: 300,
+                    buttons: [
+                        {
+                            text: "Yes",
+                            click: function () {
+                                $(this).dialog("close");
+                                onConfirm();
+                            }
+                        },
+                        {
+                            text: "No",
+                            click: function () {
+                                $(this).dialog("close");
+                                onCancel();
+                            }
+                        }
+                    ]
+                });
+            };
             GameController.prototype.canMortgageSelected = function () {
                 return this.gameService.canMortgage(this.assetToManage);
+            };
+            GameController.prototype.getOutOfJail = function () {
+                this.gameService.getOutOfJail();
+                this.setAvailableActions();
+                if (this.gameService.lastDiceResult) {
+                    this.movePlayer();
+                }
+            };
+            GameController.prototype.surrender = function () {
+                var _this = this;
+                this.showActionPopup("Are you sure you wish to surrender?", function () {
+                    _this.gameService.surrender();
+                    _this.showMessage(_this.currentPlayer + " has surrendered!");
+                    _this.setAvailableActions();
+                    if (_this.gameService.gameState === Model.GameState.EndOfGame) {
+                        _this.showConfirmationPopup(_this.gameService.winner + " has won the game!");
+                    }
+                }, function () { });
             };
             GameController.prototype.createScene = function () {
                 var canvas = document.getElementById("renderCanvas");
@@ -2621,6 +2793,8 @@ var MonopolyApp;
                 this.availableActions.throwDice = this.gameService.canThrowDice;
                 this.availableActions.buy = this.gameService.canBuy;
                 this.availableActions.manage = this.gameService.canManage;
+                this.availableActions.getOutOfJail = this.gameService.canGetOutOfJail;
+                this.availableActions.surrender = this.gameService.canSurrender;
             };
             GameController.prototype.animateMove = function (oldPosition, newPosition, fast) {
                 var _this = this;
@@ -2642,6 +2816,9 @@ var MonopolyApp;
                 }
                 if (this.gameService.getCurrentPlayerPosition().type === Model.BoardFieldType.GoToPrison) {
                     this.processGoToPrisonField();
+                }
+                else if (this.gameService.getCurrentPlayerPosition().type === Model.BoardFieldType.PrisonAndVisit) {
+                    this.processPrisonField();
                 }
             };
             GameController.prototype.processAssetField = function (position) {
@@ -2851,15 +3028,18 @@ var MonopolyApp;
             };
             GameController.prototype.processGoToPrisonField = function () {
                 var _this = this;
-                var d = $.Deferred();
-                var oldPosition = this.gameService.getCurrentPlayerPosition();
                 var newPosition = this.gameService.moveCurrentPlayer(10);
                 var playerModel = this.players.filter(function (p) { return p.name === _this.gameService.getCurrentPlayer(); })[0];
                 var moveToPrison = this.drawingService.animatePlayerPrisonMove(newPosition, playerModel, this.scene, this.gameCamera);
                 var that = this;
                 $.when(moveToPrison).done(function () {
                     that.showMessage(that.currentPlayer + " landed in prison.");
+                    that.gameService.processPrison(true);
                 });
+            };
+            GameController.prototype.processPrisonField = function () {
+                this.showMessage(this.currentPlayer + " remains in prison.");
+                this.gameService.processPrison(false);
             };
             GameController.prototype.showCard = function (card, title) {
                 var _this = this;
