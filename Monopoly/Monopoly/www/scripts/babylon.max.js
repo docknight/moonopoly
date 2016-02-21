@@ -13457,7 +13457,15 @@ var BABYLON;
             // Physics
             if (this._physicsEngine) {
                 BABYLON.Tools.StartPerformanceCounter("Physics");
-                this._physicsEngine._runOneStep(deltaTime / 1000.0);
+                var maxDeltaForPhysics = 1.0;
+                // instead of running a physics step for the duration of the entire animation frame, we advance by a minimal step to avoid skipping collisions;
+                // an alternative would be to decrease Scene.MaxDeltaTime (in gameCtrl, for instance), however that would slow-down the animation as well
+                do {
+                    var currentDelta = Math.min(deltaTime, maxDeltaForPhysics);
+                    this._physicsEngine._runOneStep(currentDelta / 1000.0);
+                    deltaTime -= currentDelta;
+                } while (deltaTime > 0);
+                //this._physicsEngine._runOneStep(deltaTime / 1000.0);
                 BABYLON.Tools.EndPerformanceCounter("Physics");
             }
             // Before render

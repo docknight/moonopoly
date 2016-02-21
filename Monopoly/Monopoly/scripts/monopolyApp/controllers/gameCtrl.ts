@@ -319,6 +319,7 @@ module MonopolyApp.controllers {
             var canvas = <HTMLCanvasElement>document.getElementById("renderCanvas");
             var engine = new BABYLON.Engine(canvas, true);
             var theScene = this.createBoard(engine, canvas);
+            //BABYLON.Scene.MaxDeltaTime = 30.0;
             var that = this;
             engine.runRenderLoop(() => {
                 that.timeoutService(() => {

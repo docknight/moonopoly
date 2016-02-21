@@ -1633,8 +1633,6 @@ var Services;
         This has been coded with the help of http://www.euclideanspace.com/maths/discrete/groups/categorise/finite/cube/
         */
         DrawingService.prototype.getDiceResult = function () {
-            var x = 1;
-            return x;
             var rotationMatrix = new BABYLON.Matrix();
             this.diceMesh.rotationQuaternion.toRotationMatrix(rotationMatrix);
             if (this.epsilonCompare(rotationMatrix.m[0], 0) && this.epsilonCompare(rotationMatrix.m[1], 1) && this.epsilonCompare(rotationMatrix.m[2], 0) && this.epsilonCompare(rotationMatrix.m[5], 0) && this.epsilonCompare(rotationMatrix.m[9], 0)) {
@@ -1866,7 +1864,7 @@ var Services;
                 var _this = this;
                 if (this.game.getState() === Model.GameState.BeginTurn || this.game.getState() === Model.GameState.Process) {
                     var player = this.game.players.filter(function (p) { return p.playerName === _this.getCurrentPlayer(); })[0];
-                    if (player.money < 0) {
+                    if (player.money < 0 && player.active) {
                         return true;
                     }
                 }
@@ -2319,7 +2317,7 @@ var Services;
                 var player = new Model.Player();
                 player.playerName = i === 0 ? settings.playerName : "Computer " + i;
                 player.human = i === 0;
-                player.money = 100; //1500;
+                player.money = 1500;
                 player.color = i;
                 player.active = true;
                 this.game.players.push(player);
@@ -2703,6 +2701,7 @@ var MonopolyApp;
                 var canvas = document.getElementById("renderCanvas");
                 var engine = new BABYLON.Engine(canvas, true);
                 var theScene = this.createBoard(engine, canvas);
+                //BABYLON.Scene.MaxDeltaTime = 30.0;
                 var that = this;
                 engine.runRenderLoop(function () {
                     that.timeoutService(function () {
