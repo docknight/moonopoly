@@ -48,6 +48,17 @@ html, body {
     padding-right: 5px    
 }
 
+li.messageHistoryItem {
+    background: white !important;
+    opacity: 1 !important;
+}
+
+.ui-widget {
+	font-family: Arial,Helvetica,sans-serif;
+    /* override to get smaller combo box for message history */ 
+	font-size: 0.7em !important;
+}
+
 .elegantshadow {
     color: #131313;
     background-color: #e7e5e4;

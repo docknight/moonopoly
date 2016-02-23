@@ -518,16 +518,20 @@ module Services {
             return 0;
         }
 
-        processPrison(wasSentToPrison: boolean) {
+        processPrison(wasSentToPrison: boolean): boolean {
             var player = this.game.players.filter(p => p.playerName === this.getCurrentPlayer())[0];
             if (player.turnsInPrison === undefined) {
                 if (wasSentToPrison) {
                     player.turnsInPrison = 3;
+                    return true;
+                } else {
+                    return false;
                 }
             } else {
                 if (player.turnsInPrison > 0) {
                     player.turnsInPrison--;
                 }
+                return true;
             }
         }
 

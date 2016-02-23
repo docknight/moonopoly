@@ -50,7 +50,7 @@ module MonopolyApp.controllers {
             this.createScene();
             this.availableActions = new Viewmodels.AvailableActions();
             this.setAvailableActions();
-            this.messages = [];
+            this.initMessageHistory();
             this.currentCard = new Viewmodels.Card();
             this.bindInputEvents();
         }
@@ -70,12 +70,19 @@ module MonopolyApp.controllers {
         throwDice(impulsePoint?: BABYLON.Vector3) {
             if (this.gameService.gameState === Model.GameState.ThrowDice) {
                 this.diceThrowCompleted = $.Deferred();
-                this.drawingService.animateDiceThrow(impulsePoint, this.scene);
+                this.drawingService.animateDiceThrow(this.scene, impulsePoint);
                 var that = this;
                 $.when(this.diceThrowCompleted).done(() => {
                     that.diceThrowCompleted = undefined;
-                    that.gameService.setDiceResult(that.drawingService.getDiceResult());
-                    that.movePlayer();
+                    var diceResult = that.drawingService.getDiceResult();
+                    if (diceResult && diceResult > 0) {
+                        that.gameService.setDiceResult(that.drawingService.getDiceResult());
+                        that.movePlayer();
+                    } else {
+                        // something went wrong - unable to determine dice orientation; just drop it again from a height
+                        that.resetOverboardDice(new BABYLON.Vector3(0, 0, 0));
+                        that.throwDice();
+                    }
                 });
             }
         }
@@ -139,6 +146,7 @@ module MonopolyApp.controllers {
             if (bought) {
                 var boardField = this.gameService.getCurrentPlayerPosition();
                 this.drawingService.setBoardFieldOwner(this.boardFields.filter(f => f.index === boardField.index)[0], boardField.asset, this.scene);
+                this.showMessage(this.currentPlayer + " bought " + boardField.asset.name + " for M" + boardField.asset.price + ".");
                 this.updatePlayersForView();
             }
             this.setAvailableActions();
@@ -186,6 +194,7 @@ module MonopolyApp.controllers {
                 this.gameService.endTurn();
                 this.drawingService.returnCameraToMainPosition(this.scene, this.gameCamera, this.gameService.getCurrentPlayerPosition().index);
                 this.setAvailableActions();
+                this.showMessage(this.currentPlayer + " is starting his turn.");
             }
         }
 
@@ -330,6 +339,7 @@ module MonopolyApp.controllers {
                         } else {
                             var dicePhysicsLocation = that.drawingService.getDiceLocation(that.scene);
                             if (dicePhysicsLocation) {
+                                that.resetOverboardDice(dicePhysicsLocation);
                                 that.gameCamera.setTarget(new BABYLON.Vector3(dicePhysicsLocation.x, dicePhysicsLocation.y, dicePhysicsLocation.z));
                             }
                         }
@@ -463,6 +473,8 @@ module MonopolyApp.controllers {
         }
 
         private showMessage(message: string) {
+            $("#messageOverlay").stop();
+            $("#messageOverlay").css({ opacity: 1, top: 0 });
             var overlayOffset = Math.floor(jQuery(window).height() * 0.15);
             $("#messageOverlay").html(message).show().animate({
                 top: `-=${overlayOffset}px`,
@@ -470,8 +482,9 @@ module MonopolyApp.controllers {
             }, 5000, () => {
                 $("#messageOverlay").hide();
                 $("#messageOverlay").css({ opacity: 1, top: 0 });
-                this.messages.push(message);
             });
+            this.messages.push(message);
+            this.refreshMessageHistory();
         }
 
         private handleSwipe(left: boolean) {
@@ -679,8 +692,9 @@ module MonopolyApp.controllers {
         }
 
         private processPrisonField() {
-            this.showMessage(this.currentPlayer + " remains in prison.");
-            this.gameService.processPrison(false);
+            if (this.gameService.processPrison(false)) {
+                this.showMessage(this.currentPlayer + " remains in prison.");
+            }
         }
 
         private showCard(card: Model.Card, title: string): JQueryDeferred<{}> {
@@ -820,6 +834,48 @@ module MonopolyApp.controllers {
                     }
                 }
             });
+        }
+
+        private resetOverboardDice(diceLocation: BABYLON.Vector3) {
+            if (diceLocation.y < (this.drawingService.diceHeight / 2) * 0.8) {
+                diceLocation.y = (this.drawingService.diceHeight / 2) * 2;
+                diceLocation.x = 0;
+                diceLocation.z = 0;
+                this.drawingService.moveDiceToPosition(diceLocation, this.scene);
+            }            
+        }
+
+        private refreshMessageHistory() {
+            $("#messageHistory").empty();
+            var lastMessages = this.messages.length > 5 ? this.messages.slice(this.messages.length - 5) : this.messages;
+            $.each(lastMessages, (i, message) => {
+                if (i === lastMessages.length - 1) {
+                    $("#messageHistory").append("<option value='" + i + "' selected>" + message + "</option>");
+                } else {
+                    $("#messageHistory").append("<option value='" + i + "' disabled>" + message + "</option>");                    
+                }
+            });
+            var messageHistory: any = $("#messageHistory");
+            messageHistory.selectmenu("refresh");
+        }
+
+        private initMessageHistory() {
+            this.messages = [];
+            var messageHistory: any = $("#messageHistory");
+            messageHistory.selectmenu();
+            messageHistory.selectmenu("instance")._renderItem = function (ul, item) {
+                var li = $("<li>");
+                if (item.disabled) {
+                    li.addClass("ui-state-disabled");
+                }
+                li.addClass("messageHistoryItem");
+                this._setText(li, item.label);
+                return li.appendTo(ul);
+            };
+            if (this.gameService.gameState === Model.GameState.BeginTurn) {
+                this.messages.push(this.currentPlayer + " is starting his turn.");
+                this.refreshMessageHistory();
+            }            
         }
     }
 

@@ -1028,7 +1028,8 @@
     "scripts\\i18n\\angular-locale_en-pw.js",
     "www\\app\\js\\modules\\monopolyApp.js",
     "scripts\\angular-messages.js",
-    "scripts\\i18n\\angular-locale_pt-pt.js"
+    "scripts\\i18n\\angular-locale_pt-pt.js",
+    "scripts\\monopolyApp\\controllers\\gameCtrl.ts~RFa9278f.TMP"
   ],
   "deletedFilesIos": [],
   "addedPluginsIos": [],
@@ -1036,7 +1037,7 @@
   "changedFiles": [
     "www\\scripts\\appBundle.js.map",
     "www\\scripts\\appBundle.js",
-    "www\\scripts\\babylon.max.js"
+    "scripts\\monopolyApp\\controllers\\gameCtrl.ts~RFa9278f.TMP"
   ],
   "deletedFiles": [],
   "addedPlugins": [],

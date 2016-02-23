@@ -313,7 +313,7 @@
             boardField.asset.valueMortgage = 160;
             this.fields.push(boardField);
 
-            boardField = this.createAssetBoardField("Železniška postaja Koper", this.fields.length, AssetGroup.Railway);
+            boardField = this.createAssetBoardField("Železniški terminal Koper", this.fields.length, AssetGroup.Railway);
             boardField.asset.price = 200;
             boardField.asset.color = "#FFFFFF";
             boardField.asset.priceRent.push(25, 50, 100, 200);

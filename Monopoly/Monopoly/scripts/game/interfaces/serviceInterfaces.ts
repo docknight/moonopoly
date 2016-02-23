@@ -41,7 +41,7 @@
         processCard(card: Model.Card);
         processTax(boardFieldType: Model.BoardFieldType): number;
         processFlyBy(positionIndex: number): Model.ProcessingEvent;
-        processPrison(wasSentToPrison: boolean);
+        processPrison(wasSentToPrison: boolean): boolean;
         toggleMortgageAsset(asset: Model.Asset): boolean;
         
         // get fields in management group, identified by its index in the manage group array
@@ -52,6 +52,7 @@
     export interface IDrawingService {
         boardSize: number;
         framesToMoveOneBoardField: number;
+        diceHeight: number;
         positionPlayer(playerModel: MonopolyApp.Viewmodels.Player);
         animatePlayerMove(oldPositionIndex: Model.BoardField, newPosition: Model.BoardField, playerModel: MonopolyApp.Viewmodels.Player, scene: BABYLON.Scene, fast?: boolean): JQueryDeferred<{}>;
         animatePlayerPrisonMove(newPosition: Model.BoardField, playerModel: MonopolyApp.Viewmodels.Player, scene: BABYLON.Scene, camera: BABYLON.FreeCamera): JQueryDeferred<{}>;
@@ -67,9 +68,10 @@
         onSwipeMove(scene: BABYLON.Scene, coords: any);
         onSwipeEnd(scene: BABYLON.Scene, coords: any): MonopolyApp.Viewmodels.PickedObject;
         showActionButtons();
-        animateDiceThrow(impulsePoint: BABYLON.Vector3, scene: BABYLON.Scene);
+        animateDiceThrow(scene: BABYLON.Scene, impulsePoint?: BABYLON.Vector3);
         isDiceAtRestAfterThrowing(scene: BABYLON.Scene): boolean; // whether the dice has come to rest after being thrown
         setupDiceForThrow(scene: BABYLON.Scene);
+        moveDiceToPosition(position: BABYLON.Vector3);
         getDiceLocation(scene: BABYLON.Scene): BABYLON.Vector3;
         getDiceResult(): number;
         // get the rotation required for the camera to face the target; position determines the camera position, if it is not equal to its current position

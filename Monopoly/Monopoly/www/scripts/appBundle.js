@@ -529,7 +529,7 @@ var Model;
             boardField.asset.priceRentHotel = 1400;
             boardField.asset.valueMortgage = 160;
             this.fields.push(boardField);
-            boardField = this.createAssetBoardField("Železniška postaja Koper", this.fields.length, Model.AssetGroup.Railway);
+            boardField = this.createAssetBoardField("Železniški terminal Koper", this.fields.length, Model.AssetGroup.Railway);
             boardField.asset.price = 200;
             boardField.asset.color = "#FFFFFF";
             boardField.asset.priceRent.push(25, 50, 100, 200);
@@ -834,6 +834,13 @@ var Services;
             enumerable: true,
             configurable: true
         });
+        Object.defineProperty(DrawingService.prototype, "diceHeight", {
+            get: function () {
+                return 0.36;
+            },
+            enumerable: true,
+            configurable: true
+        });
         Object.defineProperty(DrawingService.prototype, "framesToMoveOneBoardField", {
             // number of frames to animate player move between two neighbouring fields
             get: function () {
@@ -936,6 +943,18 @@ var Services;
             var physicsEngine = scene.getPhysicsEngine();
             physicsEngine._unregisterMesh(this.diceMesh);
         };
+        DrawingService.prototype.moveDiceToPosition = function (position, scene) {
+            this.diceMesh.position.x = position.x;
+            this.diceMesh.position.y = position.y;
+            this.diceMesh.position.z = position.z;
+            var physicsEngine = scene.getPhysicsEngine();
+            var body = physicsEngine.getPhysicsBodyOfMesh(this.diceMesh);
+            if (body) {
+                body.position.x = position.x;
+                body.position.y = position.y;
+                body.position.z = position.z;
+            }
+        };
         DrawingService.prototype.moveCameraForDiceThrow = function (scene, camera, currentPlayerPosition) {
             var animationCameraPosition = new BABYLON.Animation("cameraDiceThrowMoveAnimation", "position", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
             var animationCameraRotation = new BABYLON.Animation("cameraDiceThrowRotateAnimation", "rotation", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
@@ -975,13 +994,15 @@ var Services;
             camera.animations.push(animationCameraRotation);
             scene.beginAnimation(camera, 0, 30, false, undefined, function () { });
         };
-        DrawingService.prototype.animateDiceThrow = function (impulsePoint, scene) {
+        DrawingService.prototype.animateDiceThrow = function (scene, impulsePoint) {
             this.numFramesDiceIsAtRest = 0;
             this.diceMesh.setPhysicsState({ impostor: BABYLON.PhysicsEngine.BoxImpostor, mass: 0.1, friction: 0.5, restitution: 0.5 });
             this.diceMesh.checkCollisions = true;
-            var dir = impulsePoint.subtract(scene.activeCamera.position);
-            dir.normalize();
-            this.diceMesh.applyImpulse(dir.scale(0.2), impulsePoint);
+            if (impulsePoint) {
+                var dir = impulsePoint.subtract(scene.activeCamera.position);
+                dir.normalize();
+                this.diceMesh.applyImpulse(dir.scale(0.5), impulsePoint);
+            }
             this.throwingDice = true;
         };
         // animates camera back to the base viewing position; returns the deferred object that will be resolved when the animation finishes
@@ -1040,7 +1061,7 @@ var Services;
                     return false;
                 }
                 this.numFramesDiceIsAtRest++;
-                if (this.numFramesDiceIsAtRest < 120) {
+                if (this.numFramesDiceIsAtRest < 90) {
                     return false;
                 }
                 this.throwingDice = false;
@@ -1055,7 +1076,6 @@ var Services;
             //    return <BABYLON.Vector3>body.position;
             //}
             return this.diceMesh.position;
-            return undefined;
         };
         DrawingService.prototype.setGameCameraInitialPosition = function (camera) {
             camera.position = this.getGameCameraPosition(this.gameService.getCurrentPlayerPosition().index, true);
@@ -1130,7 +1150,7 @@ var Services;
             boardMaterial.emissiveTexture = new BABYLON.Texture("images/Gameboard-Model.png", scene);
             boardMaterial.diffuseTexture = new BABYLON.Texture("images/Gameboard-Model.png", scene);
             board.material = boardMaterial;
-            board.setPhysicsState({ impostor: BABYLON.PhysicsEngine.BoxImpostor, mass: 0, friction: 0.5, restitution: 0.5 });
+            board.setPhysicsState({ impostor: BABYLON.PhysicsEngine.BoxImpostor, mass: 0, friction: 0.4, restitution: 0.5 });
             board.checkCollisions = true;
             var table = BABYLON.Mesh.CreateGround("tableMesh", 20, 13.33, 2, scene);
             var tableMaterial = new BABYLON.StandardMaterial("boardTexture", scene);
@@ -1268,7 +1288,7 @@ var Services;
                     var mesh = newMeshes[0];
                     mesh.position.x = 0;
                     mesh.position.z = 0;
-                    mesh.position.y = 0.18;
+                    mesh.position.y = _this.diceHeight / 2;
                     //// DEBUGGING
                     ////var vector = new BABYLON.Vector3(1.57, 0.21, 0);
                     ////var quaternion = new BABYLON.Quaternion(0, 0, 0, 0);
@@ -2249,12 +2269,17 @@ var Services;
             if (player.turnsInPrison === undefined) {
                 if (wasSentToPrison) {
                     player.turnsInPrison = 3;
+                    return true;
+                }
+                else {
+                    return false;
                 }
             }
             else {
                 if (player.turnsInPrison > 0) {
                     player.turnsInPrison--;
                 }
+                return true;
             }
         };
         // process intermediate board fields while moving a player to its destination field
@@ -2440,7 +2465,7 @@ var MonopolyApp;
                 this.createScene();
                 this.availableActions = new MonopolyApp.Viewmodels.AvailableActions();
                 this.setAvailableActions();
-                this.messages = [];
+                this.initMessageHistory();
                 this.currentCard = new MonopolyApp.Viewmodels.Card();
                 this.bindInputEvents();
             }
@@ -2471,12 +2496,20 @@ var MonopolyApp;
             GameController.prototype.throwDice = function (impulsePoint) {
                 if (this.gameService.gameState === Model.GameState.ThrowDice) {
                     this.diceThrowCompleted = $.Deferred();
-                    this.drawingService.animateDiceThrow(impulsePoint, this.scene);
+                    this.drawingService.animateDiceThrow(this.scene, impulsePoint);
                     var that = this;
                     $.when(this.diceThrowCompleted).done(function () {
                         that.diceThrowCompleted = undefined;
-                        that.gameService.setDiceResult(that.drawingService.getDiceResult());
-                        that.movePlayer();
+                        var diceResult = that.drawingService.getDiceResult();
+                        if (diceResult && diceResult > 0) {
+                            that.gameService.setDiceResult(that.drawingService.getDiceResult());
+                            that.movePlayer();
+                        }
+                        else {
+                            // something went wrong - unable to determine dice orientation; just drop it again from a height
+                            that.resetOverboardDice(new BABYLON.Vector3(0, 0, 0));
+                            that.throwDice();
+                        }
                     });
                 }
             };
@@ -2538,6 +2571,7 @@ var MonopolyApp;
                 if (bought) {
                     var boardField = this.gameService.getCurrentPlayerPosition();
                     this.drawingService.setBoardFieldOwner(this.boardFields.filter(function (f) { return f.index === boardField.index; })[0], boardField.asset, this.scene);
+                    this.showMessage(this.currentPlayer + " bought " + boardField.asset.name + " for M" + boardField.asset.price + ".");
                     this.updatePlayersForView();
                 }
                 this.setAvailableActions();
@@ -2577,6 +2611,7 @@ var MonopolyApp;
                     this.gameService.endTurn();
                     this.drawingService.returnCameraToMainPosition(this.scene, this.gameCamera, this.gameService.getCurrentPlayerPosition().index);
                     this.setAvailableActions();
+                    this.showMessage(this.currentPlayer + " is starting his turn.");
                 }
             };
             GameController.prototype.closeAssetManagementWindow = function () {
@@ -2713,6 +2748,7 @@ var MonopolyApp;
                             else {
                                 var dicePhysicsLocation = that.drawingService.getDiceLocation(that.scene);
                                 if (dicePhysicsLocation) {
+                                    that.resetOverboardDice(dicePhysicsLocation);
                                     that.gameCamera.setTarget(new BABYLON.Vector3(dicePhysicsLocation.x, dicePhysicsLocation.y, dicePhysicsLocation.z));
                                 }
                             }
@@ -2833,7 +2869,8 @@ var MonopolyApp;
                 }
             };
             GameController.prototype.showMessage = function (message) {
-                var _this = this;
+                $("#messageOverlay").stop();
+                $("#messageOverlay").css({ opacity: 1, top: 0 });
                 var overlayOffset = Math.floor(jQuery(window).height() * 0.15);
                 $("#messageOverlay").html(message).show().animate({
                     top: "-=" + overlayOffset + "px",
@@ -2841,8 +2878,9 @@ var MonopolyApp;
                 }, 5000, function () {
                     $("#messageOverlay").hide();
                     $("#messageOverlay").css({ opacity: 1, top: 0 });
-                    _this.messages.push(message);
                 });
+                this.messages.push(message);
+                this.refreshMessageHistory();
             };
             GameController.prototype.handleSwipe = function (left) {
                 if (this.manageMode) {
@@ -3037,8 +3075,9 @@ var MonopolyApp;
                 });
             };
             GameController.prototype.processPrisonField = function () {
-                this.showMessage(this.currentPlayer + " remains in prison.");
-                this.gameService.processPrison(false);
+                if (this.gameService.processPrison(false)) {
+                    this.showMessage(this.currentPlayer + " remains in prison.");
+                }
             };
             GameController.prototype.showCard = function (card, title) {
                 var _this = this;
@@ -3170,6 +3209,46 @@ var MonopolyApp;
                         }
                     }
                 });
+            };
+            GameController.prototype.resetOverboardDice = function (diceLocation) {
+                if (diceLocation.y < (this.drawingService.diceHeight / 2) * 0.8) {
+                    diceLocation.y = (this.drawingService.diceHeight / 2) * 2;
+                    diceLocation.x = 0;
+                    diceLocation.z = 0;
+                    this.drawingService.moveDiceToPosition(diceLocation, this.scene);
+                }
+            };
+            GameController.prototype.refreshMessageHistory = function () {
+                $("#messageHistory").empty();
+                var lastMessages = this.messages.length > 5 ? this.messages.slice(this.messages.length - 5) : this.messages;
+                $.each(lastMessages, function (i, message) {
+                    if (i === lastMessages.length - 1) {
+                        $("#messageHistory").append("<option value='" + i + "' selected>" + message + "</option>");
+                    }
+                    else {
+                        $("#messageHistory").append("<option value='" + i + "' disabled>" + message + "</option>");
+                    }
+                });
+                var messageHistory = $("#messageHistory");
+                messageHistory.selectmenu("refresh");
+            };
+            GameController.prototype.initMessageHistory = function () {
+                this.messages = [];
+                var messageHistory = $("#messageHistory");
+                messageHistory.selectmenu();
+                messageHistory.selectmenu("instance")._renderItem = function (ul, item) {
+                    var li = $("<li>");
+                    if (item.disabled) {
+                        li.addClass("ui-state-disabled");
+                    }
+                    li.addClass("messageHistoryItem");
+                    this._setText(li, item.label);
+                    return li.appendTo(ul);
+                };
+                if (this.gameService.gameState === Model.GameState.BeginTurn) {
+                    this.messages.push(this.currentPlayer + " is starting his turn.");
+                    this.refreshMessageHistory();
+                }
             };
             GameController.$inject = ["$state", "$swipe", "$scope", "$timeout", "gameService", "drawingService"];
             return GameController;
