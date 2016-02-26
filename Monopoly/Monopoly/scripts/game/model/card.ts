@@ -1,5 +1,5 @@
 ﻿module Model {
-    export enum CardType { PayMoney, ReceiveMoney, AdvanceToField, RetractNumFields };
+    export enum CardType { PayMoney, PayMoneyToPlayers, ReceiveMoney, ReceiveMoneyFromPlayers, AdvanceToField, AdvanceToRailway, RetractNumFields, JumpToField, Maintenance, OwnMaintenance };
 
     export class Card {
         constructor() {
@@ -11,5 +11,7 @@
         boardFieldIndex: number;
         boardFieldCount: number;
         skipGoAward: boolean;
+        pricePerHouse: number;
+        pricePerHotel: number;
     }
 } 

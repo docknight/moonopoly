@@ -62,6 +62,7 @@ module MonopolyApp.controllers {
         setupThrowDice() {
             if (this.gameService.canThrowDice) {
                 this.gameService.throwDice();
+                this.setAvailableActions();
                 this.drawingService.setupDiceForThrow(this.scene);
                 this.drawingService.moveCameraForDiceThrow(this.scene, this.gameCamera, this.gameService.getCurrentPlayerPosition());
             }
@@ -88,28 +89,31 @@ module MonopolyApp.controllers {
         }
 
         // move player to a destination defined by last dice throw or by explicit parameter value (as requested by an event card, for instance)
-        movePlayer(newPositionIndex?: number): JQueryDeferred<{}> {
+        movePlayer(newPositionIndex?: number, backwards?: boolean, doubleRent?: boolean): JQueryDeferred<{}> {
             var d = $.Deferred();
             var oldPosition = this.gameService.getCurrentPlayerPosition();
-            var newPosition = this.gameService.moveCurrentPlayer(newPositionIndex);
+            var newPosition = this.gameService.moveCurrentPlayer(newPositionIndex, doubleRent);
             var cameraMovementCompleted = this.drawingService.returnCameraToMainPosition(this.scene, this.gameCamera, oldPosition.index);
             var that = this;
             $.when(cameraMovementCompleted).done(() => {
                 var animateMoveCompleted: JQueryDeferred<{}>;
                 if (newPosition) {
-                    animateMoveCompleted = that.animateMove(oldPosition, newPosition, newPositionIndex !== undefined);
-                    //that.drawingService.returnCameraToMainPosition(that.scene, that.gameCamera, newPosition.index, that.drawingService.framesToMoveOneBoardField * that.gameService.lastDiceResult);
-                    var positionsToMove = oldPosition.index < newPosition.index ? newPosition.index - oldPosition.index : (40 - oldPosition.index) + newPosition.index;
-                    that.followBoardFields(oldPosition.index, positionsToMove, that.drawingService, that.scene, that.gameCamera, that, newPositionIndex !== undefined);
+                    animateMoveCompleted = that.animateMove(oldPosition, newPosition, newPositionIndex !== undefined, backwards);
+                    //var positionsToMove = oldPosition.index < newPosition.index ? newPosition.index - oldPosition.index : (40 - oldPosition.index) + newPosition.index;
+                    var positionsToMove = backwards ? (newPosition.index <= oldPosition.index ? oldPosition.index - newPosition.index : 40 - newPosition.index + oldPosition.index) :
+                        newPosition.index >= oldPosition.index ? newPosition.index - oldPosition.index : 40 - oldPosition.index + newPosition.index;
+                    that.followBoardFields(oldPosition.index, positionsToMove, that.drawingService, that.scene, that.gameCamera, that, newPositionIndex !== undefined, backwards);
                 } else {
                     animateMoveCompleted = $.Deferred().resolve();
                 }
                 $.when(animateMoveCompleted).done(() => {
                     that.scope.$apply(() => {
                         that.setAvailableActions();
-                        that.processDestinationField();
-                        that.setAvailableActions();
-                        d.resolve();
+                        $.when(that.processDestinationField()).done(() => {
+                            that.gameService.moveProcessingDone();
+                            that.setAvailableActions();
+                            d.resolve();
+                        });
                     });
                 });
             });
@@ -117,9 +121,17 @@ module MonopolyApp.controllers {
         }
 
         // animate game camera by following board fields from player current field to its movement destination field; this animation occurs at the same time that the player is moving
-        followBoardFields(positionIndex: number, positionsLeftToMove: number, drawingService: Interfaces.IDrawingService, scene: BABYLON.Scene, camera: BABYLON.FreeCamera, gameController: GameController, fast?: boolean) {
+        followBoardFields(positionIndex: number, positionsLeftToMove: number, drawingService: Interfaces.IDrawingService, scene: BABYLON.Scene, camera: BABYLON.FreeCamera, gameController: GameController, fast?: boolean, backwards?: boolean) {
             if (positionsLeftToMove > 0) {
-                positionIndex = (positionIndex + 1) % 40;
+                if (backwards) {
+                    positionIndex--;
+                    if (positionIndex < 0) {
+                        positionIndex = 40 + positionIndex;
+                    }
+                } else {
+                    positionIndex = (positionIndex + 1) % 40;    
+                }
+                
                 positionsLeftToMove--;
                 var numFrames = positionIndex % 10 === 0 ? drawingService.framesToMoveOneBoardField * 2 : drawingService.framesToMoveOneBoardField;
                 if (fast) {
@@ -127,7 +139,7 @@ module MonopolyApp.controllers {
                 }
                 var cameraMoveCompleted = drawingService.returnCameraToMainPosition(scene, camera, positionIndex, numFrames);
                 $.when(cameraMoveCompleted).done(() => {
-                    var processedEvent = gameController.gameService.processFlyBy(positionIndex);
+                    var processedEvent = gameController.gameService.processFlyBy(positionIndex, backwards);
                     if (processedEvent !== Model.ProcessingEvent.None) {
                         gameController.timeoutService(() => {
                             gameController.scope.$apply(() => {
@@ -136,7 +148,7 @@ module MonopolyApp.controllers {
                         });
                     }
                     gameController.showMessageForEvent(processedEvent);
-                    gameController.followBoardFields(positionIndex, positionsLeftToMove, drawingService, scene, camera, gameController, fast);
+                    gameController.followBoardFields(positionIndex, positionsLeftToMove, drawingService, scene, camera, gameController, fast, backwards);
                 });
             }
         }
@@ -434,36 +446,39 @@ module MonopolyApp.controllers {
             this.availableActions.surrender = this.gameService.canSurrender;
         }
 
-        private animateMove(oldPosition: Model.BoardField, newPosition: Model.BoardField, fast?: boolean): JQueryDeferred<{}> {
+        private animateMove(oldPosition: Model.BoardField, newPosition: Model.BoardField, fast?: boolean, backwards?: boolean): JQueryDeferred<{}> {
             var playerModel = this.players.filter(p => p.name === this.gameService.getCurrentPlayer())[0];
-            return this.drawingService.animatePlayerMove(oldPosition, newPosition, playerModel, this.scene, fast);
+            return this.drawingService.animatePlayerMove(oldPosition, newPosition, playerModel, this.scene, fast, backwards);
         }
 
-        private showDeed() {
-            this.assetToBuy = this.gameService.getCurrentPlayerPosition().asset;
-        }
-
-        private processDestinationField() {
+        private processDestinationField(): JQueryDeferred<{}> {
+            var d = $.Deferred();
             if (this.gameService.getCurrentPlayerPosition().type === Model.BoardFieldType.Asset) {
                 this.processAssetField(this.gameService.getCurrentPlayerPosition());
+                d.resolve();
             }
             if (this.gameService.getCurrentPlayerPosition().type === Model.BoardFieldType.Treasure || this.gameService.getCurrentPlayerPosition().type === Model.BoardFieldType.Event) {
-                this.processCardField(this.gameService.getCurrentPlayerPosition());
+                $.when(this.processCardField(this.gameService.getCurrentPlayerPosition())).done(() => {
+                    d.resolve();
+                });
             }
             if (this.gameService.getCurrentPlayerPosition().type === Model.BoardFieldType.Tax || this.gameService.getCurrentPlayerPosition().type === Model.BoardFieldType.TaxIncome) {
                 this.processTaxField(this.gameService.getCurrentPlayerPosition().type);
+                d.resolve();
             }
             if (this.gameService.getCurrentPlayerPosition().type === Model.BoardFieldType.GoToPrison) {
                 this.processGoToPrisonField();
+                d.resolve();
             } else if (this.gameService.getCurrentPlayerPosition().type === Model.BoardFieldType.PrisonAndVisit) {
                 this.processPrisonField();
+                d.resolve();
             }
+            return d;
         }
 
         private processAssetField(position: Model.BoardField) {
-            if (this.availableActions.buy) {
-                this.showDeed();
-            } else if (!position.asset.unowned && position.asset.owner !== this.gameService.getCurrentPlayer()) {
+            this.assetToBuy = this.gameService.getCurrentPlayerPosition().asset;
+            if (!position.asset.unowned && position.asset.owner !== this.gameService.getCurrentPlayer()) {
                 var result = this.gameService.processOwnedFieldVisit();
                 if (result.message) {
                     this.showMessage(result.message);
@@ -644,7 +659,8 @@ module MonopolyApp.controllers {
             });
         }
 
-        private processCardField(position: Model.BoardField) {
+        private processCardField(position: Model.BoardField): JQueryDeferred<{}> {
+            var d = $.Deferred();
             var card: Model.Card;
             if (position.type === Model.BoardFieldType.Treasure) {
                 card = this.gameService.getNextTreasureCard();
@@ -660,11 +676,30 @@ module MonopolyApp.controllers {
                     $.when(that.movePlayer(card.boardFieldIndex)).done(() => {
                         addAction.resolve();
                     });
+                } else if (card.cardType === Model.CardType.AdvanceToRailway) {
+                    var nextRailwayIndex = position.index >= 35 ? 5 : (position.index >= 25 ? 35 : (position.index >= 15 ? 25 : (position.index >= 5 ? 15 : 5)));
+                    $.when(that.movePlayer(nextRailwayIndex, false, true)).done(() => {
+                        addAction.resolve();
+                    });
+                } else if (card.cardType === Model.CardType.RetractNumFields) {
+                    var newPositionIndex = that.gameService.getCurrentPlayerPosition().index - card.boardFieldCount;
+                    if (newPositionIndex < 0) {
+                        newPositionIndex = 40 + newPositionIndex;
+                    }
+                    $.when(that.movePlayer(newPositionIndex, true)).done(() => {
+                        addAction.resolve();
+                    });
+                } else if (card.cardType === Model.CardType.JumpToField) {
+                    if (card.boardFieldIndex === 10) {
+                        this.processGoToPrisonField();
+                        addAction.resolve();
+                    }
                 } else {
                     addAction.resolve();
                 }
 
                 $.when(addAction).done(() => {
+                    d.resolve();
                     that.timeoutService(() => {
                         that.scope.$apply(() => {
                             that.updatePlayersForView();
@@ -672,6 +707,7 @@ module MonopolyApp.controllers {
                     });
                 });
             });
+            return d;
         }
 
         private processTaxField(boardFieldType: Model.BoardFieldType) {
@@ -719,8 +755,17 @@ module MonopolyApp.controllers {
                 return this.gameService.getCurrentPlayer() + " paid M" + card.money + (position.type === Model.BoardFieldType.Treasure ? " to " : " for ") + type + ".";
             } else if (card.cardType === Model.CardType.AdvanceToField) {
                 return this.gameService.getCurrentPlayer() + " is advancing to " + this.getBoardFieldName(card.boardFieldIndex) + ".";
+            } else if (card.cardType === Model.CardType.RetractNumFields) {
+                return this.gameService.getCurrentPlayer() + " is moving back " + card.boardFieldCount + " fields.";
+            } else if (card.cardType === Model.CardType.ReceiveMoneyFromPlayers) {
+                return this.gameService.getCurrentPlayer() + " received M" + card.money + " from each player.";
+            } else if (card.cardType === Model.CardType.PayMoneyToPlayers) {
+                return this.gameService.getCurrentPlayer() + " paid M" + card.money + " to each player.";
+            } else if (card.cardType === Model.CardType.Maintenance || card.cardType === Model.CardType.OwnMaintenance) {
+                return this.gameService.getCurrentPlayer() + " paid M" + card.money + " for maintenance.";
+            } else if (card.cardType === Model.CardType.AdvanceToRailway) {
+                return this.gameService.getCurrentPlayer() + " is advancing to the next railway station.";
             }
-
             return this.gameService.getCurrentPlayer() + " landed on " + type + ".";
         }
 

@@ -19,7 +19,7 @@
         endTurn();
         throwDice();
         getCurrentPlayerPosition(): Model.BoardField;
-        moveCurrentPlayer(newPositionIndex?: number): Model.BoardField;
+        moveCurrentPlayer(newPositionIndex?: number, doubleRent?: boolean): Model.BoardField;
         buy(): boolean;
         surrender();
         processOwnedFieldVisit(): Model.ProcessResult;
@@ -40,7 +40,7 @@
         getNextEventCard(): Model.EventCard;
         processCard(card: Model.Card);
         processTax(boardFieldType: Model.BoardFieldType): number;
-        processFlyBy(positionIndex: number): Model.ProcessingEvent;
+        processFlyBy(positionIndex: number, backwards?: boolean): Model.ProcessingEvent;
         processPrison(wasSentToPrison: boolean): boolean;
         toggleMortgageAsset(asset: Model.Asset): boolean;
         
@@ -48,13 +48,14 @@
         getBoardFieldsInGroup(focusedAssetGroupIndex: number): Array<Model.BoardField>;
         canMortgage(asset: Model.Asset): boolean;
         getOutOfJail();
+        moveProcessingDone();
     }
     export interface IDrawingService {
         boardSize: number;
         framesToMoveOneBoardField: number;
         diceHeight: number;
         positionPlayer(playerModel: MonopolyApp.Viewmodels.Player);
-        animatePlayerMove(oldPositionIndex: Model.BoardField, newPosition: Model.BoardField, playerModel: MonopolyApp.Viewmodels.Player, scene: BABYLON.Scene, fast?: boolean): JQueryDeferred<{}>;
+        animatePlayerMove(oldPositionIndex: Model.BoardField, newPosition: Model.BoardField, playerModel: MonopolyApp.Viewmodels.Player, scene: BABYLON.Scene, fast?: boolean, backwards?: boolean): JQueryDeferred<{}>;
         animatePlayerPrisonMove(newPosition: Model.BoardField, playerModel: MonopolyApp.Viewmodels.Player, scene: BABYLON.Scene, camera: BABYLON.FreeCamera): JQueryDeferred<{}>;
         setGameCameraInitialPosition(camera: BABYLON.FreeCamera);
         setManageCameraPosition(camera: BABYLON.ArcRotateCamera, focusedAssetGroupIndex: number, scene: BABYLON.Scene);
@@ -71,7 +72,7 @@
         animateDiceThrow(scene: BABYLON.Scene, impulsePoint?: BABYLON.Vector3);
         isDiceAtRestAfterThrowing(scene: BABYLON.Scene): boolean; // whether the dice has come to rest after being thrown
         setupDiceForThrow(scene: BABYLON.Scene);
-        moveDiceToPosition(position: BABYLON.Vector3);
+        moveDiceToPosition(position: BABYLON.Vector3, scene: BABYLON.Scene);
         getDiceLocation(scene: BABYLON.Scene): BABYLON.Vector3;
         getDiceResult(): number;
         // get the rotation required for the camera to face the target; position determines the camera position, if it is not equal to its current position

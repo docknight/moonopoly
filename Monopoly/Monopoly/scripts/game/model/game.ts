@@ -4,6 +4,7 @@
         ThrowDice, // player is throwing the dice
         Move, // the move to the next board field is being made
         Process, // destination field processing
+        ProcessingDone, // destination field has been processed
         Manage, // the game is paused and the player is managing his assets
         EndOfGame // the game has ended and we have a winner
     };

@@ -67,7 +67,7 @@ module Services {
         }
 
         get canEndTurn() {
-            if (this.game.getState() !== Model.GameState.BeginTurn) {
+            if (this.game.getState() === Model.GameState.ProcessingDone || this.game.getState() === Model.GameState.Manage) {
                 var player = this.game.players.filter(p => p.playerName === this.getCurrentPlayer())[0];
                 if (player.turnsInPrison === 0) {
                     // must pay off bail before leaving prison
@@ -82,7 +82,7 @@ module Services {
         }
 
         get canBuy() {
-            if (this.game.getState() === Model.GameState.Process) {
+            if (this.game.getState() === Model.GameState.ProcessingDone) {
                 var currentPosition = this.getCurrentPlayerPosition();
                 if (currentPosition.type === Model.BoardFieldType.Asset) {
                     if (currentPosition.asset.unowned) {
@@ -97,7 +97,7 @@ module Services {
         }
 
         get canManage(): boolean {
-            if (this.game.getState() === Model.GameState.Move) {
+            if (this.game.getState() === Model.GameState.Move || this.game.getState() === Model.GameState.Process || this.game.getState() === Model.GameState.ThrowDice) {
                 return false;
             }
 
@@ -234,9 +234,12 @@ module Services {
             return player.position;
         }
 
-        moveCurrentPlayer(newPositionIndex?: number): Model.BoardField {
+        moveCurrentPlayer(newPositionIndex?: number, doubleRent?: boolean): Model.BoardField {
             this.game.setState(Model.GameState.Move);
             this.game.moveContext.reset();
+            if (doubleRent) {
+                this.game.moveContext.doubleRent = doubleRent;
+            }
             var player = this.game.players.filter(p => p.playerName === this.getCurrentPlayer())[0];
             var currentPositionIndex = player.position.index;
             if (player.turnsInPrison === undefined || this.letOutOfPrison(player)) {
@@ -279,10 +282,13 @@ module Services {
                 }
 
                 var player = this.game.players.filter(p => p.playerName === this.getCurrentPlayer())[0];
-                if (player.money < priceToPay) {
-                    // TODO: player can not pay
-                    result.moneyShortage = priceToPay - player.money;
-                    return result;
+                //if (player.money < priceToPay) {
+                //    // TODO: player can not pay
+                //    result.moneyShortage = priceToPay - player.money;
+                //    return result;
+                //}
+                if (this.game.moveContext.doubleRent) {
+                    priceToPay *= 2;
                 }
                 player.money -= priceToPay;
                 var ownerPlayer = this.game.players.filter(p => p.playerName === asset.owner)[0];
@@ -291,6 +297,12 @@ module Services {
             }
 
             return result;
+        }
+
+        public moveProcessingDone() {
+            if (this.game.getState() === Model.GameState.Process) {
+                this.game.setState(Model.GameState.ProcessingDone);
+            }
         }
 
         getGroupBoardFields(assetGroup: Model.AssetGroup): Array<Model.BoardField> {
@@ -498,10 +510,48 @@ module Services {
             if (card.cardType === Model.CardType.PayMoney) {
                 player.money -= card.money;
             }
+            if (card.cardType === Model.CardType.ReceiveMoneyFromPlayers) {
+                this.game.players.forEach(p => {
+                    if (p.playerName !== player.playerName && p.active) {
+                        player.money += card.money;
+                        p.money -= card.money;
+                    }
+                });
+            }
+            if (card.cardType === Model.CardType.PayMoneyToPlayers) {
+                this.game.players.forEach(p => {
+                    if (p.playerName !== player.playerName && p.active) {
+                        player.money -= card.money;
+                        p.money += card.money;
+                    }
+                });
+            }
             if (card.cardType === Model.CardType.AdvanceToField) {
                 if (card.boardFieldIndex === 0 && card.skipGoAward) {
                     this.game.moveContext.skipGoAward = true;
                 }
+            }
+            if (card.cardType === Model.CardType.JumpToField) {
+                if (card.boardFieldIndex !== 10) {
+                    this.moveCurrentPlayer(card.boardFieldIndex);
+                }
+            }
+            if (card.cardType === Model.CardType.Maintenance || card.cardType === Model.CardType.OwnMaintenance) {
+                card.money = 0;
+                this.game.board.fields.forEach(f => {
+                    if (f.type === Model.BoardFieldType.Asset && !f.asset.unowned) {
+                        if (f.asset.owner === this.getCurrentPlayer() || card.cardType === Model.CardType.Maintenance) {
+                            var money = 0;
+                            if (f.asset.hotel) {
+                                money = card.pricePerHotel;
+                            } else if (f.asset.houses) {
+                                money += f.asset.houses * card.pricePerHouse;
+                            }
+                            player.money -= money;
+                            card.money += money;
+                        }
+                    }
+                });
             }
         }
 
@@ -536,9 +586,9 @@ module Services {
         }
 
         // process intermediate board fields while moving a player to its destination field
-        processFlyBy(positionIndex: number): Model.ProcessingEvent {
+        processFlyBy(positionIndex: number, backwards?: boolean): Model.ProcessingEvent {
             var processedEvent = Model.ProcessingEvent.None;
-            if (positionIndex === 0) {
+            if (positionIndex === 0 && !backwards) {
                 if (this.game.moveContext.skipGoAward === false) {
                     var player = this.game.players.filter(p => p.playerName === this.getCurrentPlayer())[0];
                     player.money += 200;
@@ -610,6 +660,7 @@ module Services {
             this.currentTreasureCardIndex = 0;
             var treasureCardIndex = 0;
             var eventCardIndex = 0;
+
             var treasureCard = new Model.TreasureCard();
             treasureCard.index = treasureCardIndex++;
             treasureCard.cardType = Model.CardType.ReceiveMoney;
@@ -634,7 +685,85 @@ module Services {
             treasureCard = new Model.TreasureCard();
             treasureCard.index = treasureCardIndex++;
             treasureCard.cardType = Model.CardType.PayMoney;
-            treasureCard.message = "Pay M100 for hospital expenses.";
+            treasureCard.message = "Pay M100 for hospital treatment.";
+            treasureCard.money = 100;
+            this.game.treasureCards.push(treasureCard);
+
+            treasureCard = new Model.TreasureCard();
+            treasureCard.index = treasureCardIndex++;
+            treasureCard.cardType = Model.CardType.PayMoney;
+            treasureCard.message = "Doctor's fee. Pay M50";
+            treasureCard.money = 50;
+            this.game.treasureCards.push(treasureCard);
+
+            treasureCard = new Model.TreasureCard();
+            treasureCard.index = treasureCardIndex++;
+            treasureCard.cardType = Model.CardType.ReceiveMoney;
+            treasureCard.message = "Yearly bonus. You receive M100.";
+            treasureCard.money = 100;
+            this.game.treasureCards.push(treasureCard);
+
+            treasureCard = new Model.TreasureCard();
+            treasureCard.index = treasureCardIndex++;
+            treasureCard.cardType = Model.CardType.ReceiveMoney;
+            treasureCard.message = "Life insurance payoff. You receive M100.";
+            treasureCard.money = 100;
+            this.game.treasureCards.push(treasureCard);
+
+            treasureCard = new Model.TreasureCard();
+            treasureCard.index = treasureCardIndex++;
+            treasureCard.cardType = Model.CardType.PayMoney;
+            treasureCard.message = "Pay M50 for scholarship.";
+            treasureCard.money = 50;
+            this.game.treasureCards.push(treasureCard);
+
+            treasureCard = new Model.TreasureCard();
+            treasureCard.index = treasureCardIndex++;
+            treasureCard.cardType = Model.CardType.ReceiveMoney;
+            treasureCard.message = "Personal income tax return. You receive M20.";
+            treasureCard.money = 20;
+            this.game.treasureCards.push(treasureCard);
+
+            treasureCard = new Model.TreasureCard();
+            treasureCard.index = treasureCardIndex++;
+            treasureCard.cardType = Model.CardType.JumpToField;
+            treasureCard.message = "Go directly to jail, without passing START.";
+            treasureCard.boardFieldIndex = 10;
+            this.game.treasureCards.push(treasureCard);
+
+            treasureCard = new Model.TreasureCard();
+            treasureCard.index = treasureCardIndex++;
+            treasureCard.cardType = Model.CardType.ReceiveMoney;
+            treasureCard.message = "You receive M25 for counseling services.";
+            treasureCard.money = 25;
+            this.game.treasureCards.push(treasureCard);
+
+            treasureCard = new Model.TreasureCard();
+            treasureCard.index = treasureCardIndex++;
+            treasureCard.cardType = Model.CardType.ReceiveMoneyFromPlayers;
+            treasureCard.message = "it's your birthday. You receive M10 from each player.";
+            treasureCard.money = 10;
+            this.game.treasureCards.push(treasureCard);
+
+            treasureCard = new Model.TreasureCard();
+            treasureCard.index = treasureCardIndex++;
+            treasureCard.cardType = Model.CardType.ReceiveMoney;
+            treasureCard.message = "Personal income tax return. You receive M20.";
+            treasureCard.money = 20;
+            this.game.treasureCards.push(treasureCard);
+
+            treasureCard = new Model.TreasureCard();
+            treasureCard.index = treasureCardIndex++;
+            treasureCard.cardType = Model.CardType.Maintenance;
+            treasureCard.message = "Pay for road maintenance. M40 for each house and M115 for each hotel.";
+            treasureCard.pricePerHouse = 40;
+            treasureCard.pricePerHotel = 115;
+            this.game.treasureCards.push(treasureCard);
+
+            treasureCard = new Model.TreasureCard();
+            treasureCard.index = treasureCardIndex++;
+            treasureCard.cardType = Model.CardType.ReceiveMoney;
+            treasureCard.message = "You have inherited M100.";
             treasureCard.money = 100;
             this.game.treasureCards.push(treasureCard);
 
@@ -652,11 +781,39 @@ module Services {
             eventCard.boardFieldCount = 3;
             this.game.eventCards.push(eventCard);
 
-            var eventCard = new Model.EventCard();
+            eventCard = new Model.EventCard();
             eventCard.index = eventCardIndex++;
             eventCard.cardType = Model.CardType.ReceiveMoney;
             eventCard.message = "Bank has issued dividends worth of M50.";
             eventCard.money = 50;
+            this.game.eventCards.push(eventCard);
+
+            eventCard = new Model.EventCard();
+            eventCard.index = eventCardIndex++;
+            eventCard.cardType = Model.CardType.AdvanceToField;
+            eventCard.message = "Go to Terme Čatež. If you pass START, you receive M200.";
+            eventCard.boardFieldIndex = 11;
+            this.game.eventCards.push(eventCard);
+
+            eventCard = new Model.EventCard();
+            eventCard.index = eventCardIndex++;
+            eventCard.cardType = Model.CardType.OwnMaintenance;
+            eventCard.message = "Your houses are in need of renovation. Pay M25 for each house and M100 for each hotel.";
+            eventCard.pricePerHouse = 25;
+            eventCard.pricePerHotel = 100;
+            this.game.eventCards.push(eventCard);
+
+            eventCard = new Model.EventCard();
+            eventCard.index = eventCardIndex++;
+            eventCard.cardType = Model.CardType.PayMoneyToPlayers;
+            eventCard.message = "You have been elected board chairman. Pay each player M50.";
+            eventCard.money = 50;
+            this.game.eventCards.push(eventCard);
+
+            eventCard = new Model.EventCard();
+            eventCard.index = eventCardIndex++;
+            eventCard.cardType = Model.CardType.AdvanceToRailway;
+            eventCard.message = "Go to the next railway station. If unowned, you may purchase it from the bank. Otherwise, pay double rent to the owner.";
             this.game.eventCards.push(eventCard);
         }
 

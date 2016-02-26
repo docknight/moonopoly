@@ -12,5 +12,6 @@
         }
 
         skipGoAward: boolean;
+        doubleRent: boolean;
     }
 } 

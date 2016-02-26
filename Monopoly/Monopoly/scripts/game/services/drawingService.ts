@@ -63,7 +63,7 @@ module Services {
             playerModel.mesh.rotationQuaternion = this.getPlayerRotationOnBoardField(playerModel, player.position.index);
         }
 
-        animatePlayerMove(oldPosition: Model.BoardField, newPosition: Model.BoardField, playerModel: MonopolyApp.Viewmodels.Player, scene: BABYLON.Scene, fast?: boolean): JQueryDeferred<{}> {
+        animatePlayerMove(oldPosition: Model.BoardField, newPosition: Model.BoardField, playerModel: MonopolyApp.Viewmodels.Player, scene: BABYLON.Scene, fast?: boolean, backwards?: boolean): JQueryDeferred<{}> {
             var positionKeys = [];
             var rotationKeys = [];
             var framesForField = this.framesToMoveOneBoardField;
@@ -74,15 +74,30 @@ module Services {
             }
             var runningFrame = 0;
             var runningField = 0;
-            var fieldsToTravel = newPosition.index >= oldPosition.index ? newPosition.index - oldPosition.index : 40 - oldPosition.index + newPosition.index;            
+            var fieldsToTravel = backwards ? (newPosition.index <= oldPosition.index ? oldPosition.index - newPosition.index : 40 - newPosition.index + oldPosition.index) :
+                newPosition.index >= oldPosition.index ? newPosition.index - oldPosition.index : 40 - oldPosition.index + newPosition.index;            
             while (runningField <= fieldsToTravel) {
                 var runningPosition = (oldPosition.index + runningField) % 40;
+                if (backwards) {
+                    runningPosition = oldPosition.index - runningField;
+                    if (runningPosition < 0) {
+                        runningPosition = 40 + runningPosition;
+                    }
+                }
                 if (runningField > 0) {
-                    if ((oldPosition.index + runningField) % 10 === 0) {
-                        runningFrame += framesForRotation;
+                    if (backwards) {
+                        if (runningPosition % 10 === 0) {
+                            runningFrame += framesForRotation;
+                        } else {
+                            runningFrame += framesForField;
+                        }
                     } else {
-                        runningFrame += framesForField;
-                    }                    
+                        if ((oldPosition.index + runningField) % 10 === 0) {
+                            runningFrame += framesForRotation;
+                        } else {
+                            runningFrame += framesForField;
+                        }
+                    }
                 }
                 var coordinate = this.getPlayerPositionOnBoardField(playerModel, runningPosition);
                 var playerPosition = new BABYLON.Vector3(coordinate.x, playerModel.mesh.position.y, coordinate.z);
@@ -149,10 +164,17 @@ module Services {
             physicsEngine._unregisterMesh(this.diceMesh);
         }
 
-        moveDiceToPosition(position: BABYLON.Vector3) {
+        moveDiceToPosition(position: BABYLON.Vector3, scene: BABYLON.Scene) {
             this.diceMesh.position.x = position.x;
             this.diceMesh.position.y = position.y;
             this.diceMesh.position.z = position.z;            
+            var physicsEngine = scene.getPhysicsEngine();
+            var body = physicsEngine.getPhysicsBodyOfMesh(this.diceMesh);
+            if (body) {
+                body.position.x = position.x;
+                body.position.y = position.y;
+                body.position.z = position.z;
+            }
         }
 
         moveCameraForDiceThrow(scene: BABYLON.Scene, camera: BABYLON.FreeCamera, currentPlayerPosition: Model.BoardField) {
