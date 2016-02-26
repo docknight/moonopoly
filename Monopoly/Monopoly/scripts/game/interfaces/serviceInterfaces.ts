@@ -14,6 +14,7 @@
         canSurrender: boolean;
         winner: string;
         gameState: Model.GameState;
+        isComputerMove: boolean;
         initGame();
         getCurrentPlayer(): string;
         endTurn();
@@ -48,7 +49,7 @@
         getBoardFieldsInGroup(focusedAssetGroupIndex: number): Array<Model.BoardField>;
         canMortgage(asset: Model.Asset): boolean;
         getOutOfJail();
-        moveProcessingDone();
+        moveProcessingDone();        
     }
     export interface IDrawingService {
         boardSize: number;
@@ -78,6 +79,12 @@
         // get the rotation required for the camera to face the target; position determines the camera position, if it is not equal to its current position
         getCameraRotationForTarget(target: BABYLON.Vector3, camera: BABYLON.FreeCamera, position?: BABYLON.Vector3): BABYLON.Vector3;
         returnCameraToMainPosition(scene: BABYLON.Scene, camera: BABYLON.FreeCamera, currentPlayerPositionIndex: number, numFrames?: number): JQueryDeferred<{}>;
-        moveCameraForDiceThrow(scene: BABYLON.Scene, camera: BABYLON.FreeCamera, currentPlayerPosition: Model.BoardField);
+        moveCameraForDiceThrow(scene: BABYLON.Scene, camera: BABYLON.FreeCamera, currentPlayerPosition: Model.BoardField): JQueryDeferred<{}>;
+        getRandomPointOnDice(): BABYLON.Vector3;
+    }
+
+    export interface IAIService {
+        afterMoveProcessing(): Array<Model.AIAction>;
+        shouldBuy(asset: Model.Asset): boolean;
     }
 }

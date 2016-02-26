@@ -9,8 +9,9 @@ module MonopolyApp.controllers {
         timeoutService: angular.ITimeoutService;
         gameService: Interfaces.IGameService;
         drawingService: Interfaces.IDrawingService;
+        aiService: Interfaces.IAIService;
         swipeService: any;
-        static $inject = ["$state", "$swipe", "$scope", "$timeout", "gameService", "drawingService"];
+        static $inject = ["$state", "$swipe", "$scope", "$timeout", "gameService", "drawingService", "aiService"];
 
         private players: Array<Viewmodels.Player>;
         private boardFields: Array<Viewmodels.BoardField>;
@@ -39,12 +40,13 @@ module MonopolyApp.controllers {
             return this.players;
         }
 
-        constructor(stateService: angular.ui.IStateService, swipeService: any, scope: angular.IScope, timeoutService: angular.ITimeoutService ,gameService: Interfaces.IGameService, drawingService: Interfaces.IDrawingService) {
+        constructor(stateService: angular.ui.IStateService, swipeService: any, scope: angular.IScope, timeoutService: angular.ITimeoutService ,gameService: Interfaces.IGameService, drawingService: Interfaces.IDrawingService, aiService: Interfaces.IAIService) {
             this.scope = scope;
             this.stateService = stateService;
             this.timeoutService = timeoutService;
             this.gameService = gameService;
             this.drawingService = drawingService;
+            this.aiService = aiService;
             this.swipeService = swipeService;
             this.initGame();
             this.createScene();
@@ -64,7 +66,11 @@ module MonopolyApp.controllers {
                 this.gameService.throwDice();
                 this.setAvailableActions();
                 this.drawingService.setupDiceForThrow(this.scene);
-                this.drawingService.moveCameraForDiceThrow(this.scene, this.gameCamera, this.gameService.getCurrentPlayerPosition());
+                $.when(this.drawingService.moveCameraForDiceThrow(this.scene, this.gameCamera, this.gameService.getCurrentPlayerPosition())).done(() => {
+                    if (this.gameService.isComputerMove) {
+                        this.throwDice(this.drawingService.getRandomPointOnDice());
+                    }
+                });
             }
         }
 
@@ -111,8 +117,32 @@ module MonopolyApp.controllers {
                         that.setAvailableActions();
                         $.when(that.processDestinationField()).done(() => {
                             that.gameService.moveProcessingDone();
-                            that.setAvailableActions();
-                            d.resolve();
+                            if (that.gameService.isComputerMove && that.gameService.canEndTurn) {
+                                // since movePlayer() can be executed several times during a single move, we must ensure this block only runs once
+                                var actions = that.aiService.afterMoveProcessing();
+                                var computerActions = $.Deferred();
+                                if (actions.length > 0) {
+                                    actions.forEach(action => {
+                                        if (action.actionType === Model.AIActionType.Buy) {
+                                            this.buy();
+                                        }
+                                    });
+                                    // give other players time to catch up with computer's actions
+                                    this.timeoutService(() => {
+                                        computerActions.resolve();
+                                    }, 3000);
+                                } else {
+                                    computerActions.resolve();
+                                }
+                                $.when(computerActions).done(() => {
+                                    that.endTurn();
+                                    that.setAvailableActions();
+                                    d.resolve();
+                                });
+                            } else {
+                                that.setAvailableActions();
+                                d.resolve();
+                            }
                         });
                     });
                 });
@@ -207,6 +237,11 @@ module MonopolyApp.controllers {
                 this.drawingService.returnCameraToMainPosition(this.scene, this.gameCamera, this.gameService.getCurrentPlayerPosition().index);
                 this.setAvailableActions();
                 this.showMessage(this.currentPlayer + " is starting his turn.");
+                if (this.gameService.isComputerMove) {
+                    this.timeoutService(() => {
+                        this.setupThrowDice();
+                    }, 1000);                               
+                }
             }
         }
 
@@ -438,12 +473,12 @@ module MonopolyApp.controllers {
         }
 
         private setAvailableActions() {
-            this.availableActions.endTurn = this.gameService.canEndTurn;
-            this.availableActions.throwDice = this.gameService.canThrowDice;
-            this.availableActions.buy = this.gameService.canBuy;
-            this.availableActions.manage = this.gameService.canManage;
-            this.availableActions.getOutOfJail = this.gameService.canGetOutOfJail;
-            this.availableActions.surrender = this.gameService.canSurrender;
+            this.availableActions.endTurn = !this.gameService.isComputerMove && this.gameService.canEndTurn;
+            this.availableActions.throwDice = !this.gameService.isComputerMove && this.gameService.canThrowDice;
+            this.availableActions.buy = !this.gameService.isComputerMove && this.gameService.canBuy;
+            this.availableActions.manage = !this.gameService.isComputerMove && this.gameService.canManage;
+            this.availableActions.getOutOfJail = !this.gameService.isComputerMove && this.gameService.canGetOutOfJail;
+            this.availableActions.surrender = !this.gameService.isComputerMove && this.gameService.canSurrender;
         }
 
         private animateMove(oldPosition: Model.BoardField, newPosition: Model.BoardField, fast?: boolean, backwards?: boolean): JQueryDeferred<{}> {
@@ -454,8 +489,7 @@ module MonopolyApp.controllers {
         private processDestinationField(): JQueryDeferred<{}> {
             var d = $.Deferred();
             if (this.gameService.getCurrentPlayerPosition().type === Model.BoardFieldType.Asset) {
-                this.processAssetField(this.gameService.getCurrentPlayerPosition());
-                d.resolve();
+                $.when(this.processAssetField(this.gameService.getCurrentPlayerPosition())).done(() => { d.resolve(); });                
             }
             if (this.gameService.getCurrentPlayerPosition().type === Model.BoardFieldType.Treasure || this.gameService.getCurrentPlayerPosition().type === Model.BoardFieldType.Event) {
                 $.when(this.processCardField(this.gameService.getCurrentPlayerPosition())).done(() => {
@@ -463,8 +497,9 @@ module MonopolyApp.controllers {
                 });
             }
             if (this.gameService.getCurrentPlayerPosition().type === Model.BoardFieldType.Tax || this.gameService.getCurrentPlayerPosition().type === Model.BoardFieldType.TaxIncome) {
-                this.processTaxField(this.gameService.getCurrentPlayerPosition().type);
-                d.resolve();
+                $.when(this.processTaxField(this.gameService.getCurrentPlayerPosition().type)).done(() => {
+                    d.resolve();
+                });                
             }
             if (this.gameService.getCurrentPlayerPosition().type === Model.BoardFieldType.GoToPrison) {
                 this.processGoToPrisonField();
@@ -476,15 +511,29 @@ module MonopolyApp.controllers {
             return d;
         }
 
-        private processAssetField(position: Model.BoardField) {
+        private processAssetField(position: Model.BoardField): JQueryDeferred<{}> {
+            var d = $.Deferred();
             this.assetToBuy = this.gameService.getCurrentPlayerPosition().asset;
             if (!position.asset.unowned && position.asset.owner !== this.gameService.getCurrentPlayer()) {
                 var result = this.gameService.processOwnedFieldVisit();
                 if (result.message) {
                     this.showMessage(result.message);
+                    if (this.gameService.isComputerMove) {
+                        // give other players time to catch up with computer's actions
+                        this.timeoutService(() => {
+                            d.resolve();
+                        }, 3000);
+                    } else {
+                        d.resolve();
+                    }
+                } else {
+                    d.resolve();
                 }
                 this.updatePlayersForView();
+            } else {
+                d.resolve();
             }
+            return d;
         }
 
         private showMessage(message: string) {
@@ -537,7 +586,7 @@ module MonopolyApp.controllers {
                     thisInstance.removeHousePreview(pickedObject.position);
                 }
             }
-            if (thisInstance.gameService.gameState === Model.GameState.ThrowDice && !thisInstance.swipeInProgress) {
+            if (thisInstance.gameService.gameState === Model.GameState.ThrowDice && !thisInstance.swipeInProgress && !thisInstance.gameService.isComputerMove) {
                 mouseEventObject = <TouchEvent>eventObject.originalEvent;
                 var pickedObject2 = thisInstance.drawingService.pickBoardElement(thisInstance.scene, mouseEventObject && mouseEventObject.changedTouches && mouseEventObject.changedTouches.length > 0 ? { x: mouseEventObject.changedTouches[0].clientX, y: mouseEventObject.changedTouches[0].clientY } : undefined);
                 if (pickedObject2 && pickedObject2.pickedObjectType === Viewmodels.PickedObjectType.Dice) {
@@ -710,10 +759,20 @@ module MonopolyApp.controllers {
             return d;
         }
 
-        private processTaxField(boardFieldType: Model.BoardFieldType) {
+        private processTaxField(boardFieldType: Model.BoardFieldType): JQueryDeferred<{}> {
+            var d = $.Deferred();
             var paid = this.gameService.processTax(boardFieldType);
             this.updatePlayersForView();
             this.showMessage(this.currentPlayer + " paid M" + paid + " of income tax.");
+            if (this.gameService.isComputerMove) {
+                // give other players time to catch up with computer's actions
+                this.timeoutService(() => {
+                    d.resolve();
+                }, 3000);
+            } else {
+                d.resolve();
+            }
+            return d;
         }
 
         private processGoToPrisonField() {

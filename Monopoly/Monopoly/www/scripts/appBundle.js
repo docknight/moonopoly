@@ -63,6 +63,21 @@ var BlankCordovaApp3;
 })(BlankCordovaApp3 || (BlankCordovaApp3 = {}));
 var Model;
 (function (Model) {
+    (function (AIActionType) {
+        AIActionType[AIActionType["Buy"] = 0] = "Buy";
+        AIActionType[AIActionType["Sell"] = 1] = "Sell";
+    })(Model.AIActionType || (Model.AIActionType = {}));
+    var AIActionType = Model.AIActionType;
+    ;
+    var AIAction = (function () {
+        function AIAction() {
+        }
+        return AIAction;
+    })();
+    Model.AIAction = AIAction;
+})(Model || (Model = {}));
+var Model;
+(function (Model) {
     (function (AssetGroup) {
         AssetGroup[AssetGroup["None"] = 0] = "None";
         AssetGroup[AssetGroup["First"] = 1] = "First";
@@ -821,6 +836,69 @@ var monopolyApp = angular.module('monopolyApp', ['ui.router', 'ui.bootstrap', 'n
 /// <reference path="../../monopolyApp/modules/monopolyApp.ts" />
 var Services;
 (function (Services) {
+    var SettingsService = (function () {
+        function SettingsService($http) {
+            this.loadSettings = function () {
+                //For the purpose of this demo I am returning the hard coded values, however in real world application
+                //You would probably use "this.httpService.get" method to call backend REST apis to fetch the data from server.
+                var settings = new Model.Settings();
+                settings.numPlayers = 2;
+                settings.playerName = "Player 1";
+                return settings;
+            };
+            this.httpService = $http;
+        }
+        SettingsService.prototype.saveSettings = function (settings) {
+        };
+        SettingsService.$inject = ["$http"];
+        return SettingsService;
+    })();
+    Services.SettingsService = SettingsService;
+    monopolyApp.service("settingsService", SettingsService);
+})(Services || (Services = {}));
+/// <reference path="../interfaces/serviceInterfaces.ts" />
+/// <reference path="../../../scripts/typings/angularjs/angular.d.ts" />
+/// <reference path="../../monopolyApp/modules/monopolyApp.ts" />
+/// <reference path="../../../scripts/game/services/settingsService.ts" />
+var Services;
+(function (Services) {
+    var AIService = (function () {
+        function AIService(gameService) {
+            this.gameService = gameService;
+        }
+        // process computer managing his properties or trading
+        AIService.prototype.afterMoveProcessing = function () {
+            var actions = new Array();
+            if (this.gameService.canBuy) {
+                var asset = this.gameService.getCurrentPlayerPosition().asset;
+                if (this.shouldBuy(asset)) {
+                    var buyAction = new Model.AIAction();
+                    buyAction.actionType = Model.AIActionType.Buy;
+                    actions.push(buyAction);
+                }
+            }
+            return actions;
+        };
+        // determine whether the computer should buy current property he has landed on
+        AIService.prototype.shouldBuy = function (asset) {
+            var _this = this;
+            var player = this.gameService.players.filter(function (p) { return p.playerName === _this.gameService.getCurrentPlayer(); })[0];
+            if (player.money > asset.price + 150) {
+                return true;
+            }
+            return false;
+        };
+        AIService.$inject = ["gameService"];
+        return AIService;
+    })();
+    Services.AIService = AIService;
+    monopolyApp.service("aiService", AIService);
+})(Services || (Services = {}));
+/// <reference path="../interfaces/serviceInterfaces.ts" />
+/// <reference path="../../../scripts/typings/angularjs/angular.d.ts" />
+/// <reference path="../../monopolyApp/modules/monopolyApp.ts" />
+var Services;
+(function (Services) {
     var DrawingService = (function () {
         function DrawingService($http, gameService) {
             this.boardFieldsInQuadrant = 11;
@@ -980,6 +1058,7 @@ var Services;
             }
         };
         DrawingService.prototype.moveCameraForDiceThrow = function (scene, camera, currentPlayerPosition) {
+            var d = $.Deferred();
             var animationCameraPosition = new BABYLON.Animation("cameraDiceThrowMoveAnimation", "position", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
             var animationCameraRotation = new BABYLON.Animation("cameraDiceThrowRotateAnimation", "rotation", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
             var topCenter = this.getPositionCoordinate(currentPlayerPosition.index);
@@ -1016,7 +1095,8 @@ var Services;
             camera.animations = [];
             camera.animations.push(animationCameraPosition);
             camera.animations.push(animationCameraRotation);
-            scene.beginAnimation(camera, 0, 30, false, undefined, function () { });
+            scene.beginAnimation(camera, 0, 30, false, undefined, function () { d.resolve(); });
+            return d;
         };
         DrawingService.prototype.animateDiceThrow = function (scene, impulsePoint) {
             this.numFramesDiceIsAtRest = 0;
@@ -1028,6 +1108,13 @@ var Services;
                 this.diceMesh.applyImpulse(dir.scale(0.2), impulsePoint);
             }
             this.throwingDice = true;
+        };
+        DrawingService.prototype.getRandomPointOnDice = function () {
+            var point = new BABYLON.Vector3(this.diceMesh.position.x, this.diceMesh.position.y, this.diceMesh.position.z);
+            point.x = point.x - this.diceHeight * 0.5 + Math.random() * this.diceHeight;
+            point.y = point.y - this.diceHeight * 0.5 + Math.random() * this.diceHeight;
+            point.z = point.z - this.diceHeight * 0.5 + Math.random() * this.diceHeight;
+            return point;
         };
         // animates camera back to the base viewing position; returns the deferred object that will be resolved when the animation finishes
         DrawingService.prototype.returnCameraToMainPosition = function (scene, camera, currentPlayerPositionIndex, numFrames) {
@@ -1679,7 +1766,7 @@ var Services;
         DrawingService.prototype.getDiceResult = function () {
             var rotationMatrix = new BABYLON.Matrix();
             this.diceMesh.rotationQuaternion.toRotationMatrix(rotationMatrix);
-            return 2;
+            return 1;
             if (this.epsilonCompare(rotationMatrix.m[0], 0) && this.epsilonCompare(rotationMatrix.m[1], 1) && this.epsilonCompare(rotationMatrix.m[2], 0) && this.epsilonCompare(rotationMatrix.m[5], 0) && this.epsilonCompare(rotationMatrix.m[9], 0)) {
                 return 1;
             }
@@ -1747,31 +1834,6 @@ var Services;
     })();
     Services.DrawingService = DrawingService;
     monopolyApp.service("drawingService", DrawingService);
-})(Services || (Services = {}));
-/// <reference path="../interfaces/serviceInterfaces.ts" />
-/// <reference path="../../../scripts/typings/angularjs/angular.d.ts" />
-/// <reference path="../../monopolyApp/modules/monopolyApp.ts" />
-var Services;
-(function (Services) {
-    var SettingsService = (function () {
-        function SettingsService($http) {
-            this.loadSettings = function () {
-                //For the purpose of this demo I am returning the hard coded values, however in real world application
-                //You would probably use "this.httpService.get" method to call backend REST apis to fetch the data from server.
-                var settings = new Model.Settings();
-                settings.numPlayers = 2;
-                settings.playerName = "Player 1";
-                return settings;
-            };
-            this.httpService = $http;
-        }
-        SettingsService.prototype.saveSettings = function (settings) {
-        };
-        SettingsService.$inject = ["$http"];
-        return SettingsService;
-    })();
-    Services.SettingsService = SettingsService;
-    monopolyApp.service("settingsService", SettingsService);
 })(Services || (Services = {}));
 /// <reference path="../interfaces/serviceInterfaces.ts" />
 /// <reference path="../../../scripts/typings/angularjs/angular.d.ts" />
@@ -1885,7 +1947,7 @@ var Services;
         Object.defineProperty(GameService.prototype, "canGetOutOfJail", {
             get: function () {
                 var _this = this;
-                if (this.game.getState() === Model.GameState.BeginTurn || this.game.getState() === Model.GameState.Process) {
+                if (this.game.getState() === Model.GameState.BeginTurn || this.game.getState() === Model.GameState.ProcessingDone) {
                     var currentPosition = this.getCurrentPlayerPosition();
                     if (currentPosition.type === Model.BoardFieldType.PrisonAndVisit) {
                         var player = this.game.players.filter(function (p) { return p.playerName === _this.getCurrentPlayer(); })[0];
@@ -1893,7 +1955,7 @@ var Services;
                             if (this.game.getState() === Model.GameState.BeginTurn) {
                                 return true;
                             }
-                            if (this.game.getState() === Model.GameState.Process && player.turnsInPrison === 0 && this.lastDiceResult !== 6) {
+                            if (this.game.getState() === Model.GameState.ProcessingDone && player.turnsInPrison === 0 && this.lastDiceResult !== 6) {
                                 return true;
                             }
                         }
@@ -1932,6 +1994,15 @@ var Services;
                     return activePlayers[0].playerName;
                 }
                 return undefined;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(GameService.prototype, "isComputerMove", {
+            get: function () {
+                var _this = this;
+                var player = this.game.players.filter(function (p) { return p.playerName === _this.getCurrentPlayer(); })[0];
+                return !player.human;
             },
             enumerable: true,
             configurable: true
@@ -2431,16 +2502,6 @@ var Services;
             var eventCardIndex = 0;
             var treasureCard = new Model.TreasureCard();
             treasureCard.index = treasureCardIndex++;
-            treasureCard.cardType = Model.CardType.AdvanceToRailway;
-            treasureCard.message = "Go to the next railway station. If unowned, you may purchase it from the bank. Otherwise, pay double rent to the owner.";
-            this.game.treasureCards.push(treasureCard);
-            treasureCard = new Model.TreasureCard();
-            treasureCard.index = treasureCardIndex++;
-            treasureCard.cardType = Model.CardType.AdvanceToRailway;
-            treasureCard.message = "Go to the next railway station. If unowned, you may purchase it from the bank. Otherwise, pay double rent to the owner.";
-            this.game.treasureCards.push(treasureCard);
-            treasureCard = new Model.TreasureCard();
-            treasureCard.index = treasureCardIndex++;
             treasureCard.cardType = Model.CardType.ReceiveMoney;
             treasureCard.message = "Bank error. You receive M200.";
             treasureCard.money = 200;
@@ -2572,6 +2633,35 @@ var Services;
             eventCard.cardType = Model.CardType.AdvanceToRailway;
             eventCard.message = "Go to the next railway station. If unowned, you may purchase it from the bank. Otherwise, pay double rent to the owner.";
             this.game.eventCards.push(eventCard);
+            eventCard = new Model.EventCard();
+            eventCard.index = eventCardIndex++;
+            eventCard.cardType = Model.CardType.AdvanceToField;
+            eventCard.message = "Go to Logarska dolina. If you pass START, you receive M200.";
+            eventCard.boardFieldIndex = 24;
+            this.game.eventCards.push(eventCard);
+            eventCard = new Model.EventCard();
+            eventCard.index = eventCardIndex++;
+            eventCard.cardType = Model.CardType.ReceiveMoney;
+            eventCard.message = "Building loan payment. You receive M150.";
+            eventCard.money = 150;
+            this.game.eventCards.push(eventCard);
+            eventCard = new Model.EventCard();
+            eventCard.index = eventCardIndex++;
+            eventCard.cardType = Model.CardType.AdvanceToRailway;
+            eventCard.message = "Go to the next railway station. If unowned, you may purchase it from the bank. Otherwise, pay double rent to the owner.";
+            this.game.eventCards.push(eventCard);
+            eventCard = new Model.EventCard();
+            eventCard.index = eventCardIndex++;
+            eventCard.cardType = Model.CardType.AdvanceToField;
+            eventCard.message = "Take a trip to Jesenice. If you pass START, you receive M200.";
+            eventCard.boardFieldIndex = 5;
+            this.game.eventCards.push(eventCard);
+            eventCard = new Model.EventCard();
+            eventCard.index = eventCardIndex++;
+            eventCard.cardType = Model.CardType.AdvanceToField;
+            eventCard.message = "Go to Portorož.";
+            eventCard.boardFieldIndex = 39;
+            this.game.eventCards.push(eventCard);
         };
         GameService.prototype.initManageGroups = function () {
             this.manageGroups = new Array();
@@ -2630,12 +2720,13 @@ var MonopolyApp;
     var controllers;
     (function (controllers) {
         var GameController = (function () {
-            function GameController(stateService, swipeService, scope, timeoutService, gameService, drawingService) {
+            function GameController(stateService, swipeService, scope, timeoutService, gameService, drawingService, aiService) {
                 this.scope = scope;
                 this.stateService = stateService;
                 this.timeoutService = timeoutService;
                 this.gameService = gameService;
                 this.drawingService = drawingService;
+                this.aiService = aiService;
                 this.swipeService = swipeService;
                 this.initGame();
                 this.createScene();
@@ -2663,11 +2754,16 @@ var MonopolyApp;
                 this.gameService.initGame();
             };
             GameController.prototype.setupThrowDice = function () {
+                var _this = this;
                 if (this.gameService.canThrowDice) {
                     this.gameService.throwDice();
                     this.setAvailableActions();
                     this.drawingService.setupDiceForThrow(this.scene);
-                    this.drawingService.moveCameraForDiceThrow(this.scene, this.gameCamera, this.gameService.getCurrentPlayerPosition());
+                    $.when(this.drawingService.moveCameraForDiceThrow(this.scene, this.gameCamera, this.gameService.getCurrentPlayerPosition())).done(function () {
+                        if (_this.gameService.isComputerMove) {
+                            _this.throwDice(_this.drawingService.getRandomPointOnDice());
+                        }
+                    });
                 }
             };
             GameController.prototype.throwDice = function (impulsePoint) {
@@ -2692,6 +2788,7 @@ var MonopolyApp;
             };
             // move player to a destination defined by last dice throw or by explicit parameter value (as requested by an event card, for instance)
             GameController.prototype.movePlayer = function (newPositionIndex, backwards, doubleRent) {
+                var _this = this;
                 var d = $.Deferred();
                 var oldPosition = this.gameService.getCurrentPlayerPosition();
                 var newPosition = this.gameService.moveCurrentPlayer(newPositionIndex, doubleRent);
@@ -2714,8 +2811,34 @@ var MonopolyApp;
                             that.setAvailableActions();
                             $.when(that.processDestinationField()).done(function () {
                                 that.gameService.moveProcessingDone();
-                                that.setAvailableActions();
-                                d.resolve();
+                                if (that.gameService.isComputerMove && that.gameService.canEndTurn) {
+                                    // since movePlayer() can be executed several times during a single move, we must ensure this block only runs once
+                                    var actions = that.aiService.afterMoveProcessing();
+                                    var computerActions = $.Deferred();
+                                    if (actions.length > 0) {
+                                        actions.forEach(function (action) {
+                                            if (action.actionType === Model.AIActionType.Buy) {
+                                                _this.buy();
+                                            }
+                                        });
+                                        // give other players time to catch up with computer's actions
+                                        _this.timeoutService(function () {
+                                            computerActions.resolve();
+                                        }, 3000);
+                                    }
+                                    else {
+                                        computerActions.resolve();
+                                    }
+                                    $.when(computerActions).done(function () {
+                                        that.endTurn();
+                                        that.setAvailableActions();
+                                        d.resolve();
+                                    });
+                                }
+                                else {
+                                    that.setAvailableActions();
+                                    d.resolve();
+                                }
                             });
                         });
                     });
@@ -2795,11 +2918,17 @@ var MonopolyApp;
                 });
             };
             GameController.prototype.endTurn = function () {
+                var _this = this;
                 if (this.gameService.canEndTurn) {
                     this.gameService.endTurn();
                     this.drawingService.returnCameraToMainPosition(this.scene, this.gameCamera, this.gameService.getCurrentPlayerPosition().index);
                     this.setAvailableActions();
                     this.showMessage(this.currentPlayer + " is starting his turn.");
+                    if (this.gameService.isComputerMove) {
+                        this.timeoutService(function () {
+                            _this.setupThrowDice();
+                        }, 1000);
+                    }
                 }
             };
             GameController.prototype.closeAssetManagementWindow = function () {
@@ -3012,12 +3141,12 @@ var MonopolyApp;
                 });
             };
             GameController.prototype.setAvailableActions = function () {
-                this.availableActions.endTurn = this.gameService.canEndTurn;
-                this.availableActions.throwDice = this.gameService.canThrowDice;
-                this.availableActions.buy = this.gameService.canBuy;
-                this.availableActions.manage = this.gameService.canManage;
-                this.availableActions.getOutOfJail = this.gameService.canGetOutOfJail;
-                this.availableActions.surrender = this.gameService.canSurrender;
+                this.availableActions.endTurn = !this.gameService.isComputerMove && this.gameService.canEndTurn;
+                this.availableActions.throwDice = !this.gameService.isComputerMove && this.gameService.canThrowDice;
+                this.availableActions.buy = !this.gameService.isComputerMove && this.gameService.canBuy;
+                this.availableActions.manage = !this.gameService.isComputerMove && this.gameService.canManage;
+                this.availableActions.getOutOfJail = !this.gameService.isComputerMove && this.gameService.canGetOutOfJail;
+                this.availableActions.surrender = !this.gameService.isComputerMove && this.gameService.canSurrender;
             };
             GameController.prototype.animateMove = function (oldPosition, newPosition, fast, backwards) {
                 var _this = this;
@@ -3027,8 +3156,7 @@ var MonopolyApp;
             GameController.prototype.processDestinationField = function () {
                 var d = $.Deferred();
                 if (this.gameService.getCurrentPlayerPosition().type === Model.BoardFieldType.Asset) {
-                    this.processAssetField(this.gameService.getCurrentPlayerPosition());
-                    d.resolve();
+                    $.when(this.processAssetField(this.gameService.getCurrentPlayerPosition())).done(function () { d.resolve(); });
                 }
                 if (this.gameService.getCurrentPlayerPosition().type === Model.BoardFieldType.Treasure || this.gameService.getCurrentPlayerPosition().type === Model.BoardFieldType.Event) {
                     $.when(this.processCardField(this.gameService.getCurrentPlayerPosition())).done(function () {
@@ -3036,8 +3164,9 @@ var MonopolyApp;
                     });
                 }
                 if (this.gameService.getCurrentPlayerPosition().type === Model.BoardFieldType.Tax || this.gameService.getCurrentPlayerPosition().type === Model.BoardFieldType.TaxIncome) {
-                    this.processTaxField(this.gameService.getCurrentPlayerPosition().type);
-                    d.resolve();
+                    $.when(this.processTaxField(this.gameService.getCurrentPlayerPosition().type)).done(function () {
+                        d.resolve();
+                    });
                 }
                 if (this.gameService.getCurrentPlayerPosition().type === Model.BoardFieldType.GoToPrison) {
                     this.processGoToPrisonField();
@@ -3050,16 +3179,31 @@ var MonopolyApp;
                 return d;
             };
             GameController.prototype.processAssetField = function (position) {
+                var d = $.Deferred();
                 this.assetToBuy = this.gameService.getCurrentPlayerPosition().asset;
-                /*if (this.availableActions.buy) {
-                    this.showDeed();
-                } else */ if (!position.asset.unowned && position.asset.owner !== this.gameService.getCurrentPlayer()) {
+                if (!position.asset.unowned && position.asset.owner !== this.gameService.getCurrentPlayer()) {
                     var result = this.gameService.processOwnedFieldVisit();
                     if (result.message) {
                         this.showMessage(result.message);
+                        if (this.gameService.isComputerMove) {
+                            // give other players time to catch up with computer's actions
+                            this.timeoutService(function () {
+                                d.resolve();
+                            }, 3000);
+                        }
+                        else {
+                            d.resolve();
+                        }
+                    }
+                    else {
+                        d.resolve();
                     }
                     this.updatePlayersForView();
                 }
+                else {
+                    d.resolve();
+                }
+                return d;
             };
             GameController.prototype.showMessage = function (message) {
                 $("#messageOverlay").stop();
@@ -3114,7 +3258,7 @@ var MonopolyApp;
                         thisInstance.removeHousePreview(pickedObject.position);
                     }
                 }
-                if (thisInstance.gameService.gameState === Model.GameState.ThrowDice && !thisInstance.swipeInProgress) {
+                if (thisInstance.gameService.gameState === Model.GameState.ThrowDice && !thisInstance.swipeInProgress && !thisInstance.gameService.isComputerMove) {
                     mouseEventObject = eventObject.originalEvent;
                     var pickedObject2 = thisInstance.drawingService.pickBoardElement(thisInstance.scene, mouseEventObject && mouseEventObject.changedTouches && mouseEventObject.changedTouches.length > 0 ? { x: mouseEventObject.changedTouches[0].clientX, y: mouseEventObject.changedTouches[0].clientY } : undefined);
                     if (pickedObject2 && pickedObject2.pickedObjectType === MonopolyApp.Viewmodels.PickedObjectType.Dice) {
@@ -3277,9 +3421,20 @@ var MonopolyApp;
                 return d;
             };
             GameController.prototype.processTaxField = function (boardFieldType) {
+                var d = $.Deferred();
                 var paid = this.gameService.processTax(boardFieldType);
                 this.updatePlayersForView();
                 this.showMessage(this.currentPlayer + " paid M" + paid + " of income tax.");
+                if (this.gameService.isComputerMove) {
+                    // give other players time to catch up with computer's actions
+                    this.timeoutService(function () {
+                        d.resolve();
+                    }, 3000);
+                }
+                else {
+                    d.resolve();
+                }
+                return d;
             };
             GameController.prototype.processGoToPrisonField = function () {
                 var _this = this;
@@ -3483,7 +3638,7 @@ var MonopolyApp;
                     this.refreshMessageHistory();
                 }
             };
-            GameController.$inject = ["$state", "$swipe", "$scope", "$timeout", "gameService", "drawingService"];
+            GameController.$inject = ["$state", "$swipe", "$scope", "$timeout", "gameService", "drawingService", "aiService"];
             return GameController;
         })();
         controllers.GameController = GameController;

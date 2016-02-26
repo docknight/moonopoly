@@ -177,7 +177,8 @@ module Services {
             }
         }
 
-        moveCameraForDiceThrow(scene: BABYLON.Scene, camera: BABYLON.FreeCamera, currentPlayerPosition: Model.BoardField) {
+        moveCameraForDiceThrow(scene: BABYLON.Scene, camera: BABYLON.FreeCamera, currentPlayerPosition: Model.BoardField): JQueryDeferred<{}> {
+            var d = $.Deferred();
             var animationCameraPosition = new BABYLON.Animation("cameraDiceThrowMoveAnimation", "position", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
             var animationCameraRotation = new BABYLON.Animation("cameraDiceThrowRotateAnimation", "rotation", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
             var topCenter = this.getPositionCoordinate(currentPlayerPosition.index);
@@ -215,7 +216,8 @@ module Services {
             camera.animations = [];
             camera.animations.push(animationCameraPosition);
             camera.animations.push(animationCameraRotation);
-            scene.beginAnimation(camera, 0, 30, false, undefined, () => { });            
+            scene.beginAnimation(camera, 0, 30, false, undefined, () => { d.resolve() });
+            return d;
         }
 
         animateDiceThrow(scene: BABYLON.Scene, impulsePoint?: BABYLON.Vector3) {
@@ -228,6 +230,14 @@ module Services {
                 this.diceMesh.applyImpulse(dir.scale(0.2), impulsePoint);
             }
             this.throwingDice = true;
+        }
+
+        getRandomPointOnDice(): BABYLON.Vector3 {
+            var point = new BABYLON.Vector3(this.diceMesh.position.x, this.diceMesh.position.y, this.diceMesh.position.z);
+            point.x = point.x - this.diceHeight * 0.5 + Math.random() * this.diceHeight;
+            point.y = point.y - this.diceHeight * 0.5 + Math.random() * this.diceHeight;
+            point.z = point.z - this.diceHeight * 0.5 + Math.random() * this.diceHeight;
+            return point;
         }
 
         // animates camera back to the base viewing position; returns the deferred object that will be resolved when the animation finishes

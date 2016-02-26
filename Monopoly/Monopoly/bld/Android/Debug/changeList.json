@@ -18,6 +18,7 @@
     "scripts\\typings\\cordova\\plugins\\NetworkInformation.d.ts",
     "scripts\\typings\\cordova\\plugins\\Vibration.d.ts",
     "scripts\\monopolyApp\\models\\boardField.ts",
+    "scripts\\game\\model\\aiAction.ts",
     "scripts\\monopolyApp\\models\\availableActions.ts",
     "scripts\\monopolyApp\\modules\\monopolyApp.ts",
     "scripts\\game\\model\\settings.ts",
@@ -47,6 +48,7 @@
     "scripts\\typings\\cordova\\plugins\\Push.d.ts",
     "scripts\\typings\\cordova\\plugins\\Device.d.ts",
     "scripts\\typings\\cordova\\plugins\\FileTransfer.d.ts",
+    "scripts\\game\\services\\aiService.ts",
     "scripts\\game\\model\\eventCard.ts",
     "scripts\\typings\\angular-ui-scroll\\angular-ui-scroll.d.ts",
     "scripts\\monopolyApp\\models\\card.ts",
@@ -1028,7 +1030,8 @@
     "scripts\\i18n\\angular-locale_en-pw.js",
     "www\\app\\js\\modules\\monopolyApp.js",
     "scripts\\angular-messages.js",
-    "scripts\\i18n\\angular-locale_pt-pt.js"
+    "scripts\\i18n\\angular-locale_pt-pt.js",
+    "scripts\\monopolyApp\\controllers\\gameCtrl.ts~RF1794ca0.TMP"
   ],
   "deletedFilesIos": [],
   "addedPluginsIos": [],

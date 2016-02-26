@@ -105,7 +105,7 @@ module Services {
         }
 
         get canGetOutOfJail(): boolean {
-            if (this.game.getState() === Model.GameState.BeginTurn || this.game.getState() === Model.GameState.Process) {
+            if (this.game.getState() === Model.GameState.BeginTurn || this.game.getState() === Model.GameState.ProcessingDone) {
                 var currentPosition = this.getCurrentPlayerPosition();
                 if (currentPosition.type === Model.BoardFieldType.PrisonAndVisit) {
                     var player = this.game.players.filter(p => p.playerName === this.getCurrentPlayer())[0];
@@ -113,7 +113,7 @@ module Services {
                         if (this.game.getState() === Model.GameState.BeginTurn) {
                             return true;
                         }
-                        if (this.game.getState() === Model.GameState.Process && player.turnsInPrison === 0 && this.lastDiceResult !== 6) {
+                        if (this.game.getState() === Model.GameState.ProcessingDone && player.turnsInPrison === 0 && this.lastDiceResult !== 6) {
                             return true;
                         }
                     }
@@ -143,6 +143,11 @@ module Services {
             }
 
             return undefined;
+        }
+
+        get isComputerMove(): boolean {
+            var player = this.game.players.filter(p => p.playerName === this.getCurrentPlayer())[0];
+            return !player.human;
         }
 
         setPlayerPosition(player: Model.Player, boardFieldIndex: number) {
@@ -814,6 +819,40 @@ module Services {
             eventCard.index = eventCardIndex++;
             eventCard.cardType = Model.CardType.AdvanceToRailway;
             eventCard.message = "Go to the next railway station. If unowned, you may purchase it from the bank. Otherwise, pay double rent to the owner.";
+            this.game.eventCards.push(eventCard);
+
+            eventCard = new Model.EventCard();
+            eventCard.index = eventCardIndex++;
+            eventCard.cardType = Model.CardType.AdvanceToField;
+            eventCard.message = "Go to Logarska dolina. If you pass START, you receive M200.";
+            eventCard.boardFieldIndex = 24;
+            this.game.eventCards.push(eventCard);
+
+            eventCard = new Model.EventCard();
+            eventCard.index = eventCardIndex++;
+            eventCard.cardType = Model.CardType.ReceiveMoney;
+            eventCard.message = "Building loan payment. You receive M150.";
+            eventCard.money = 150;
+            this.game.eventCards.push(eventCard);
+
+            eventCard = new Model.EventCard();
+            eventCard.index = eventCardIndex++;
+            eventCard.cardType = Model.CardType.AdvanceToRailway;
+            eventCard.message = "Go to the next railway station. If unowned, you may purchase it from the bank. Otherwise, pay double rent to the owner.";
+            this.game.eventCards.push(eventCard);
+
+            eventCard = new Model.EventCard();
+            eventCard.index = eventCardIndex++;
+            eventCard.cardType = Model.CardType.AdvanceToField;
+            eventCard.message = "Take a trip to Jesenice. If you pass START, you receive M200.";
+            eventCard.boardFieldIndex = 5;
+            this.game.eventCards.push(eventCard);
+
+            eventCard = new Model.EventCard();
+            eventCard.index = eventCardIndex++;
+            eventCard.cardType = Model.CardType.AdvanceToField;
+            eventCard.message = "Go to Portorož.";
+            eventCard.boardFieldIndex = 39;
             this.game.eventCards.push(eventCard);
         }
 
