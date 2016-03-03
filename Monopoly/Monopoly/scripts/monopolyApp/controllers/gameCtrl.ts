@@ -103,44 +103,81 @@ module MonopolyApp.controllers {
             var that = this;
             $.when(cameraMovementCompleted).done(() => {
                 var animateMoveCompleted: JQueryDeferred<{}>;
+                var followBoardAnimation: JQueryDeferred<{}> = $.Deferred();
                 if (newPosition) {
                     animateMoveCompleted = that.animateMove(oldPosition, newPosition, newPositionIndex !== undefined, backwards);
                     //var positionsToMove = oldPosition.index < newPosition.index ? newPosition.index - oldPosition.index : (40 - oldPosition.index) + newPosition.index;
                     var positionsToMove = backwards ? (newPosition.index <= oldPosition.index ? oldPosition.index - newPosition.index : 40 - newPosition.index + oldPosition.index) :
                         newPosition.index >= oldPosition.index ? newPosition.index - oldPosition.index : 40 - oldPosition.index + newPosition.index;
-                    that.followBoardFields(oldPosition.index, positionsToMove, that.drawingService, that.scene, that.gameCamera, that, newPositionIndex !== undefined, backwards);
+                    
+                    that.followBoardFields(oldPosition.index, positionsToMove, that.drawingService, that.scene, that.gameCamera, that, followBoardAnimation, newPositionIndex !== undefined, backwards);
                 } else {
                     animateMoveCompleted = $.Deferred().resolve();
+                    followBoardAnimation = $.Deferred().resolve();
                 }
-                $.when(animateMoveCompleted).done(() => {
+                $.when.apply($, [animateMoveCompleted, followBoardAnimation]).done(() => {
                     that.scope.$apply(() => {
                         that.setAvailableActions();
                         $.when(that.processDestinationField()).done(() => {
                             that.gameService.moveProcessingDone();
-                            if (that.gameService.isComputerMove && that.gameService.canEndTurn) {
+                            if (that.gameService.isComputerMove && (that.gameService.canEndTurn || that.gameService.canSurrender)) {
                                 // since movePlayer() can be executed several times during a single move, we must ensure this block only runs once
                                 var actions = that.aiService.afterMoveProcessing();
                                 var computerActions = $.Deferred();
                                 if (actions.length > 0) {
                                     actions.forEach(action => {
                                         if (action.actionType === Model.AIActionType.Buy) {
-                                            this.buy();
+                                            that.buy();
+                                        }
+                                        if (action.actionType === Model.AIActionType.Mortgage) {
+                                            that.toggleMortgageAsset(action.asset);
+                                        }
+                                        if (action.actionType === Model.AIActionType.SellHotel) {
+                                            that.gameService.removeHousePreview(this.currentPlayer, action.position);
+                                            if (that.gameService.commitHouseOrHotel(this.currentPlayer, 0, action.asset.group)) {
+                                                var viewBoardField = that.boardFields.filter(f => f.index === action.position)[0];
+                                                that.drawingService.setBoardFieldHouses(viewBoardField, action.asset.houses, action.asset.hotel, that.scene);
+                                                that.showMessage(this.currentPlayer + " sold hotel on " + action.asset.name + ".");
+                                            }
+                                        }
+                                        if (action.actionType === Model.AIActionType.SellHouse) {
+                                            that.gameService.removeHousePreview(this.currentPlayer, action.position);
+                                            if (that.gameService.commitHouseOrHotel(this.currentPlayer, 0, action.asset.group)) {
+                                                var viewBoardFieldWithHouse = that.boardFields.filter(f => f.index === action.position)[0];
+                                                that.drawingService.setBoardFieldHouses(viewBoardFieldWithHouse, action.asset.houses, action.asset.hotel, that.scene);
+                                                that.showMessage(this.currentPlayer + " sold a house on " + action.asset.name + ".");
+                                            }
+                                        }
+                                        if (action.actionType === Model.AIActionType.Surrender) {
+                                            that.doSurrender();
                                         }
                                     });
                                     // give other players time to catch up with computer's actions
-                                    this.timeoutService(() => {
+                                    that.timeoutService(() => {
                                         computerActions.resolve();
                                     }, 3000);
                                 } else {
-                                    computerActions.resolve();
+                                    if (that.gameService.anyFlyByEvents) {
+                                        // give other players time to catch up with computer's actions
+                                        that.timeoutService(() => {
+                                            computerActions.resolve();
+                                        }, 3000);
+                                    } else {
+                                        computerActions.resolve();
+                                    }
                                 }
                                 $.when(computerActions).done(() => {
                                     that.endTurn();
+                                    that.updatePlayersForView();
                                     that.setAvailableActions();
                                     d.resolve();
                                 });
                             } else {
-                                that.setAvailableActions();
+                                that.timeoutService(() => {
+                                    that.scope.$apply(() => {
+                                        that.setAvailableActions();
+                                    });
+                                });
                                 d.resolve();
                             }
                         });
@@ -151,7 +188,7 @@ module MonopolyApp.controllers {
         }
 
         // animate game camera by following board fields from player current field to its movement destination field; this animation occurs at the same time that the player is moving
-        followBoardFields(positionIndex: number, positionsLeftToMove: number, drawingService: Interfaces.IDrawingService, scene: BABYLON.Scene, camera: BABYLON.FreeCamera, gameController: GameController, fast?: boolean, backwards?: boolean) {
+        private followBoardFields(positionIndex: number, positionsLeftToMove: number, drawingService: Interfaces.IDrawingService, scene: BABYLON.Scene, camera: BABYLON.FreeCamera, gameController: GameController, followBoardAnimation: JQueryDeferred<{}>, fast?: boolean, backwards?: boolean) {
             if (positionsLeftToMove > 0) {
                 if (backwards) {
                     positionIndex--;
@@ -159,9 +196,9 @@ module MonopolyApp.controllers {
                         positionIndex = 40 + positionIndex;
                     }
                 } else {
-                    positionIndex = (positionIndex + 1) % 40;    
+                    positionIndex = (positionIndex + 1) % 40;
                 }
-                
+
                 positionsLeftToMove--;
                 var numFrames = positionIndex % 10 === 0 ? drawingService.framesToMoveOneBoardField * 2 : drawingService.framesToMoveOneBoardField;
                 if (fast) {
@@ -178,8 +215,10 @@ module MonopolyApp.controllers {
                         });
                     }
                     gameController.showMessageForEvent(processedEvent);
-                    gameController.followBoardFields(positionIndex, positionsLeftToMove, drawingService, scene, camera, gameController, fast, backwards);
+                    gameController.followBoardFields(positionIndex, positionsLeftToMove, drawingService, scene, camera, gameController, followBoardAnimation, fast, backwards);
                 });
+            } else {
+                followBoardAnimation.resolve();
             }
         }
 
@@ -234,14 +273,20 @@ module MonopolyApp.controllers {
         endTurn() {
             if (this.gameService.canEndTurn) {
                 this.gameService.endTurn();
-                this.drawingService.returnCameraToMainPosition(this.scene, this.gameCamera, this.gameService.getCurrentPlayerPosition().index);
-                this.setAvailableActions();
+                var that = this;
                 this.showMessage(this.currentPlayer + " is starting his turn.");
-                if (this.gameService.isComputerMove) {
-                    this.timeoutService(() => {
-                        this.setupThrowDice();
-                    }, 1000);                               
-                }
+                $.when(this.drawingService.returnCameraToMainPosition(this.scene, this.gameCamera, this.gameService.getCurrentPlayerPosition().index)).done(() => {
+                    that.timeoutService(() => {
+                        that.scope.$apply(() => {
+                            that.setAvailableActions();
+                        });
+                    });
+                    if (that.gameService.isComputerMove) {
+                        that.timeoutService(() => {
+                            that.setupThrowDice();
+                        }, 1000);
+                    }
+                });
             }
         }
 
@@ -303,7 +348,15 @@ module MonopolyApp.controllers {
         }
 
         toggleMortgageAsset(asset: Model.Asset): boolean {
-            return this.gameService.toggleMortgageAsset(asset);
+            var success = this.gameService.toggleMortgageAsset(asset);
+            if (success) {
+                if (asset.mortgage) {
+                    this.showMessage(this.currentPlayer + " mortgaged " + asset.name + ".");
+                } else {
+                    this.showMessage(this.currentPlayer + " released mortgage on " + asset.name + ".");
+                }
+            }
+            return success;
         }
 
         showConfirmationPopup(text: string) {
@@ -361,14 +414,23 @@ module MonopolyApp.controllers {
         }
 
         surrender() {
-            this.showActionPopup("Are you sure you wish to surrender?", () => {
+            var that = this;
+            if (this.gameService.canSurrender) {
+                this.showActionPopup("Are you sure you wish to surrender?", () => {
+                    that.doSurrender();
+                }, () => {});
+            }
+        }
+
+        private doSurrender() {
+            if (this.gameService.canSurrender) {
                 this.gameService.surrender();
                 this.showMessage(this.currentPlayer + " has surrendered!");
                 this.setAvailableActions();
                 if (this.gameService.gameState === Model.GameState.EndOfGame) {
                     this.showConfirmationPopup(this.gameService.winner + " has won the game!");
                 }
-            }, () => {});
+            }
         }
 
         private createScene() {
@@ -502,10 +564,15 @@ module MonopolyApp.controllers {
                 });                
             }
             if (this.gameService.getCurrentPlayerPosition().type === Model.BoardFieldType.GoToPrison) {
-                this.processGoToPrisonField();
-                d.resolve();
+                $.when(this.processGoToPrisonField()).done(() => {
+                    d.resolve();
+                });
             } else if (this.gameService.getCurrentPlayerPosition().type === Model.BoardFieldType.PrisonAndVisit) {
                 this.processPrisonField();
+                d.resolve();
+            } else if (this.gameService.getCurrentPlayerPosition().type === Model.BoardFieldType.FreeParking) {
+                d.resolve();
+            } else if (this.gameService.getCurrentPlayerPosition().type === Model.BoardFieldType.Start) {
                 d.resolve();
             }
             return d;
@@ -765,7 +832,7 @@ module MonopolyApp.controllers {
             this.updatePlayersForView();
             this.showMessage(this.currentPlayer + " paid M" + paid + " of income tax.");
             if (this.gameService.isComputerMove) {
-                // give other players time to catch up with computer's actions
+                // give time to other players to catch up with computer's actions
                 this.timeoutService(() => {
                     d.resolve();
                 }, 3000);
@@ -775,7 +842,8 @@ module MonopolyApp.controllers {
             return d;
         }
 
-        private processGoToPrisonField() {
+        private processGoToPrisonField(): JQueryDeferred<{}> {
+            var d = $.Deferred();
             var newPosition = this.gameService.moveCurrentPlayer(10);
             var playerModel = this.players.filter(p => p.name === this.gameService.getCurrentPlayer())[0];
             var moveToPrison = this.drawingService.animatePlayerPrisonMove(newPosition, playerModel, this.scene, this.gameCamera);
@@ -783,7 +851,16 @@ module MonopolyApp.controllers {
             $.when(moveToPrison).done(() => {
                 that.showMessage(that.currentPlayer + " landed in prison.");
                 that.gameService.processPrison(true);
-            });            
+                if (that.gameService.isComputerMove) {
+                    // give time to other players to catch up with computer's actions
+                    that.timeoutService(() => {
+                        d.resolve();
+                    }, 3000);
+                } else {
+                    d.resolve();
+                }
+            }); 
+            return d;           
         }
 
         private processPrisonField() {

@@ -290,7 +290,8 @@ module Services {
             if (this.throwingDice) {
                 var physicsEngine = scene.getPhysicsEngine();
                 var body = physicsEngine.getPhysicsBodyOfMesh(this.diceMesh);
-                if (Math.abs(body.velocity.x) > BABYLON.PhysicsEngine.Epsilon * 10 || Math.abs(body.velocity.y) > BABYLON.PhysicsEngine.Epsilon * 10 || Math.abs(body.velocity.z) > BABYLON.PhysicsEngine.Epsilon * 10) {
+                //$("#debugMessage").html("Y=" + body.velocity.y.toPrecision(5));
+                if (Math.abs(body.velocity.x) > BABYLON.Engine.Epsilon * 100 || Math.abs(body.velocity.y) > BABYLON.Engine.Epsilon * 100 || Math.abs(body.velocity.z) > BABYLON.Engine.Epsilon * 100) {
                     this.numFramesDiceIsAtRest -= 5;
                     if (this.numFramesDiceIsAtRest < 0) {
                         this.numFramesDiceIsAtRest = 0;
@@ -298,7 +299,7 @@ module Services {
                     return false;
                 }
                 this.numFramesDiceIsAtRest++;
-                if (this.numFramesDiceIsAtRest < 90) {
+                if (this.numFramesDiceIsAtRest < scene.getEngine().getFps() * 2) {
                     return false;
                 }
                 this.throwingDice = false;

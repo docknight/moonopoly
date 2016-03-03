@@ -56,6 +56,10 @@ module Services {
             return this.lastDiceResult1 + this.lastDiceResult2;
         }
 
+        get anyFlyByEvents(): boolean {
+            return this.game.moveContext && this.game.moveContext.flyByEvents.length > 0;
+        }
+
         get canThrowDice() {
             if (this.game.getState() === Model.GameState.BeginTurn) {
                 var player = this.game.players.filter(p => p.playerName === this.getCurrentPlayer())[0];
@@ -123,7 +127,7 @@ module Services {
         }
 
         get canSurrender(): boolean {
-            if (this.game.getState() === Model.GameState.BeginTurn || this.game.getState() === Model.GameState.Process) {
+            if (this.game.getState() === Model.GameState.BeginTurn || this.game.getState() === Model.GameState.ProcessingDone) {
                 var player = this.game.players.filter(p => p.playerName === this.getCurrentPlayer())[0];
                 if (player.money < 0 && player.active) {
                     return true;
@@ -150,7 +154,7 @@ module Services {
             return !player.human;
         }
 
-        setPlayerPosition(player: Model.Player, boardFieldIndex: number) {
+        public setPlayerPosition(player: Model.Player, boardFieldIndex: number) {
             player.position = this.game.board.fields[boardFieldIndex];
             var previousFields = this.game.board.fields.filter(b => b.occupiedBy != null && b.occupiedBy.filter(ocb => ocb === player.playerName).length > 0);
             if (previousFields && previousFields.length > 0) {
@@ -161,11 +165,11 @@ module Services {
             player.position.occupiedBy.push(player.playerName);
         }
 
-        throwDice() {
+        public throwDice() {
             this.game.setState(Model.GameState.ThrowDice);
         }
 
-        buy(): boolean {
+        public buy(): boolean {
             if (this.canBuy) {
                 var asset = this.getCurrentPlayerPosition().asset;
                 if (asset) {
@@ -179,7 +183,7 @@ module Services {
             return false;
         }
 
-        manage(): number {
+        public manage(): number {
             if (this.canManage) {
                 this.game.setState(Model.GameState.Manage);
                 this.currentManageGroupIndex = 0;
@@ -190,7 +194,7 @@ module Services {
             return this.currentManageGroupIndex;
         }
 
-        manageFocusChange(left: boolean): number {
+        public manageFocusChange(left: boolean): number {
             if (this.game.getState() === Model.GameState.Manage) {
                 if (left) {
                     this.currentManageGroupIndex -= 1;
@@ -208,13 +212,13 @@ module Services {
             return this.currentManageGroupIndex;
         }
 
-        returnFromManage() {
+        public returnFromManage() {
             if (this.game.getState() === Model.GameState.Manage) {
                 this.game.setPreviousState();
             }
         }
 
-        getOutOfJail() {
+        public getOutOfJail() {
             if (this.canGetOutOfJail) {
                 var player = this.game.players.filter(p => p.playerName === this.getCurrentPlayer())[0];
                 player.money -= 50;
@@ -223,7 +227,7 @@ module Services {
             }    
         }
 
-        surrender() {
+        public surrender() {
             if (this.canSurrender) {
                 var player = this.game.players.filter(p => p.playerName === this.getCurrentPlayer())[0];
                 player.active = false;
@@ -234,9 +238,26 @@ module Services {
             }
         }
 
-        getCurrentPlayerPosition(): Model.BoardField {
+        public getCurrentPlayerPosition(): Model.BoardField {
             var player = this.game.players.filter(p => p.playerName === this.getCurrentPlayer())[0];
             return player.position;
+        }
+
+        public getPlayerAssets(playerName: string): Array<Model.Asset> {
+            return this.game.board.fields.filter(f => f.type === Model.BoardFieldType.Asset && f.asset.owner === playerName).map(f => f.asset);
+        }
+
+        // get asset groups entirely owned by given player
+        public getPlayerAssetGroups(playerName: string): Array<Model.AssetGroup> {
+            var playerGroups: Array<Model.AssetGroup> = [];
+            var groups = [Model.AssetGroup.First, Model.AssetGroup.Second, Model.AssetGroup.Third, Model.AssetGroup.Fourth, Model.AssetGroup.Fifth, Model.AssetGroup.Sixth, Model.AssetGroup.Seventh, Model.AssetGroup.Eighth];
+            groups.forEach(group => {
+                var groupFields = this.getGroupBoardFields(group);
+                if (groupFields.every(field => !field.asset.unowned && field.asset.owner === playerName)) {
+                    playerGroups.push(group);
+                }
+            });
+            return playerGroups;
         }
 
         moveCurrentPlayer(newPositionIndex?: number, doubleRent?: boolean): Model.BoardField {
@@ -426,11 +447,11 @@ module Services {
             return true;
         }
 
-        commitHouseOrHotel(playerName: string, focusedAssetGroupIndex: number): boolean {
+        commitHouseOrHotel(playerName: string, focusedAssetGroupIndex: number, assetGroup?: Model.AssetGroup): boolean {
             if (!this.hasMonopoly(playerName, focusedAssetGroupIndex)) {
                 return false;
             }    
-            var firstFocusedBoardField = this.getBoardFieldsInGroup(focusedAssetGroupIndex)[0];
+            var firstFocusedBoardField = assetGroup ? this.getGroupBoardFields(assetGroup)[0] : this.getBoardFieldsInGroup(focusedAssetGroupIndex)[0];
             var boardFields = this.game.board.fields.filter(f => f.type === Model.BoardFieldType.Asset && f.asset.group === firstFocusedBoardField.asset.group);
             var totalPrice = 0;
             var that = this;
@@ -497,7 +518,7 @@ module Services {
             return card[0];
         }
 
-        getNextEventCard(): Model.EventCard {
+        public getNextEventCard(): Model.EventCard {
             var card = this.game.eventCards.filter(c => c.index === this.currentEventCardIndex);
             if (!card || card.length === 0) {
                 this.currentEventCardIndex = 0;
@@ -507,7 +528,7 @@ module Services {
             return card[0];
         }
 
-        processCard(card: Model.Card) {
+        public processCard(card: Model.Card) {
             var player = this.game.players.filter(p => p.playerName === this.getCurrentPlayer())[0];
             if (card.cardType === Model.CardType.ReceiveMoney) {
                 player.money += card.money;
@@ -560,7 +581,7 @@ module Services {
             }
         }
 
-        processTax(boardFieldType: Model.BoardFieldType): number {
+        public processTax(boardFieldType: Model.BoardFieldType): number {
             var player = this.game.players.filter(p => p.playerName === this.getCurrentPlayer())[0];
             if (boardFieldType === Model.BoardFieldType.Tax) {
                 player.money -= 100;
@@ -573,7 +594,7 @@ module Services {
             return 0;
         }
 
-        processPrison(wasSentToPrison: boolean): boolean {
+        public processPrison(wasSentToPrison: boolean): boolean {
             var player = this.game.players.filter(p => p.playerName === this.getCurrentPlayer())[0];
             if (player.turnsInPrison === undefined) {
                 if (wasSentToPrison) {
@@ -591,20 +612,21 @@ module Services {
         }
 
         // process intermediate board fields while moving a player to its destination field
-        processFlyBy(positionIndex: number, backwards?: boolean): Model.ProcessingEvent {
+        public processFlyBy(positionIndex: number, backwards?: boolean): Model.ProcessingEvent {
             var processedEvent = Model.ProcessingEvent.None;
             if (positionIndex === 0 && !backwards) {
                 if (this.game.moveContext.skipGoAward === false) {
                     var player = this.game.players.filter(p => p.playerName === this.getCurrentPlayer())[0];
                     player.money += 200;
                     processedEvent = Model.ProcessingEvent.PassGoAward;
+                    this.game.moveContext.flyByEvents.push(processedEvent);
                 }
             }
 
             return processedEvent;
         }
 
-        toggleMortgageAsset(asset: Model.Asset): boolean {
+        public toggleMortgageAsset(asset: Model.Asset): boolean {
             var owner = this.players.filter(p => p.playerName === asset.owner)[0];
             if (asset.mortgage) {                
                 if (owner.money >= Math.floor(asset.valueMortgage * 1.1)) {
@@ -621,12 +643,12 @@ module Services {
         }
 
         // get fields in management group, identified by its index in the manage group array
-        getBoardFieldsInGroup(focusedAssetGroupIndex: number): Model.BoardField[] {
+        public getBoardFieldsInGroup(focusedAssetGroupIndex: number): Model.BoardField[] {
             var groupFieldIndexes = this.manageGroups[focusedAssetGroupIndex];
             return this.game.board.fields.filter(f => groupFieldIndexes.filter(g => g === f.index).length > 0);
         }
 
-        canMortgage(asset: Model.Asset): boolean {
+        public canMortgage(asset: Model.Asset): boolean {
             if (!asset) {
                 return false;
             }

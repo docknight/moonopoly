@@ -9,9 +9,11 @@
 
         reset() {
             this.skipGoAward = false;
+            this.flyByEvents = [];
         }
 
         skipGoAward: boolean;
         doubleRent: boolean;
+        flyByEvents: Array<Model.ProcessingEvent>;
     }
 } 

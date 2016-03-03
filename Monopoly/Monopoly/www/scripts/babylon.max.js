@@ -13457,7 +13457,7 @@ var BABYLON;
             // Physics
             if (this._physicsEngine) {
                 BABYLON.Tools.StartPerformanceCounter("Physics");
-                var maxDeltaForPhysics = 1.0;
+                var maxDeltaForPhysics = 2.0;
                 // instead of running a physics step for the duration of the entire animation frame, we advance by a minimal step to avoid skipping collisions;
                 // an alternative would be to decrease Scene.MaxDeltaTime (in gameCtrl, for instance), however that would slow-down the animation as well
                 do {
