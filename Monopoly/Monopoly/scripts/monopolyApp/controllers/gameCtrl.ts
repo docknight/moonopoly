@@ -83,7 +83,7 @@ module MonopolyApp.controllers {
                     that.diceThrowCompleted = undefined;
                     var diceResult = that.drawingService.getDiceResult();
                     if (diceResult && diceResult > 0) {
-                        that.gameService.setDiceResult(that.drawingService.getDiceResult());
+                        that.gameService.setDiceResult(diceResult);
                         that.movePlayer();
                     } else {
                         // something went wrong - unable to determine dice orientation; just drop it again from a height
@@ -120,54 +120,16 @@ module MonopolyApp.controllers {
                         that.setAvailableActions();
                         $.when(that.processDestinationField()).done(() => {
                             that.gameService.moveProcessingDone();
-                            if (that.gameService.isComputerMove && (that.gameService.canEndTurn || that.gameService.canSurrender)) {
+                            if (that.gameService.isComputerMove && (that.gameService.canEndTurn || that.gameService.canSurrender || that.gameService.canGetOutOfJail)) {
                                 // since movePlayer() can be executed several times during a single move, we must ensure this block only runs once
-                                var actions = that.aiService.afterMoveProcessing();
-                                var computerActions = $.Deferred();
-                                if (actions.length > 0) {
-                                    actions.forEach(action => {
-                                        if (action.actionType === Model.AIActionType.Buy) {
-                                            that.buy();
-                                        }
-                                        if (action.actionType === Model.AIActionType.Mortgage) {
-                                            that.toggleMortgageAsset(action.asset);
-                                        }
-                                        if (action.actionType === Model.AIActionType.SellHotel) {
-                                            that.gameService.removeHousePreview(this.currentPlayer, action.position);
-                                            if (that.gameService.commitHouseOrHotel(this.currentPlayer, 0, action.asset.group)) {
-                                                var viewBoardField = that.boardFields.filter(f => f.index === action.position)[0];
-                                                that.drawingService.setBoardFieldHouses(viewBoardField, action.asset.houses, action.asset.hotel, that.scene);
-                                                that.showMessage(this.currentPlayer + " sold hotel on " + action.asset.name + ".");
-                                            }
-                                        }
-                                        if (action.actionType === Model.AIActionType.SellHouse) {
-                                            that.gameService.removeHousePreview(this.currentPlayer, action.position);
-                                            if (that.gameService.commitHouseOrHotel(this.currentPlayer, 0, action.asset.group)) {
-                                                var viewBoardFieldWithHouse = that.boardFields.filter(f => f.index === action.position)[0];
-                                                that.drawingService.setBoardFieldHouses(viewBoardFieldWithHouse, action.asset.houses, action.asset.hotel, that.scene);
-                                                that.showMessage(this.currentPlayer + " sold a house on " + action.asset.name + ".");
-                                            }
-                                        }
-                                        if (action.actionType === Model.AIActionType.Surrender) {
-                                            that.doSurrender();
-                                        }
-                                    });
-                                    // give other players time to catch up with computer's actions
-                                    that.timeoutService(() => {
-                                        computerActions.resolve();
-                                    }, 3000);
-                                } else {
-                                    if (that.gameService.anyFlyByEvents) {
-                                        // give other players time to catch up with computer's actions
-                                        that.timeoutService(() => {
-                                            computerActions.resolve();
-                                        }, 3000);
-                                    } else {
-                                        computerActions.resolve();
+                                var computerActions: JQueryDeferred<{}> = $.Deferred();
+                                that.processComputerActions(computerActions);
+                                $.when(computerActions).done((anotherMove) => {
+                                    if (!anotherMove) {
+                                        // end the turn after processing, unless one of the computer actions resulted in another move 
+                                        // (for instance, if computer bailed out of jail)
+                                        that.endTurn();
                                     }
-                                }
-                                $.when(computerActions).done(() => {
-                                    that.endTurn();
                                     that.updatePlayersForView();
                                     that.setAvailableActions();
                                     d.resolve();
@@ -185,6 +147,73 @@ module MonopolyApp.controllers {
                 });
             });
             return d;
+        }
+
+        private processComputerActions(allActionsProcessed: JQueryDeferred<{}>) {
+            var actions = this.aiService.afterMoveProcessing();
+            var computerActions = $.Deferred();
+            if (actions.length > 0) {
+                actions.forEach(action => {
+                    if (action.actionType === Model.AIActionType.Buy) {
+                        this.buy();
+                    }
+                    if (action.actionType === Model.AIActionType.Mortgage || action.actionType === Model.AIActionType.Unmortgage) {
+                        this.toggleMortgageAsset(action.asset);
+                    }
+                    if (action.actionType === Model.AIActionType.SellHouse || action.actionType === Model.AIActionType.SellHotel) {
+                        this.gameService.removeHousePreview(this.currentPlayer, action.position);
+                        if (this.gameService.commitHouseOrHotel(this.currentPlayer, 0, action.asset.group)) {
+                            var viewBoardField = this.boardFields.filter(f => f.index === action.position)[0];
+                            this.drawingService.setBoardFieldHouses(viewBoardField, action.asset.houses, action.asset.hotel, this.scene);
+                            this.showMessage(this.currentPlayer + " sold " + (action.actionType === Model.AIActionType.SellHouse ? "a house" : "hotel") + " on " + action.asset.name + ".");
+                        }
+                    }
+                    if (action.actionType === Model.AIActionType.BuyHouse || action.actionType === Model.AIActionType.BuyHotel) {
+                        for (var i = 0; i < action.numHousesOrHotels; i++)
+                        {
+                            this.gameService.addHousePreviewForGroup(this.currentPlayer, action.assetGroup);
+                            if (!this.gameService.commitHouseOrHotel(this.currentPlayer, 0, action.assetGroup)) {
+                                // TODO: something wrong; log an error, at least
+                            }
+                        }
+                        var groupFields = this.gameService.getGroupBoardFields(action.assetGroup);
+                        groupFields.forEach(groupField => {
+                            var viewBoardFieldWithHouse = this.boardFields.filter(f => f.index === groupField.index)[0];
+                            this.drawingService.setBoardFieldHouses(viewBoardFieldWithHouse, groupField.asset.houses, groupField.asset.hotel, this.scene);                            
+                        });
+                        this.showMessage(this.currentPlayer + " bought " + action.numHousesOrHotels + (action.actionType === Model.AIActionType.BuyHouse ? " houses." : " hotels."));
+
+                    }
+                    if (action.actionType === Model.AIActionType.Surrender) {
+                        this.doSurrender();
+                    }
+                    if (action.actionType === Model.AIActionType.GetOutOfJail) {
+                        this.getOutOfJail();
+                    }
+                });
+                // give other players time to catch up with computer's actions
+                this.timeoutService(() => {
+                    computerActions.resolve();
+                }, 3000);
+            } else {
+                if (this.gameService.anyFlyByEvents) {
+                    // give other players time to catch up with computer's actions
+                    this.timeoutService(() => {
+                        computerActions.resolve();
+                    }, 3000);
+                } else {
+                    computerActions.resolve();
+                }
+            }
+            var that = this;
+            $.when(computerActions).done(() => {
+                if (actions.length > 0 && actions.every(a => a.actionType !== Model.AIActionType.GetOutOfJail)) {
+                    // if any action, beside getting out of jail, has been processed, repeat until there are no more actions for the computer to perform
+                    that.processComputerActions(allActionsProcessed);
+                } else {
+                    allActionsProcessed.resolve(actions.length > 0 && actions.some(a => a.actionType === Model.AIActionType.GetOutOfJail));
+                }
+            });
         }
 
         // animate game camera by following board fields from player current field to its movement destination field; this animation occurs at the same time that the player is moving
@@ -275,16 +304,21 @@ module MonopolyApp.controllers {
                 this.gameService.endTurn();
                 var that = this;
                 this.showMessage(this.currentPlayer + " is starting his turn.");
-                $.when(this.drawingService.returnCameraToMainPosition(this.scene, this.gameCamera, this.gameService.getCurrentPlayerPosition().index)).done(() => {
-                    that.timeoutService(() => {
-                        that.scope.$apply(() => {
-                            that.setAvailableActions();
-                        });
+                this.timeoutService(() => {
+                    that.scope.$apply(() => {
+                        that.setAvailableActions();
                     });
+                });
+                $.when(this.drawingService.returnCameraToMainPosition(this.scene, this.gameCamera, this.gameService.getCurrentPlayerPosition().index)).done(() => {
                     if (that.gameService.isComputerMove) {
-                        that.timeoutService(() => {
-                            that.setupThrowDice();
-                        }, 1000);
+                        var computerActions: JQueryDeferred<{}> = $.Deferred();
+                        that.processComputerActions(computerActions);
+                        $.when(computerActions).done(() => {
+                            that.updatePlayersForView();
+                            that.timeoutService(() => {
+                                that.setupThrowDice();
+                            }, 700);
+                        });
                     }
                 });
             }
@@ -350,6 +384,8 @@ module MonopolyApp.controllers {
         toggleMortgageAsset(asset: Model.Asset): boolean {
             var success = this.gameService.toggleMortgageAsset(asset);
             if (success) {
+                var viewBoardField = this.boardFields.filter(boardField => boardField.assetName && boardField.assetName === asset.name)[0];
+                this.drawingService.setBoardFieldMortgage(viewBoardField, asset, this.scene);
                 if (asset.mortgage) {
                     this.showMessage(this.currentPlayer + " mortgaged " + asset.name + ".");
                 } else {
@@ -401,19 +437,20 @@ module MonopolyApp.controllers {
             });
         }
 
-        canMortgageSelected(): boolean {
+        public canMortgageSelected(): boolean {
             return this.gameService.canMortgage(this.assetToManage);
         }
 
-        getOutOfJail() {
+        public getOutOfJail() {
             this.gameService.getOutOfJail();
+            this.showMessage(this.currentPlayer + " paid " + this.gameService.gameParams.jailBail + " to bail out of jail.");
             this.setAvailableActions();
             if (this.gameService.lastDiceResult) {
                 this.movePlayer();
             }
         }
 
-        surrender() {
+        public surrender() {
             var that = this;
             if (this.gameService.canSurrender) {
                 this.showActionPopup("Are you sure you wish to surrender?", () => {
@@ -518,11 +555,13 @@ module MonopolyApp.controllers {
                 boardField.index = i;
                 this.boardFields.push(boardField);
             }
-            for (var assetGroup = Model.AssetGroup.First; assetGroup <= Model.AssetGroup.Eighth; assetGroup++) {
+            for (var assetGroup = Model.AssetGroup.First; assetGroup <= Model.AssetGroup.Railway; assetGroup++) {
                 var groupBoardFields = this.gameService.getGroupBoardFields(assetGroup);
                 groupBoardFields.forEach(groupBoardField => {
+                    var viewBoardField = this.boardFields.filter(f => f.index === groupBoardField.index)[0];
+                    viewBoardField.assetName = groupBoardField.asset.name;
                     if (!groupBoardField.asset.unowned) {
-                        this.drawingService.setBoardFieldOwner(this.boardFields.filter(f => f.index === groupBoardField.index)[0], groupBoardField.asset, this.scene);
+                        this.drawingService.setBoardFieldOwner(viewBoardField, groupBoardField.asset, this.scene);
                     }
                 });
             }

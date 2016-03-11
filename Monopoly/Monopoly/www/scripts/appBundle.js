@@ -66,9 +66,13 @@ var Model;
     (function (AIActionType) {
         AIActionType[AIActionType["Buy"] = 0] = "Buy";
         AIActionType[AIActionType["Mortgage"] = 1] = "Mortgage";
-        AIActionType[AIActionType["SellHotel"] = 2] = "SellHotel";
-        AIActionType[AIActionType["SellHouse"] = 3] = "SellHouse";
-        AIActionType[AIActionType["Surrender"] = 4] = "Surrender";
+        AIActionType[AIActionType["Unmortgage"] = 2] = "Unmortgage";
+        AIActionType[AIActionType["SellHotel"] = 3] = "SellHotel";
+        AIActionType[AIActionType["SellHouse"] = 4] = "SellHouse";
+        AIActionType[AIActionType["BuyHotel"] = 5] = "BuyHotel";
+        AIActionType[AIActionType["BuyHouse"] = 6] = "BuyHouse";
+        AIActionType[AIActionType["Surrender"] = 7] = "Surrender";
+        AIActionType[AIActionType["GetOutOfJail"] = 8] = "GetOutOfJail";
     })(Model.AIActionType || (Model.AIActionType = {}));
     var AIActionType = Model.AIActionType;
     ;
@@ -185,7 +189,7 @@ var Model;
         };
         Asset.prototype.commitHouseOrHotel = function () {
             if (this._uncommittedHotel !== undefined) {
-                this.hotel = this._uncommittedHotel;
+                this._hotel = this._uncommittedHotel;
                 if (this._uncommittedHotel === false) {
                     this._houses = 4;
                 }
@@ -194,7 +198,7 @@ var Model;
             this._uncommittedHouses = 0;
             this._uncommittedHotel = undefined;
             if (this.hotel) {
-                this.houses = 0;
+                this._houses = 0;
             }
         };
         Asset.prototype.rollbackHouseOrHotel = function () {
@@ -212,6 +216,9 @@ var Model;
             }
             if (this._uncommittedHouses) {
                 var priceHouses = this._uncommittedHouses * this.priceHouse;
+                if (this._uncommittedHouses < 0) {
+                    priceHouses = Math.floor(priceHouses / 2);
+                }
                 price += priceHouses;
             }
             return price;
@@ -689,6 +696,7 @@ var Model;
             this._eventCards = new Array();
             this._moveContext = new Model.MoveContext();
             this.state = GameState.BeginTurn;
+            this._gameParams = new Model.GameParams();
         }
         Object.defineProperty(Game.prototype, "currentPlayer", {
             get: function () {
@@ -725,6 +733,13 @@ var Model;
             enumerable: true,
             configurable: true
         });
+        Object.defineProperty(Game.prototype, "gameParams", {
+            get: function () {
+                return this._gameParams;
+            },
+            enumerable: true,
+            configurable: true
+        });
         Game.prototype.getState = function () {
             return this.state;
         };
@@ -757,6 +772,23 @@ var Model;
         return Game;
     })();
     Model.Game = Game;
+})(Model || (Model = {}));
+var Model;
+(function (Model) {
+    var GameParams = (function () {
+        function GameParams() {
+            this._jailBail = 50;
+        }
+        Object.defineProperty(GameParams.prototype, "jailBail", {
+            get: function () {
+                return this._jailBail;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        return GameParams;
+    })();
+    Model.GameParams = GameParams;
 })(Model || (Model = {}));
 var Model;
 (function (Model) {
@@ -874,6 +906,7 @@ var Services;
         AIService.prototype.afterMoveProcessing = function () {
             var _this = this;
             var actions = new Array();
+            var player = this.gameService.players.filter(function (p) { return p.playerName === _this.gameService.getCurrentPlayer(); })[0];
             if (this.gameService.canBuy) {
                 var asset = this.gameService.getCurrentPlayerPosition().asset;
                 if (this.shouldBuy(asset)) {
@@ -883,11 +916,14 @@ var Services;
                 }
             }
             else {
-                var player = this.gameService.players.filter(function (p) { return p.playerName === _this.gameService.getCurrentPlayer(); })[0];
-                if (player.money < 0) {
-                    var moneyToGain = Math.abs(player.money);
+                var playerMoney = player.money;
+                if (player.turnsInPrison === 0 && this.gameService.lastDiceResult !== 6) {
+                    playerMoney -= this.gameService.gameParams.jailBail;
+                }
+                if (playerMoney < 0) {
+                    var moneyToGain = Math.abs(playerMoney);
                     moneyToGain = this.mortgageAssets(moneyToGain, player.playerName, actions);
-                    if (moneyToGain > 0) {
+                    if (moneyToGain > 0 && actions.length === 0) {
                         // unable to raise enough money
                         var surrenderAction = new Model.AIAction();
                         surrenderAction.actionType = Model.AIActionType.Surrender;
@@ -895,6 +931,17 @@ var Services;
                     }
                 }
             }
+            if (player.money > 0) {
+                if (player.turnsInPrison === 0 && this.gameService.canGetOutOfJail) {
+                    var outOfJailAction = new Model.AIAction();
+                    outOfJailAction.actionType = Model.AIActionType.GetOutOfJail;
+                    actions.push(outOfJailAction);
+                    return actions; // getting out of jail is the last thing we are doing while being on the current field
+                }
+                var moneyAvailable = player.money;
+                this.buyHouses(moneyAvailable, player.playerName, actions);
+            }
+            this.unmortgageAssets(player.money, player.playerName, actions);
             return actions;
         };
         // determine whether the computer should buy current property he has landed on
@@ -923,7 +970,9 @@ var Services;
                 var groupAssets = _this.gameService.getGroupBoardFields(asset.group);
                 var unownedGroupAssets = groupAssets.filter(function (groupAsset) { return groupAsset.asset.unowned || groupAsset.asset.owner !== player || groupAsset.asset.mortgage; });
                 if (unownedGroupAssets.length > 0 && !asset.mortgage) {
-                    individualAssets.push(asset);
+                    if (actions.filter(function (a) { return a.actionType === Model.AIActionType.Mortgage && a.asset.name === asset.name; }).length === 0) {
+                        individualAssets.push(asset);
+                    }
                 }
             });
             // mortgage individual assets one by one
@@ -954,19 +1003,37 @@ var Services;
                 // time to sell assets from an owned group and utilities
                 var utilities = ownedAssets.filter(function (asset) { return asset.group === Model.AssetGroup.Utility && !asset.mortgage; });
                 if (utilities.length > 0) {
-                    action = new Model.AIAction();
-                    action.actionType = Model.AIActionType.Mortgage;
-                    action.asset = utilities[0];
-                    actions.push(action);
-                    return this.mortgageAssets(Math.max(moneyToGain - utilities[0].valueMortgage, 0), player, actions);
+                    var utilityMortgaged = false;
+                    utilities.forEach(function (utility) {
+                        if (actions.filter(function (a) { return a.actionType === Model.AIActionType.Mortgage && a.asset.name === utility.name; }).length === 0) {
+                            action = new Model.AIAction();
+                            action.actionType = Model.AIActionType.Mortgage;
+                            action.asset = utility;
+                            actions.push(action);
+                            moneyToGain -= utility.valueMortgage;
+                            utilityMortgaged = true;
+                        }
+                    });
+                    if (utilityMortgaged) {
+                        return this.mortgageAssets(Math.max(moneyToGain, 0), player, actions);
+                    }
                 }
                 var railways = ownedAssets.filter(function (asset) { return asset.group === Model.AssetGroup.Railway && !asset.mortgage; });
                 if (railways.length > 0) {
-                    action = new Model.AIAction();
-                    action.actionType = Model.AIActionType.Mortgage;
-                    action.asset = railways[0];
-                    actions.push(action);
-                    return this.mortgageAssets(Math.max(moneyToGain - railways[0].valueMortgage, 0), player, actions);
+                    var railwayMortgaged = false;
+                    railways.forEach(function (railway) {
+                        if (actions.filter(function (a) { return a.actionType === Model.AIActionType.Mortgage && a.asset.name === railway.name; }).length === 0) {
+                            action = new Model.AIAction();
+                            action.actionType = Model.AIActionType.Mortgage;
+                            action.asset = railway;
+                            actions.push(action);
+                            moneyToGain -= railway.valueMortgage;
+                            railwayMortgaged = true;
+                        }
+                    });
+                    if (railwayMortgaged) {
+                        return this.mortgageAssets(Math.max(moneyToGain, 0), player, actions);
+                    }
                 }
                 // lastly, sell houses and mortgage assets of an owned group
                 var ownedGroups = this.gameService.getPlayerAssetGroups(player);
@@ -979,17 +1046,21 @@ var Services;
                         action.asset = fieldsWithHotel[0].asset;
                         action.position = fieldsWithHotel[0].index;
                         actions.push(action);
-                        return this.mortgageAssets(Math.max(moneyToGain - fieldsWithHotel[0].asset.priceHotel / 2, 0), player, actions);
+                        //return this.mortgageAssets(Math.max(moneyToGain - fieldsWithHotel[0].asset.priceHotel / 2, 0), player, actions);                        
+                        // remaining deficit will be handled in a next iteration
+                        return Math.max(moneyToGain - fieldsWithHotel[0].asset.priceHotel / 2, 0);
                     }
                     var fieldsWithHouses = groupFields.filter(function (field) { return field.asset.houses && field.asset.houses > 0; });
                     if (fieldsWithHouses.length > 0) {
-                        var fieldWithMostHouses = fieldsWithHouses.sort(function (a, b) { return a.asset.houses > b.asset.houses ? 1 : (a.asset.houses < b.asset.houses ? -1 : 0); })[0];
+                        var fieldWithMostHouses = fieldsWithHouses.sort(function (a, b) { return a.asset.houses > b.asset.houses ? -1 : (a.asset.houses < b.asset.houses ? 1 : 0); })[0];
                         action = new Model.AIAction();
                         action.actionType = Model.AIActionType.SellHouse;
                         action.asset = fieldWithMostHouses.asset;
                         action.position = fieldWithMostHouses.index;
                         actions.push(action);
-                        return this.mortgageAssets(Math.max(moneyToGain - fieldWithMostHouses.asset.priceHouse / 2, 0), player, actions);
+                        //return this.mortgageAssets(Math.max(moneyToGain - fieldWithMostHouses.asset.priceHouse / 2, 0), player, actions);                        
+                        // remaining deficit will be handled in a next iteration
+                        return Math.max(moneyToGain - fieldWithMostHouses.asset.priceHouse / 2, 0);
                     }
                     // if no houses and hotels, just mortgage one of the assets in a group
                     var unmortgagedFields = groupFields.filter(function (f) { return !(f.asset.mortgage); });
@@ -998,11 +1069,136 @@ var Services;
                         action.actionType = Model.AIActionType.Mortgage;
                         action.asset = unmortgagedFields[0].asset;
                         actions.push(action);
-                        return this.mortgageAssets(Math.max(moneyToGain - unmortgagedFields[0].asset.valueMortgage, 0), player, actions);
+                        //return this.mortgageAssets(Math.max(moneyToGain - unmortgagedFields[0].asset.valueMortgage, 0), player, actions);
+                        // remaining deficit will be handled in a next iteration
+                        return Math.max(moneyToGain - unmortgagedFields[0].asset.valueMortgage, 0);
                     }
                 }
             }
             return moneyToGain;
+        };
+        // buy houses or hotels if available
+        AIService.prototype.buyHouses = function (moneyAvailable, player, actions) {
+            var _this = this;
+            if (moneyAvailable <= 200) {
+                return;
+            }
+            var ownedAssets = this.gameService.getPlayerAssets(player);
+            if (ownedAssets.length === 0) {
+                return;
+            }
+            var action;
+            var ownedGroups = this.gameService.getPlayerAssetGroups(player);
+            // try buying houses first
+            ownedGroups.forEach(function (group) {
+                // only process one asset group in a single iteration
+                if (actions.filter(function (a) { return a.actionType === Model.AIActionType.BuyHouse; }).length === 0) {
+                    var groupFields = _this.gameService.getGroupBoardFields(group);
+                    if (groupFields.every(function (f) { return !f.asset.mortgage; })) {
+                        var housesLeftToBuy = 0;
+                        groupFields.forEach(function (f) {
+                            if (!f.asset.mortgage && !f.asset.hotel) {
+                                housesLeftToBuy += !f.asset.houses ? 4 : 4 - f.asset.houses;
+                            }
+                        });
+                        var affordableHouses = Math.floor(moneyAvailable / groupFields[0].asset.priceHouse);
+                        var housesToBuy = Math.min(housesLeftToBuy, affordableHouses);
+                        if (housesToBuy > 0) {
+                            action = new Model.AIAction();
+                            action.actionType = Model.AIActionType.BuyHouse;
+                            action.numHousesOrHotels = housesToBuy;
+                            action.assetGroup = group;
+                            actions.push(action);
+                        }
+                    }
+                }
+            });
+            if (actions.filter(function (a) { return a.actionType === Model.AIActionType.BuyHouse; }).length > 0) {
+                return;
+            }
+            ownedGroups.forEach(function (group) {
+                // only process one asset group in a single iteration
+                if (actions.filter(function (a) { return a.actionType === Model.AIActionType.BuyHotel; }).length === 0) {
+                    var groupFields = _this.gameService.getGroupBoardFields(group);
+                    if (groupFields.every(function (f) { return (f.asset.houses && f.asset.houses === 4) || f.asset.hotel; })) {
+                        var hotelsLeftToBuy = 0;
+                        groupFields.forEach(function (f) {
+                            hotelsLeftToBuy += f.asset.hotel ? 0 : 1;
+                        });
+                        var affordableHotels = Math.floor(moneyAvailable / groupFields[0].asset.priceHotel);
+                        var hotelsToBuy = Math.min(hotelsLeftToBuy, affordableHotels);
+                        if (hotelsToBuy > 0) {
+                            action = new Model.AIAction();
+                            action.actionType = Model.AIActionType.BuyHotel;
+                            action.numHousesOrHotels = hotelsToBuy;
+                            action.assetGroup = group;
+                            actions.push(action);
+                        }
+                    }
+                }
+            });
+        };
+        // unmortgage mortgaged assets if having enough money
+        AIService.prototype.unmortgageAssets = function (money, player, actions) {
+            var _this = this;
+            var actionAdded = false; // only one action in a single iteration so that other users can follow computer actions
+            if (money <= 100) {
+                return;
+            }
+            // first, try finding any mortgaged assets where an entire group is owned
+            var ownedGroups = this.gameService.getPlayerAssetGroups(player);
+            ownedGroups.forEach(function (ownedGroup) {
+                var groupFields = _this.gameService.getGroupBoardFields(ownedGroup);
+                groupFields.forEach(function (groupField) {
+                    if (!actionAdded && groupField.asset.mortgage && money - (Math.floor(groupField.asset.price * 1.1)) > 50) {
+                        var action = new Model.AIAction();
+                        action.actionType = Model.AIActionType.Unmortgage;
+                        action.asset = groupField.asset;
+                        action.position = groupField.index;
+                        actions.push(action);
+                        money -= Math.floor(groupField.asset.price * 1.1);
+                        actionAdded = true;
+                    }
+                });
+            });
+            // next, release mortgage on railways and utilities
+            var railwayFields = this.gameService.getGroupBoardFields(Model.AssetGroup.Railway);
+            railwayFields.forEach(function (groupField) {
+                if (!actionAdded && groupField.asset.mortgage && money - (Math.floor(groupField.asset.price * 1.1)) > 50) {
+                    var action = new Model.AIAction();
+                    action.actionType = Model.AIActionType.Unmortgage;
+                    action.asset = groupField.asset;
+                    action.position = groupField.index;
+                    actions.push(action);
+                    money -= Math.floor(groupField.asset.price * 1.1);
+                    actionAdded = true;
+                }
+            });
+            var utilityFields = this.gameService.getGroupBoardFields(Model.AssetGroup.Utility);
+            utilityFields.forEach(function (groupField) {
+                if (!actionAdded && groupField.asset.mortgage && money - (Math.floor(groupField.asset.price * 1.1)) > 150) {
+                    var action = new Model.AIAction();
+                    action.actionType = Model.AIActionType.Unmortgage;
+                    action.asset = groupField.asset;
+                    actions.push(action);
+                    money -= Math.floor(groupField.asset.price * 1.1);
+                    actionAdded = true;
+                }
+            });
+            // finally, release mortgage on the rest of the assets if money is in abundance
+            var ownedAssets = this.gameService.getPlayerAssets(player);
+            ownedAssets.forEach(function (ownedAsset) {
+                if (ownedGroups.filter(function (ownedGroup) { return ownedGroup === ownedAsset.group; }).length === 0) {
+                    if (!actionAdded && ownedAsset.mortgage && money - (Math.floor(ownedAsset.price * 1.1)) > 500) {
+                        var action = new Model.AIAction();
+                        action.actionType = Model.AIActionType.Unmortgage;
+                        action.asset = ownedAsset;
+                        actions.push(action);
+                        money -= Math.floor(ownedAsset.price * 1.1);
+                        actionAdded = true;
+                    }
+                }
+            });
         };
         AIService.$inject = ["gameService"];
         return AIService;
@@ -1356,6 +1552,10 @@ var Services;
                     pickedObject.pickedObjectType = MonopolyApp.Viewmodels.PickedObjectType.BoardField;
                     pickedObject.position = this.getBoardElementAt(pickResult.pickedPoint);
                 }
+                if (pickResult.pickedMesh && pickResult.pickedMesh.name.substring(0, 9) === "mortgage_") {
+                    pickedObject.pickedObjectType = MonopolyApp.Viewmodels.PickedObjectType.BoardField;
+                    pickedObject.position = Number(pickResult.pickedMesh.name.substring(9));
+                }
                 if (pickResult.pickedMesh && pickResult.pickedMesh.name.substring(0, 12) === "houseButton_") {
                     pickedObject.pickedObjectType = MonopolyApp.Viewmodels.PickedObjectType.AddHouse;
                     pickedObject.position = Number(pickResult.pickedMesh.name.substring(12));
@@ -1464,6 +1664,38 @@ var Services;
                     else {
                         houses--;
                     }
+                }
+            }
+        };
+        DrawingService.prototype.setBoardFieldMortgage = function (boardField, asset, scene) {
+            if (boardField.mortgageMesh) {
+                scene.removeMesh(boardField.mortgageMesh);
+                boardField.mortgageMesh.dispose();
+            }
+            if (asset.mortgage) {
+                var fieldQuadrant = Math.floor(boardField.index / (this.boardFieldsInQuadrant - 1));
+                var topCenter = this.getPositionCoordinate(boardField.index);
+                var heightCoordinate = this.getQuadrantRunningCoordinate(fieldQuadrant) === "x" ? "z" : "x";
+                var heightDirection = fieldQuadrant === 0 || fieldQuadrant === 1 ? -1 : 1;
+                var bottomCenter = new MonopolyApp.Viewmodels.Coordinate(topCenter.x, topCenter.z);
+                bottomCenter[heightCoordinate] += this.boardFieldHeight * 0.65 * heightDirection;
+                boardField.mortgageMesh = BABYLON.Mesh.CreateGround("mortgage_" + boardField.index, this.boardFieldWidth * 0.8, this.boardFieldWidth * 0.8, 2, scene);
+                var mat = new BABYLON.StandardMaterial("mortgagematerial_" + boardField.index, scene);
+                mat.diffuseTexture = new BABYLON.Texture("images/Mortgage.png", scene);
+                mat.diffuseTexture.hasAlpha = true;
+                mat.useAlphaFromDiffuseTexture = true;
+                boardField.mortgageMesh.material = mat;
+                boardField.mortgageMesh.position.x = bottomCenter.x;
+                boardField.mortgageMesh.position.z = bottomCenter.z;
+                boardField.mortgageMesh.position.y = 0.05;
+                if (fieldQuadrant === 1) {
+                    boardField.mortgageMesh.rotation.y = Math.PI / 2;
+                }
+                else if (fieldQuadrant === 2) {
+                    boardField.mortgageMesh.rotation.y = Math.PI;
+                }
+                else if (fieldQuadrant === 3) {
+                    boardField.mortgageMesh.rotation.y = Math.PI * 3 / 2;
                 }
             }
         };
@@ -1883,7 +2115,6 @@ var Services;
         DrawingService.prototype.getDiceResult = function () {
             var rotationMatrix = new BABYLON.Matrix();
             this.diceMesh.rotationQuaternion.toRotationMatrix(rotationMatrix);
-            return 2;
             if (this.epsilonCompare(rotationMatrix.m[0], 0) && this.epsilonCompare(rotationMatrix.m[1], 1) && this.epsilonCompare(rotationMatrix.m[2], 0) && this.epsilonCompare(rotationMatrix.m[5], 0) && this.epsilonCompare(rotationMatrix.m[9], 0)) {
                 return 1;
             }
@@ -1970,6 +2201,7 @@ var Services;
             this.initManageGroups();
             this.game.advanceToNextPlayer();
             this.uncommittedHousesPrice = 0;
+            //this.setupTestData();
         };
         GameService.prototype.endTurn = function () {
             if (this.canEndTurn) {
@@ -1985,6 +2217,13 @@ var Services;
         Object.defineProperty(GameService.prototype, "players", {
             get: function () {
                 return this.game.players;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(GameService.prototype, "gameParams", {
+            get: function () {
+                return this.game ? this.game.gameParams : undefined;
             },
             enumerable: true,
             configurable: true
@@ -2075,7 +2314,7 @@ var Services;
                     var currentPosition = this.getCurrentPlayerPosition();
                     if (currentPosition.type === Model.BoardFieldType.PrisonAndVisit) {
                         var player = this.game.players.filter(function (p) { return p.playerName === _this.getCurrentPlayer(); })[0];
-                        if (player.turnsInPrison !== undefined && player.money >= 50) {
+                        if (player.turnsInPrison !== undefined && player.money >= this.gameParams.jailBail) {
                             if (this.game.getState() === Model.GameState.BeginTurn) {
                                 return true;
                             }
@@ -2096,6 +2335,9 @@ var Services;
                 if (this.game.getState() === Model.GameState.BeginTurn || this.game.getState() === Model.GameState.ProcessingDone) {
                     var player = this.game.players.filter(function (p) { return p.playerName === _this.getCurrentPlayer(); })[0];
                     if (player.money < 0 && player.active) {
+                        return true;
+                    }
+                    if (player.money < this.gameParams.jailBail && player.turnsInPrison === 0 && this.lastDiceResult !== 6) {
                         return true;
                     }
                 }
@@ -2192,7 +2434,7 @@ var Services;
             var _this = this;
             if (this.canGetOutOfJail) {
                 var player = this.game.players.filter(function (p) { return p.playerName === _this.getCurrentPlayer(); })[0];
-                player.money -= 50;
+                player.money -= this.gameParams.jailBail;
                 player.turnsInPrison = undefined;
             }
         };
@@ -2262,35 +2504,32 @@ var Services;
                 if (asset.hotel) {
                     priceToPay = asset.priceRentHotel;
                 }
-                else if (asset.houses > 0) {
+                else if (asset.houses && asset.houses > 0) {
                     priceToPay = asset.priceRentHouse[asset.houses - 1];
                 }
-                // for the rest of the scenarios, we need to find out the number of owned assets in a group
-                var numOwnedInGroup = this.game.board.fields.filter(function (f) {
-                    return f.type === Model.BoardFieldType.Asset && f.asset.group === asset.group && !f.asset.unowned && f.asset.owner === asset.owner;
-                }).length;
-                if (asset.group === Model.AssetGroup.Railway) {
-                    priceToPay = asset.priceRent[numOwnedInGroup - 1];
-                }
-                else if (asset.group === Model.AssetGroup.Utility) {
-                    priceToPay = asset.priceMultiplierUtility[numOwnedInGroup - 1] * (this.lastDiceResult1 + this.lastDiceResult2);
-                }
-                else if (asset.group !== Model.AssetGroup.None) {
-                    priceToPay = asset.priceRent[numOwnedInGroup - 1];
+                else {
+                    // for the rest of the scenarios, we need to find out the number of owned assets in a group
+                    var numOwnedInGroup = this.game.board.fields.filter(function (f) {
+                        return f.type === Model.BoardFieldType.Asset && f.asset.group === asset.group && !f.asset.unowned && f.asset.owner === asset.owner;
+                    }).length;
+                    if (asset.group === Model.AssetGroup.Railway) {
+                        priceToPay = asset.priceRent[numOwnedInGroup - 1];
+                    }
+                    else if (asset.group === Model.AssetGroup.Utility) {
+                        priceToPay = asset.priceMultiplierUtility[numOwnedInGroup - 1] * (this.lastDiceResult1 + this.lastDiceResult2);
+                    }
+                    else if (asset.group !== Model.AssetGroup.None) {
+                        priceToPay = asset.priceRent[numOwnedInGroup - 1];
+                    }
                 }
                 var player = this.game.players.filter(function (p) { return p.playerName === _this.getCurrentPlayer(); })[0];
-                //if (player.money < priceToPay) {
-                //    // TODO: player can not pay
-                //    result.moneyShortage = priceToPay - player.money;
-                //    return result;
-                //}
                 if (this.game.moveContext.doubleRent) {
                     priceToPay *= 2;
                 }
                 player.money -= priceToPay;
                 var ownerPlayer = this.game.players.filter(function (p) { return p.playerName === asset.owner; })[0];
                 ownerPlayer.money += priceToPay;
-                result.message = "Paid rent of " + priceToPay + " to " + ownerPlayer.playerName + ".";
+                result.message = this.getCurrentPlayer() + " paid rent of " + priceToPay + " to " + ownerPlayer.playerName + ".";
             }
             return result;
         };
@@ -2311,14 +2550,15 @@ var Services;
                 return undefined;
             }
         };
-        GameService.prototype.hasMonopoly = function (player, focusedAssetGroupIndex) {
+        GameService.prototype.hasMonopoly = function (player, focusedAssetGroupIndex, assetGroup) {
             var _this = this;
             var monopoly = true;
-            var firstAssetIndex = this.manageGroups[focusedAssetGroupIndex][0];
-            var assetGroup = this.getBoardFieldGroup(firstAssetIndex);
+            if (!assetGroup) {
+                var firstAssetIndex = this.manageGroups[focusedAssetGroupIndex][0];
+                assetGroup = this.getBoardFieldGroup(firstAssetIndex);
+            }
             if (assetGroup < Model.AssetGroup.First || assetGroup > Model.AssetGroup.Eighth) {
-                monopoly = false;
-                return;
+                return false;
             }
             var groupFields = this.getGroupBoardFields(assetGroup);
             groupFields.forEach(function (field) {
@@ -2327,6 +2567,32 @@ var Services;
                 }
             });
             return monopoly;
+        };
+        // determine the first asset that is eligible for upgrade in a group and then perform the upgrade
+        GameService.prototype.addHousePreviewForGroup = function (playerName, group) {
+            var groupFields = this.getGroupBoardFields(group);
+            var sortedFields = groupFields.sort(function (a, b) {
+                if (a.asset.hotel && b.asset.hotel) {
+                    return 0;
+                }
+                if (a.asset.hotel) {
+                    return 1;
+                }
+                if (b.asset.hotel) {
+                    return -1;
+                }
+                if (!a.asset.houses && !b.asset.houses) {
+                    return 0;
+                }
+                if (!a.asset.houses && b.asset.houses) {
+                    return -1;
+                }
+                if (a.asset.houses && !b.asset.houses) {
+                    return 1;
+                }
+                return a.asset.houses > b.asset.houses ? 1 : -1;
+            });
+            return this.addHousePreview(playerName, sortedFields[0].index);
         };
         GameService.prototype.addHousePreview = function (playerName, position) {
             var boardField = this.game.board.fields.filter(function (f) { return f.index === position; })[0];
@@ -2371,7 +2637,7 @@ var Services;
         };
         GameService.prototype.removeHousePreview = function (playerName, position) {
             var boardField = this.game.board.fields.filter(function (f) { return f.index === position; })[0];
-            if (!boardField.asset || !this.hasMonopoly(playerName, boardField.asset.group) || (!boardField.asset.houses && !boardField.asset.hotel)) {
+            if (!boardField.asset || !this.hasMonopoly(playerName, 0, boardField.asset.group) || (!boardField.asset.houses && !boardField.asset.hotel)) {
                 return false;
             }
             var groupBoardFields = this.getGroupBoardFields(boardField.asset.group);
@@ -2408,7 +2674,7 @@ var Services;
             return true;
         };
         GameService.prototype.commitHouseOrHotel = function (playerName, focusedAssetGroupIndex, assetGroup) {
-            if (!this.hasMonopoly(playerName, focusedAssetGroupIndex)) {
+            if (!this.hasMonopoly(playerName, focusedAssetGroupIndex, assetGroup)) {
                 return false;
             }
             var firstFocusedBoardField = assetGroup ? this.getGroupBoardFields(assetGroup)[0] : this.getBoardFieldsInGroup(focusedAssetGroupIndex)[0];
@@ -2435,7 +2701,7 @@ var Services;
             return true;
         };
         GameService.prototype.canUpgradeAsset = function (asset, playerName) {
-            if (!asset || asset.unowned || asset.owner !== playerName || !this.hasMonopoly(playerName, asset.group)) {
+            if (!asset || asset.unowned || asset.owner !== playerName || !this.hasMonopoly(playerName, 0, asset.group)) {
                 return false;
             }
             if (asset.hotel) {
@@ -2450,7 +2716,7 @@ var Services;
             return player.money >= requiredPrice;
         };
         GameService.prototype.canDowngradeAsset = function (asset, playerName) {
-            if (!asset || asset.unowned || asset.owner !== playerName || !this.hasMonopoly(playerName, asset.group)) {
+            if (!asset || asset.unowned || asset.owner !== playerName || !this.hasMonopoly(playerName, 0, asset.group)) {
                 return false;
             }
             if ((!asset.houses || asset.houses === 0) && !asset.hotel) {
@@ -2622,6 +2888,19 @@ var Services;
             }
             return canMortgage;
         };
+        GameService.prototype.setupTestData = function () {
+            var player = this.game.players[1];
+            this.game.board.fields[1].asset.setOwner(player.playerName);
+            this.game.board.fields[3].asset.setOwner(player.playerName);
+            //this.toggleMortgageAsset(this.game.board.fields[1].asset);
+            //this.toggleMortgageAsset(this.game.board.fields[3].asset);
+            this.game.board.fields[1].asset.addHouse();
+            this.game.board.fields[1].asset.commitHouseOrHotel();
+            this.game.board.fields[3].asset.addHouse();
+            this.game.board.fields[3].asset.addHouse();
+            this.game.board.fields[3].asset.commitHouseOrHotel();
+            player.money = 0;
+        };
         GameService.prototype.initPlayers = function () {
             var settings = this.settingsService.loadSettings();
             var colors = ["Red", "Green", "Yellow", "Blue"];
@@ -2642,18 +2921,6 @@ var Services;
             var treasureCardIndex = 0;
             var eventCardIndex = 0;
             var treasureCard = new Model.TreasureCard();
-            treasureCard.index = treasureCardIndex++;
-            treasureCard.cardType = Model.CardType.ReceiveMoney;
-            treasureCard.message = "Bank error. You receive M200.";
-            treasureCard.money = 200;
-            this.game.treasureCards.push(treasureCard);
-            treasureCard = new Model.TreasureCard();
-            treasureCard.index = treasureCardIndex++;
-            treasureCard.cardType = Model.CardType.AdvanceToField;
-            treasureCard.message = "Go to START. You receive M200.";
-            treasureCard.boardFieldIndex = 0;
-            this.game.treasureCards.push(treasureCard);
-            treasureCard = new Model.TreasureCard();
             treasureCard.index = treasureCardIndex++;
             treasureCard.cardType = Model.CardType.ReceiveMoney;
             treasureCard.message = "Bank error. You receive M200.";
@@ -2928,7 +3195,7 @@ var MonopolyApp;
                         that.diceThrowCompleted = undefined;
                         var diceResult = that.drawingService.getDiceResult();
                         if (diceResult && diceResult > 0) {
-                            that.gameService.setDiceResult(that.drawingService.getDiceResult());
+                            that.gameService.setDiceResult(diceResult);
                             that.movePlayer();
                         }
                         else {
@@ -2941,7 +3208,6 @@ var MonopolyApp;
             };
             // move player to a destination defined by last dice throw or by explicit parameter value (as requested by an event card, for instance)
             GameController.prototype.movePlayer = function (newPositionIndex, backwards, doubleRent) {
-                var _this = this;
                 var d = $.Deferred();
                 var oldPosition = this.gameService.getCurrentPlayerPosition();
                 var newPosition = this.gameService.moveCurrentPlayer(newPositionIndex, doubleRent);
@@ -2966,56 +3232,16 @@ var MonopolyApp;
                             that.setAvailableActions();
                             $.when(that.processDestinationField()).done(function () {
                                 that.gameService.moveProcessingDone();
-                                if (that.gameService.isComputerMove && (that.gameService.canEndTurn || that.gameService.canSurrender)) {
+                                if (that.gameService.isComputerMove && (that.gameService.canEndTurn || that.gameService.canSurrender || that.gameService.canGetOutOfJail)) {
                                     // since movePlayer() can be executed several times during a single move, we must ensure this block only runs once
-                                    var actions = that.aiService.afterMoveProcessing();
                                     var computerActions = $.Deferred();
-                                    if (actions.length > 0) {
-                                        actions.forEach(function (action) {
-                                            if (action.actionType === Model.AIActionType.Buy) {
-                                                that.buy();
-                                            }
-                                            if (action.actionType === Model.AIActionType.Mortgage) {
-                                                that.toggleMortgageAsset(action.asset);
-                                            }
-                                            if (action.actionType === Model.AIActionType.SellHotel) {
-                                                that.gameService.removeHousePreview(_this.currentPlayer, action.position);
-                                                if (that.gameService.commitHouseOrHotel(_this.currentPlayer, 0, action.asset.group)) {
-                                                    var viewBoardField = that.boardFields.filter(function (f) { return f.index === action.position; })[0];
-                                                    that.drawingService.setBoardFieldHouses(viewBoardField, action.asset.houses, action.asset.hotel, that.scene);
-                                                    that.showMessage(_this.currentPlayer + " sold hotel on " + action.asset.name + ".");
-                                                }
-                                            }
-                                            if (action.actionType === Model.AIActionType.SellHouse) {
-                                                that.gameService.removeHousePreview(_this.currentPlayer, action.position);
-                                                if (that.gameService.commitHouseOrHotel(_this.currentPlayer, 0, action.asset.group)) {
-                                                    var viewBoardFieldWithHouse = that.boardFields.filter(function (f) { return f.index === action.position; })[0];
-                                                    that.drawingService.setBoardFieldHouses(viewBoardFieldWithHouse, action.asset.houses, action.asset.hotel, that.scene);
-                                                    that.showMessage(_this.currentPlayer + " sold a house on " + action.asset.name + ".");
-                                                }
-                                            }
-                                            if (action.actionType === Model.AIActionType.Surrender) {
-                                                that.doSurrender();
-                                            }
-                                        });
-                                        // give other players time to catch up with computer's actions
-                                        that.timeoutService(function () {
-                                            computerActions.resolve();
-                                        }, 3000);
-                                    }
-                                    else {
-                                        if (that.gameService.anyFlyByEvents) {
-                                            // give other players time to catch up with computer's actions
-                                            that.timeoutService(function () {
-                                                computerActions.resolve();
-                                            }, 3000);
+                                    that.processComputerActions(computerActions);
+                                    $.when(computerActions).done(function (anotherMove) {
+                                        if (!anotherMove) {
+                                            // end the turn after processing, unless one of the computer actions resulted in another move 
+                                            // (for instance, if computer bailed out of jail)
+                                            that.endTurn();
                                         }
-                                        else {
-                                            computerActions.resolve();
-                                        }
-                                    }
-                                    $.when(computerActions).done(function () {
-                                        that.endTurn();
                                         that.updatePlayersForView();
                                         that.setAvailableActions();
                                         d.resolve();
@@ -3034,6 +3260,73 @@ var MonopolyApp;
                     });
                 });
                 return d;
+            };
+            GameController.prototype.processComputerActions = function (allActionsProcessed) {
+                var _this = this;
+                var actions = this.aiService.afterMoveProcessing();
+                var computerActions = $.Deferred();
+                if (actions.length > 0) {
+                    actions.forEach(function (action) {
+                        if (action.actionType === Model.AIActionType.Buy) {
+                            _this.buy();
+                        }
+                        if (action.actionType === Model.AIActionType.Mortgage || action.actionType === Model.AIActionType.Unmortgage) {
+                            _this.toggleMortgageAsset(action.asset);
+                        }
+                        if (action.actionType === Model.AIActionType.SellHouse || action.actionType === Model.AIActionType.SellHotel) {
+                            _this.gameService.removeHousePreview(_this.currentPlayer, action.position);
+                            if (_this.gameService.commitHouseOrHotel(_this.currentPlayer, 0, action.asset.group)) {
+                                var viewBoardField = _this.boardFields.filter(function (f) { return f.index === action.position; })[0];
+                                _this.drawingService.setBoardFieldHouses(viewBoardField, action.asset.houses, action.asset.hotel, _this.scene);
+                                _this.showMessage(_this.currentPlayer + " sold " + (action.actionType === Model.AIActionType.SellHouse ? "a house" : "hotel") + " on " + action.asset.name + ".");
+                            }
+                        }
+                        if (action.actionType === Model.AIActionType.BuyHouse || action.actionType === Model.AIActionType.BuyHotel) {
+                            for (var i = 0; i < action.numHousesOrHotels; i++) {
+                                _this.gameService.addHousePreviewForGroup(_this.currentPlayer, action.assetGroup);
+                                if (!_this.gameService.commitHouseOrHotel(_this.currentPlayer, 0, action.assetGroup)) {
+                                }
+                            }
+                            var groupFields = _this.gameService.getGroupBoardFields(action.assetGroup);
+                            groupFields.forEach(function (groupField) {
+                                var viewBoardFieldWithHouse = _this.boardFields.filter(function (f) { return f.index === groupField.index; })[0];
+                                _this.drawingService.setBoardFieldHouses(viewBoardFieldWithHouse, groupField.asset.houses, groupField.asset.hotel, _this.scene);
+                            });
+                            _this.showMessage(_this.currentPlayer + " bought " + action.numHousesOrHotels + (action.actionType === Model.AIActionType.BuyHouse ? " houses." : " hotels."));
+                        }
+                        if (action.actionType === Model.AIActionType.Surrender) {
+                            _this.doSurrender();
+                        }
+                        if (action.actionType === Model.AIActionType.GetOutOfJail) {
+                            _this.getOutOfJail();
+                        }
+                    });
+                    // give other players time to catch up with computer's actions
+                    this.timeoutService(function () {
+                        computerActions.resolve();
+                    }, 3000);
+                }
+                else {
+                    if (this.gameService.anyFlyByEvents) {
+                        // give other players time to catch up with computer's actions
+                        this.timeoutService(function () {
+                            computerActions.resolve();
+                        }, 3000);
+                    }
+                    else {
+                        computerActions.resolve();
+                    }
+                }
+                var that = this;
+                $.when(computerActions).done(function () {
+                    if (actions.length > 0 && actions.every(function (a) { return a.actionType !== Model.AIActionType.GetOutOfJail; })) {
+                        // if any action, beside getting out of jail, has been processed, repeat until there are no more actions for the computer to perform
+                        that.processComputerActions(allActionsProcessed);
+                    }
+                    else {
+                        allActionsProcessed.resolve(actions.length > 0 && actions.some(function (a) { return a.actionType === Model.AIActionType.GetOutOfJail; }));
+                    }
+                });
             };
             // animate game camera by following board fields from player current field to its movement destination field; this animation occurs at the same time that the player is moving
             GameController.prototype.followBoardFields = function (positionIndex, positionsLeftToMove, drawingService, scene, camera, gameController, followBoardAnimation, fast, backwards) {
@@ -3115,16 +3408,21 @@ var MonopolyApp;
                     this.gameService.endTurn();
                     var that = this;
                     this.showMessage(this.currentPlayer + " is starting his turn.");
-                    $.when(this.drawingService.returnCameraToMainPosition(this.scene, this.gameCamera, this.gameService.getCurrentPlayerPosition().index)).done(function () {
-                        that.timeoutService(function () {
-                            that.scope.$apply(function () {
-                                that.setAvailableActions();
-                            });
+                    this.timeoutService(function () {
+                        that.scope.$apply(function () {
+                            that.setAvailableActions();
                         });
+                    });
+                    $.when(this.drawingService.returnCameraToMainPosition(this.scene, this.gameCamera, this.gameService.getCurrentPlayerPosition().index)).done(function () {
                         if (that.gameService.isComputerMove) {
-                            that.timeoutService(function () {
-                                that.setupThrowDice();
-                            }, 1000);
+                            var computerActions = $.Deferred();
+                            that.processComputerActions(computerActions);
+                            $.when(computerActions).done(function () {
+                                that.updatePlayersForView();
+                                that.timeoutService(function () {
+                                    that.setupThrowDice();
+                                }, 700);
+                            });
                         }
                     });
                 }
@@ -3186,6 +3484,8 @@ var MonopolyApp;
             GameController.prototype.toggleMortgageAsset = function (asset) {
                 var success = this.gameService.toggleMortgageAsset(asset);
                 if (success) {
+                    var viewBoardField = this.boardFields.filter(function (boardField) { return boardField.assetName && boardField.assetName === asset.name; })[0];
+                    this.drawingService.setBoardFieldMortgage(viewBoardField, asset, this.scene);
                     if (asset.mortgage) {
                         this.showMessage(this.currentPlayer + " mortgaged " + asset.name + ".");
                     }
@@ -3240,6 +3540,7 @@ var MonopolyApp;
             };
             GameController.prototype.getOutOfJail = function () {
                 this.gameService.getOutOfJail();
+                this.showMessage(this.currentPlayer + " paid " + this.gameService.gameParams.jailBail + " to bail out of jail.");
                 this.setAvailableActions();
                 if (this.gameService.lastDiceResult) {
                     this.movePlayer();
@@ -3340,11 +3641,13 @@ var MonopolyApp;
                     boardField.index = i;
                     this.boardFields.push(boardField);
                 }
-                for (var assetGroup = Model.AssetGroup.First; assetGroup <= Model.AssetGroup.Eighth; assetGroup++) {
+                for (var assetGroup = Model.AssetGroup.First; assetGroup <= Model.AssetGroup.Railway; assetGroup++) {
                     var groupBoardFields = this.gameService.getGroupBoardFields(assetGroup);
                     groupBoardFields.forEach(function (groupBoardField) {
+                        var viewBoardField = _this.boardFields.filter(function (f) { return f.index === groupBoardField.index; })[0];
+                        viewBoardField.assetName = groupBoardField.asset.name;
                         if (!groupBoardField.asset.unowned) {
-                            _this.drawingService.setBoardFieldOwner(_this.boardFields.filter(function (f) { return f.index === groupBoardField.index; })[0], groupBoardField.asset, _this.scene);
+                            _this.drawingService.setBoardFieldOwner(viewBoardField, groupBoardField.asset, _this.scene);
                         }
                     });
                 }

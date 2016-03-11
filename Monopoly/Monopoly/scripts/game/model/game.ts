@@ -17,9 +17,9 @@
         private previousState: GameState;
         private state: GameState;
         private _moveContext: MoveContext;
+        private _gameParams: GameParams;
 
         players: Array<Player>;
-
 
         get currentPlayer(): string {
             return this._currentPlayer;
@@ -41,6 +41,10 @@
             return this._moveContext;
         }
 
+        get gameParams(): GameParams {
+            return this._gameParams;
+        }
+
         constructor() {
             this._currentPlayer = "";
             this.players = new Array<Player>();
@@ -49,6 +53,7 @@
             this._eventCards = new Array<EventCard>();
             this._moveContext = new MoveContext();
             this.state = GameState.BeginTurn;
+            this._gameParams = new GameParams();
         }
 
         getState(): GameState {

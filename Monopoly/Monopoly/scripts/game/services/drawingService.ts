@@ -371,6 +371,10 @@ module Services {
                     pickedObject.pickedObjectType = MonopolyApp.Viewmodels.PickedObjectType.BoardField;
                     pickedObject.position = this.getBoardElementAt(pickResult.pickedPoint);
                 }
+                if (pickResult.pickedMesh && pickResult.pickedMesh.name.substring(0, 9) === "mortgage_") {
+                    pickedObject.pickedObjectType = MonopolyApp.Viewmodels.PickedObjectType.BoardField;
+                    pickedObject.position = Number(pickResult.pickedMesh.name.substring(9));
+                }
                 if (pickResult.pickedMesh && pickResult.pickedMesh.name.substring(0, 12) === "houseButton_") {
                     pickedObject.pickedObjectType = MonopolyApp.Viewmodels.PickedObjectType.AddHouse;
                     pickedObject.position = Number(pickResult.pickedMesh.name.substring(12));
@@ -481,6 +485,38 @@ module Services {
                     } else {
                         houses--;
                     }
+                }
+            }
+        }
+
+        public setBoardFieldMortgage(boardField: MonopolyApp.Viewmodels.BoardField, asset: Model.Asset, scene: BABYLON.Scene) {
+            if (boardField.mortgageMesh) {
+                scene.removeMesh(boardField.mortgageMesh);
+                boardField.mortgageMesh.dispose();
+            }
+            if (asset.mortgage) {
+                var fieldQuadrant = Math.floor(boardField.index / (this.boardFieldsInQuadrant - 1));
+                var topCenter = this.getPositionCoordinate(boardField.index);
+                var heightCoordinate = this.getQuadrantRunningCoordinate(fieldQuadrant) === "x" ? "z" : "x";
+                var heightDirection = fieldQuadrant === 0 || fieldQuadrant === 1 ? -1 : 1;
+                var bottomCenter = new MonopolyApp.Viewmodels.Coordinate(topCenter.x, topCenter.z);
+                bottomCenter[heightCoordinate] += this.boardFieldHeight * 0.65 * heightDirection;
+
+                boardField.mortgageMesh = BABYLON.Mesh.CreateGround("mortgage_" + boardField.index, this.boardFieldWidth * 0.8, this.boardFieldWidth * 0.8, 2, scene);
+                var mat = new BABYLON.StandardMaterial("mortgagematerial_" + boardField.index, scene);
+                mat.diffuseTexture = new BABYLON.Texture("images/Mortgage.png", scene);
+                mat.diffuseTexture.hasAlpha = true;
+                mat.useAlphaFromDiffuseTexture = true;
+                boardField.mortgageMesh.material = mat;
+                boardField.mortgageMesh.position.x = bottomCenter.x;
+                boardField.mortgageMesh.position.z = bottomCenter.z;
+                boardField.mortgageMesh.position.y = 0.05;
+                if (fieldQuadrant === 1) {
+                    boardField.mortgageMesh.rotation.y = Math.PI / 2;
+                } else if (fieldQuadrant === 2) {
+                    boardField.mortgageMesh.rotation.y = Math.PI;
+                } else if (fieldQuadrant === 3) {
+                    boardField.mortgageMesh.rotation.y = Math.PI * 3 / 2;
                 }
             }
         }

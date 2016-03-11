@@ -5,6 +5,7 @@
     }
     export interface IGameService {
         players: Array<Model.Player>;
+        gameParams: Model.GameParams;
         lastDiceResult: number;
         anyFlyByEvents: boolean;
         canThrowDice: boolean;
@@ -32,8 +33,9 @@
         getBoardFieldGroup(boardFieldIndex: number): Model.AssetGroup;
         getPlayerAssets(playerName: string): Array<Model.Asset>;
         getPlayerAssetGroups(playerName: string): Array<Model.AssetGroup>;
-        hasMonopoly(player: string, focusedAssetGroupIndex: number): boolean;
+        hasMonopoly(player: string, focusedAssetGroupIndex: number, assetGroup?: Model.AssetGroup): boolean;
         addHousePreview(playerName: string, position: number): boolean;
+        addHousePreviewForGroup(playerName: string, group: Model.AssetGroup): boolean;
         removeHousePreview(playerName: string, position: number): boolean;
         commitHouseOrHotel(playerName: string, focusedAssetGroupIndex: number, assetGroup?: Model.AssetGroup): boolean;
         rollbackHouseOrHotel(playerName: string, focusedAssetGroupIndex: number): boolean;
@@ -68,6 +70,7 @@
         createBoard(scene: BABYLON.Scene);
         setBoardFieldOwner(boardField: MonopolyApp.Viewmodels.BoardField, asset: Model.Asset, scene: BABYLON.Scene);
         setBoardFieldHouses(viewBoardField: MonopolyApp.Viewmodels.BoardField, houses: number, hotel: boolean, scene: BABYLON.Scene);
+        setBoardFieldMortgage(boardField: MonopolyApp.Viewmodels.BoardField, asset: Model.Asset, scene: BABYLON.Scene);
         loadMeshes(players: MonopolyApp.Viewmodels.Player[], scene: BABYLON.Scene, gameController: MonopolyApp.controllers.GameController): JQueryDeferred<{}>[];
         showHouseButtons(focusedAssetGroupIndex: number, scene: BABYLON.Scene);
         onSwipeMove(scene: BABYLON.Scene, coords: any);

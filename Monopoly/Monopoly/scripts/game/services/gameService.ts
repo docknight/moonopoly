@@ -30,6 +30,7 @@ module Services {
             this.initManageGroups();
             this.game.advanceToNextPlayer();
             this.uncommittedHousesPrice = 0;
+            //this.setupTestData();
         }
 
         endTurn() {
@@ -47,6 +48,10 @@ module Services {
 
         get players(): Array<Model.Player> {
             return this.game.players;
+        }
+
+        get gameParams(): Model.GameParams {
+            return this.game ? this.game.gameParams : undefined;
         }
 
         get lastDiceResult(): number {
@@ -113,7 +118,7 @@ module Services {
                 var currentPosition = this.getCurrentPlayerPosition();
                 if (currentPosition.type === Model.BoardFieldType.PrisonAndVisit) {
                     var player = this.game.players.filter(p => p.playerName === this.getCurrentPlayer())[0];
-                    if (player.turnsInPrison !== undefined && player.money >= 50) {
+                    if (player.turnsInPrison !== undefined && player.money >= this.gameParams.jailBail) {
                         if (this.game.getState() === Model.GameState.BeginTurn) {
                             return true;
                         }
@@ -130,6 +135,9 @@ module Services {
             if (this.game.getState() === Model.GameState.BeginTurn || this.game.getState() === Model.GameState.ProcessingDone) {
                 var player = this.game.players.filter(p => p.playerName === this.getCurrentPlayer())[0];
                 if (player.money < 0 && player.active) {
+                    return true;
+                }
+                if (player.money < this.gameParams.jailBail && player.turnsInPrison === 0 && this.lastDiceResult !== 6) {
                     return true;
                 }
             }
@@ -221,9 +229,8 @@ module Services {
         public getOutOfJail() {
             if (this.canGetOutOfJail) {
                 var player = this.game.players.filter(p => p.playerName === this.getCurrentPlayer())[0];
-                player.money -= 50;
+                player.money -= this.gameParams.jailBail;
                 player.turnsInPrison = undefined;
-                //this.game.setState(Model.GameState.BeginTurn);
             }    
         }
 
@@ -291,35 +298,29 @@ module Services {
             if (!asset.mortgage) {
                 if (asset.hotel) {
                     priceToPay = asset.priceRentHotel;
-                } else if (asset.houses > 0) {
+                } else if (asset.houses && asset.houses > 0) {
                     priceToPay = asset.priceRentHouse[asset.houses - 1];
+                } else {
+                    // for the rest of the scenarios, we need to find out the number of owned assets in a group
+                    var numOwnedInGroup = this.game.board.fields.filter(f => {
+                        return f.type === Model.BoardFieldType.Asset && f.asset.group === asset.group && !f.asset.unowned && f.asset.owner === asset.owner;
+                    }).length;
+                    if (asset.group === Model.AssetGroup.Railway) {
+                        priceToPay = asset.priceRent[numOwnedInGroup - 1];
+                    } else if (asset.group === Model.AssetGroup.Utility) {
+                        priceToPay = asset.priceMultiplierUtility[numOwnedInGroup - 1] * (this.lastDiceResult1 + this.lastDiceResult2);
+                    } else if (asset.group !== Model.AssetGroup.None) {
+                        priceToPay = asset.priceRent[numOwnedInGroup - 1];
+                    }
                 }
-
-                // for the rest of the scenarios, we need to find out the number of owned assets in a group
-                var numOwnedInGroup = this.game.board.fields.filter(f => {
-                     return f.type === Model.BoardFieldType.Asset && f.asset.group === asset.group && !f.asset.unowned && f.asset.owner === asset.owner;
-                }).length;
-                if (asset.group === Model.AssetGroup.Railway) {
-                    priceToPay = asset.priceRent[numOwnedInGroup - 1];
-                } else if (asset.group === Model.AssetGroup.Utility) {
-                    priceToPay = asset.priceMultiplierUtility[numOwnedInGroup - 1] * (this.lastDiceResult1 + this.lastDiceResult2);
-                } else if (asset.group !== Model.AssetGroup.None) {
-                    priceToPay = asset.priceRent[numOwnedInGroup - 1];
-                }
-
                 var player = this.game.players.filter(p => p.playerName === this.getCurrentPlayer())[0];
-                //if (player.money < priceToPay) {
-                //    // TODO: player can not pay
-                //    result.moneyShortage = priceToPay - player.money;
-                //    return result;
-                //}
                 if (this.game.moveContext.doubleRent) {
                     priceToPay *= 2;
                 }
                 player.money -= priceToPay;
                 var ownerPlayer = this.game.players.filter(p => p.playerName === asset.owner)[0];
                 ownerPlayer.money += priceToPay;
-                result.message = "Paid rent of " + priceToPay + " to " + ownerPlayer.playerName + ".";
+                result.message = this.getCurrentPlayer() + " paid rent of " + priceToPay + " to " + ownerPlayer.playerName + ".";
             }
 
             return result;
@@ -344,13 +345,14 @@ module Services {
             }
         }
 
-        hasMonopoly(player: string, focusedAssetGroupIndex: number): boolean {
+        hasMonopoly(player: string, focusedAssetGroupIndex: number, assetGroup?: Model.AssetGroup): boolean {
             var monopoly = true;
-            var firstAssetIndex = this.manageGroups[focusedAssetGroupIndex][0];
-            var assetGroup = this.getBoardFieldGroup(firstAssetIndex);
+            if (!assetGroup) {
+                var firstAssetIndex = this.manageGroups[focusedAssetGroupIndex][0];
+                assetGroup = this.getBoardFieldGroup(firstAssetIndex);
+            }
             if (assetGroup < Model.AssetGroup.First || assetGroup > Model.AssetGroup.Eighth) {
-                monopoly = false;
-                return;
+                return false;
             }
 
             var groupFields = this.getGroupBoardFields(assetGroup);
@@ -363,7 +365,35 @@ module Services {
             return monopoly;
         }
 
-        addHousePreview(playerName: string, position: number): boolean {
+        // determine the first asset that is eligible for upgrade in a group and then perform the upgrade
+        public addHousePreviewForGroup(playerName: string, group: Model.AssetGroup): boolean {
+            var groupFields = this.getGroupBoardFields(group);
+            var sortedFields = groupFields.sort((a, b) => {
+                if (a.asset.hotel && b.asset.hotel) {
+                    return 0;
+                }
+                if (a.asset.hotel) {
+                    return 1;
+                }
+                if (b.asset.hotel) {
+                    return -1;
+                }
+
+                if (!a.asset.houses && !b.asset.houses) {
+                    return 0;
+                }
+                if (!a.asset.houses && b.asset.houses) {
+                    return -1;
+                }
+                if (a.asset.houses && !b.asset.houses) {
+                    return 1;
+                }
+                return a.asset.houses > b.asset.houses ? 1 : -1;
+            });
+            return this.addHousePreview(playerName, sortedFields[0].index);
+        }
+
+        public addHousePreview(playerName: string, position: number): boolean {
             var boardField = this.game.board.fields.filter(f => f.index === position)[0];
             if (!this.canUpgradeAsset(boardField.asset, playerName)) {
                 return false;
@@ -407,9 +437,9 @@ module Services {
             return true;
         }
 
-        removeHousePreview(playerName: string, position: number): boolean {
+        public removeHousePreview(playerName: string, position: number): boolean {
             var boardField = this.game.board.fields.filter(f => f.index === position)[0];
-            if (!boardField.asset || !this.hasMonopoly(playerName, boardField.asset.group) || (!boardField.asset.houses && !boardField.asset.hotel)) {
+            if (!boardField.asset || !this.hasMonopoly(playerName, 0, boardField.asset.group) || (!boardField.asset.houses && !boardField.asset.hotel)) {
                 return false;
             }
 
@@ -447,8 +477,8 @@ module Services {
             return true;
         }
 
-        commitHouseOrHotel(playerName: string, focusedAssetGroupIndex: number, assetGroup?: Model.AssetGroup): boolean {
-            if (!this.hasMonopoly(playerName, focusedAssetGroupIndex)) {
+        public commitHouseOrHotel(playerName: string, focusedAssetGroupIndex: number, assetGroup?: Model.AssetGroup): boolean {
+            if (!this.hasMonopoly(playerName, focusedAssetGroupIndex, assetGroup)) {
                 return false;
             }    
             var firstFocusedBoardField = assetGroup ? this.getGroupBoardFields(assetGroup)[0] : this.getBoardFieldsInGroup(focusedAssetGroupIndex)[0];
@@ -464,7 +494,7 @@ module Services {
             return true;
         }
 
-        rollbackHouseOrHotel(playerName: string, focusedAssetGroupIndex: number): boolean {
+        public rollbackHouseOrHotel(playerName: string, focusedAssetGroupIndex: number): boolean {
             if (!this.hasMonopoly(playerName, focusedAssetGroupIndex)) {
                 return false;
             }
@@ -476,8 +506,8 @@ module Services {
             return true;
         }
 
-        canUpgradeAsset(asset: Model.Asset, playerName: string): boolean {
-            if (!asset || asset.unowned || asset.owner !== playerName || !this.hasMonopoly(playerName, asset.group)) {
+        public canUpgradeAsset(asset: Model.Asset, playerName: string): boolean {
+            if (!asset || asset.unowned || asset.owner !== playerName || !this.hasMonopoly(playerName, 0, asset.group)) {
                 return false;
             }
             if (asset.hotel) {
@@ -492,8 +522,8 @@ module Services {
             return player.money >= requiredPrice;
         }
 
-        canDowngradeAsset(asset: Model.Asset, playerName: string): boolean {
-            if (!asset || asset.unowned || asset.owner !== playerName || !this.hasMonopoly(playerName, asset.group)) {
+        public canDowngradeAsset(asset: Model.Asset, playerName: string): boolean {
+            if (!asset || asset.unowned || asset.owner !== playerName || !this.hasMonopoly(playerName, 0, asset.group)) {
                 return false;
             }
 
@@ -503,12 +533,12 @@ module Services {
             return true;
         }
 
-        setDiceResult(diceResult: number) {
+        public setDiceResult(diceResult: number) {
             this.lastDiceResult1 = diceResult;
             this.lastDiceResult2 = 0;
         }
 
-        getNextTreasureCard(): Model.TreasureCard {
+        public getNextTreasureCard(): Model.TreasureCard {
             var card = this.game.treasureCards.filter(c => c.index === this.currentTreasureCardIndex);
             if (!card || card.length === 0) {
                 this.currentTreasureCardIndex = 0;
@@ -665,6 +695,20 @@ module Services {
                 });
             }
             return canMortgage;
+        }
+
+        private setupTestData() {
+            var player = this.game.players[1];
+            this.game.board.fields[1].asset.setOwner(player.playerName);
+            this.game.board.fields[3].asset.setOwner(player.playerName);
+            //this.toggleMortgageAsset(this.game.board.fields[1].asset);
+            //this.toggleMortgageAsset(this.game.board.fields[3].asset);
+            this.game.board.fields[1].asset.addHouse();
+            this.game.board.fields[1].asset.commitHouseOrHotel();
+            this.game.board.fields[3].asset.addHouse();
+            this.game.board.fields[3].asset.addHouse();
+            this.game.board.fields[3].asset.commitHouseOrHotel();
+            player.money = 0;
         }
 
         private initPlayers() {

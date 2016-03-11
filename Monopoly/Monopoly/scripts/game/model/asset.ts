@@ -93,7 +93,7 @@
 
         commitHouseOrHotel() {
             if (this._uncommittedHotel !== undefined) {
-                this.hotel = this._uncommittedHotel;
+                this._hotel = this._uncommittedHotel;
                 if (this._uncommittedHotel === false) {
                     this._houses = 4;
                 }
@@ -102,7 +102,7 @@
             this._uncommittedHouses = 0;
             this._uncommittedHotel = undefined;
             if (this.hotel) {
-                this.houses = 0;
+                this._houses = 0;
             }
         }
 
@@ -121,6 +121,9 @@
             }
             if (this._uncommittedHouses) {
                 var priceHouses = this._uncommittedHouses * this.priceHouse;
+                if (this._uncommittedHouses < 0) {
+                    priceHouses = Math.floor(priceHouses / 2);
+                }
                 price += priceHouses;
             }
             return price;
