@@ -65,7 +65,7 @@
             this.state = state;
         }
 
-        advanceToNextPlayer() {
+        public advanceToNextPlayer() {
             if (this._currentPlayer === "") {
                 if (this.players.length > 0) {
                     this._currentPlayer = this.players[0].playerName;
@@ -82,11 +82,33 @@
             }
         }
 
-        setPreviousState() {
+        public setPreviousState() {
             if (this.previousState !== undefined) {
                 this.state = this.previousState;
                 this.previousState = undefined;
             }
+        }
+
+        public loadDataFrom(savedGame: Game) {
+            this._currentPlayer = savedGame._currentPlayer;
+            this._board = new Board();
+            this._board.loadDataFrom(savedGame._board);
+            this._treasureCards = savedGame._treasureCards;
+            this._eventCards = savedGame._eventCards;
+            this.previousState = savedGame.previousState;
+            this.state = savedGame.state;
+            this._moveContext = new MoveContext();
+            this._moveContext.skipGoAward = savedGame._moveContext.skipGoAward;
+            this._moveContext.doubleRent = savedGame._moveContext.doubleRent;
+            this._moveContext.flyByEvents = savedGame._moveContext.flyByEvents;
+            this._gameParams = new GameParams();
+            this._gameParams.loadDataFrom(savedGame._gameParams);
+            this.players = [];
+            savedGame.players.forEach(savedPlayer => {
+                var player = new Player();
+                player.loadDataFrom(savedPlayer);
+                this.players.push(player);
+            });
         }
     }
 } 

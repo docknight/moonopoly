@@ -18,5 +18,11 @@
         type: BoardFieldType;
         index: number; // 0-based index of the field on the board
         occupiedBy: Array<string>; // names of players that are occupying the board field
+
+        public loadDataFrom(savedBoardField: BoardField) {
+            this.index = savedBoardField.index;
+            this.occupiedBy = savedBoardField.occupiedBy ? savedBoardField.occupiedBy : new Array<string>();
+            this.type = savedBoardField.type;            
+        }
     }
 } 

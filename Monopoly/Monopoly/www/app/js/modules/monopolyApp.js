@@ -13,7 +13,7 @@ monopolyApp.config(function ($stateProvider, $urlRouterProvider) {
       controller: "mainMenuCtrl as mainmenu"
     })
     .state('newgame', {
-      url: "/newgame",
+      url: "/newgame/:loadGame",
       templateUrl: "app/views/game.html",
       controller: "gameCtrl as gameController"
     })

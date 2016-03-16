@@ -58,6 +58,14 @@
             return this._hotel;
         }
 
+        get uncommittedHouses(): number {
+            return this._uncommittedHouses;
+        }
+
+        get uncommittedHotel(): boolean {
+            return this._uncommittedHotel;
+        }
+
         get mortgage(): boolean {
             return this._mortgage;
         }
@@ -155,7 +163,7 @@
         // the 'selling' parameter determines whether the house is being sold or bought
         getPriceForHouseDuringManage(selling: boolean): number {
             if (!selling) {
-                if (this._uncommittedHouses === undefined || this._uncommittedHouses < 0) {
+                if (/*this._uncommittedHouses === undefined || */this._uncommittedHouses < 0) {
                     return this.priceHouse / 2;
                 }
                 return this.priceHouse;
@@ -180,6 +188,27 @@
                 this._owner = ownerName;
                 this._unowned = false;
             }
+        }
+
+        public loadDataFrom(savedAsset: Asset) {
+            this._unowned = savedAsset._unowned;
+            this._owner = savedAsset._owner;
+            this._houses = savedAsset._houses;
+            this._uncommittedHouses = savedAsset._uncommittedHouses;
+            this._hotel = savedAsset._hotel;
+            this._uncommittedHotel = savedAsset._uncommittedHotel;
+            this._mortgage = savedAsset._mortgage;
+            this.name = savedAsset.name;
+            this.color = savedAsset.color;
+            this.price = savedAsset.price;
+            this.group = savedAsset.group;
+            this.priceRent = savedAsset.priceRent;
+            this.priceRentHouse = savedAsset.priceRentHouse;
+            this.priceRentHotel = savedAsset.priceRentHotel;
+            this.priceHouse = savedAsset.priceHouse;
+            this.priceHotel = savedAsset.priceHotel;
+            this.valueMortgage = savedAsset.valueMortgage;
+            this.priceMultiplierUtility = savedAsset.priceMultiplierUtility;
         }
     }
 } 

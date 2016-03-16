@@ -6,6 +6,23 @@
 
         fields: Array<BoardField>;
 
+        public loadDataFrom(savedBoard: Board) {
+            this.fields = [];
+            savedBoard.fields.sort((f1, f2) => {
+                return f1.index > f2.index ? 1 : -1;
+            }).forEach(f => {
+                var savedBoardField: any = f;
+                var asset: Asset = undefined;
+                if (savedBoardField._asset) {
+                    asset = new Asset();
+                    asset.loadDataFrom(savedBoardField._asset);
+                }
+                var boardField = new BoardField(asset);
+                boardField.loadDataFrom(f);
+                this.fields.push(boardField);
+            });
+        }
+
         private initBoard() {
             this.fields = new Array<BoardField>();
             var startField = new BoardField(null);

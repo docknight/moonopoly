@@ -364,7 +364,7 @@
     </div>
 </div>
 <div id="manageCommandPanel" style="position: fixed; bottom: 2%; left: 0px; width: 100%; display: none">
-    <div style="display: table; margin-left: auto; margin-right: auto; width: auto">
+    <div style="display: table; margin-left: auto; margin-right: auto; width: auto" ng-show="!gameController.actionButtonsVisible">
         <a ng-click="gameController.returnFromManage()"><img id="buttonReturnFromManage" class="commandButton unhighlightedButton" src="images/back.png" draggable="false" /></a>
     </div>
 </div>

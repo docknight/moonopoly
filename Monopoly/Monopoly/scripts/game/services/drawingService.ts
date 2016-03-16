@@ -417,7 +417,7 @@ module Services {
             }
 
             var fieldQuadrant = Math.floor(boardField.index / (this.boardFieldsInQuadrant - 1));
-            var playerColor = this.gameService.players.filter(p => p.playerName === this.gameService.getCurrentPlayer())[0].color;
+            var playerColor = this.gameService.players.filter(p => p.playerName === asset.owner)[0].color;
             var topCenter = this.getPositionCoordinate(boardField.index);
             var heightCoordinate = this.getQuadrantRunningCoordinate(fieldQuadrant) === "x" ? "z" : "x";
             var heightDirection = fieldQuadrant === 0 || fieldQuadrant === 1 ? -1 : 1;
@@ -444,7 +444,7 @@ module Services {
             }
         }
 
-        setBoardFieldHouses(viewBoardField: MonopolyApp.Viewmodels.BoardField, houses: number, hotel: boolean, scene: BABYLON.Scene) {
+        setBoardFieldHouses(viewBoardField: MonopolyApp.Viewmodels.BoardField, houses: number, hotel: boolean, uncommittedHouses: number, uncommittedHotel: boolean, scene: BABYLON.Scene) {
             if (viewBoardField.hotelMesh) {
                 scene.removeMesh(viewBoardField.hotelMesh);
                 viewBoardField.hotelMesh.dispose();
@@ -466,6 +466,7 @@ module Services {
                 topLeftCorner[runningCoordinate] += (houseSize / 2) * 1.15 * this.getQuadrantRunningDirection(boardFieldQuadrant) * -1;
             }
             topLeftCorner[heightCoordinate] += (houseSize / 2) * 1.3 * heightDirection;
+            var housesPlaced = 0;
             if ((houses && houses > 0) || hotel) {
                 viewBoardField.houseMeshes = [];
                 while ((houses > 0) || hotel) {
@@ -473,10 +474,23 @@ module Services {
                     houseMesh.scaling = new BABYLON.Vector3(1, 0.5, 1);
                     if (hotel) {
                         houseMesh.scaling[runningCoordinate] = 2;
+                        if (uncommittedHotel) {
+                            var uncommittedHotelMaterial = new BABYLON.StandardMaterial("uncommittedHotelMaterial_" + viewBoardField.index, scene);
+                            uncommittedHotelMaterial.alpha = 1.0;
+                            uncommittedHotelMaterial.diffuseColor = new BABYLON.Color3(0.9, 0.0, 0.1);
+                            houseMesh.material = uncommittedHotelMaterial;
+                        }
                     }
                     houseMesh.position = new BABYLON.Vector3(topLeftCorner.x, 0, topLeftCorner.z);
                     if (!hotel) {
+                        housesPlaced++;
                         houseMesh.position[runningCoordinate] += (houses - 1) * houseSize * 1.15 * this.getQuadrantRunningDirection(boardFieldQuadrant) * -1;
+                        if (uncommittedHouses && housesPlaced <= uncommittedHouses) {
+                            var uncommittedHouseMaterial = new BABYLON.StandardMaterial("uncommittedHouseMaterial" + houses + "_" + viewBoardField.index, scene);
+                            uncommittedHouseMaterial.alpha = 1.0;
+                            uncommittedHouseMaterial.diffuseColor = new BABYLON.Color3(0.9, 0.0, 0.1);
+                            houseMesh.material = uncommittedHouseMaterial;                            
+                        }
                     }
                     viewBoardField.houseMeshes.push(houseMesh);
                     if (hotel) {
@@ -626,9 +640,11 @@ module Services {
             return meshLoads;
         }
 
-        showHouseButtons(focusedAssetGroupIndex: number, scene: BABYLON.Scene) {
-            var focusedFields = this.gameService.getBoardFieldsInGroup(focusedAssetGroupIndex);
-            var focusedAssetGroup = focusedFields[0].asset.group;
+        public showHouseButtons(focusedAssetGroupIndex: number, scene: BABYLON.Scene, focusedAssetGroup?: Model.AssetGroup) {
+            if (!focusedAssetGroup) {
+                var focusedFields = this.gameService.getBoardFieldsInGroup(focusedAssetGroupIndex);
+                focusedAssetGroup = focusedFields[0].asset.group;
+            }
             this.cleanupHouseButtons(scene);
             var groupBoardFields = this.gameService.getGroupBoardFields(focusedAssetGroup);
             var that = this;

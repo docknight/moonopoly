@@ -23,17 +23,38 @@ module Services {
             this.settingsService = settingsService;
         }
 
-        initGame() {
+        public initGame(loadGame?: boolean) {
             this.game = new Model.Game();
-            this.initPlayers();
-            this.initCards();
+            if (loadGame) {
+                this.loadGame();
+            } else {
+                this.initPlayers();
+                this.initCards();                
+            }
             this.initManageGroups();
-            this.game.advanceToNextPlayer();
+            if (!loadGame) {
+                this.game.advanceToNextPlayer();
+            }
             this.uncommittedHousesPrice = 0;
             //this.setupTestData();
         }
 
-        endTurn() {
+        public saveGame() {
+            var gameString = JSON.stringify(this.game);
+            localStorage.setItem("game", gameString);    
+            gameString = localStorage.getItem("game");
+        }
+
+        public loadGame() {
+            var gameString = localStorage.getItem("game");
+            if (gameString) {
+                this.game = new Model.Game();
+                var savedGame: Model.Game = JSON.parse(gameString);
+                this.game.loadDataFrom(savedGame);
+            }
+        }
+
+        public endTurn() {
             if (this.canEndTurn) {
                 this.game.advanceToNextPlayer();
                 this.game.setState(Model.GameState.BeginTurn);
@@ -506,6 +527,9 @@ module Services {
             return true;
         }
 
+        // check if the asset can be upgraded
+        // all currently uncommitted houses and hotels are taken into account; 
+        // also, a purchase of a house/ hotel might require simultaneous purchase of a house on the neighbouring assets
         public canUpgradeAsset(asset: Model.Asset, playerName: string): boolean {
             if (!asset || asset.unowned || asset.owner !== playerName || !this.hasMonopoly(playerName, 0, asset.group)) {
                 return false;
@@ -519,6 +543,15 @@ module Services {
             }
             var player = this.players.filter(p => p.playerName === playerName)[0];
             var requiredPrice = !asset.houses || asset.houses <= 3 ? asset.getPriceForHouseDuringManage(false) : asset.getPriceForHotelDuringManage(false);
+            groupAssets.forEach(groupAsset => {
+                requiredPrice += groupAsset.uncommittedPrice();
+                if (groupAsset.name !== asset.name) {
+                    if (groupAsset.houses < asset.houses) {
+                        requiredPrice += (asset.houses - groupAsset.houses) * groupAsset.getPriceForHouseDuringManage(false);
+                    }
+                }
+            });
+
             return player.money >= requiredPrice;
         }
 
@@ -531,6 +564,10 @@ module Services {
                 return false;
             }
             return true;
+        }
+
+        public getAssetGroup(position: number): Model.AssetGroup {
+            return this.game.board.fields.filter(f => f.index === position).map(f => f.type === Model.BoardFieldType.Asset ? f.asset.group : undefined)[0];
         }
 
         public setDiceResult(diceResult: number) {

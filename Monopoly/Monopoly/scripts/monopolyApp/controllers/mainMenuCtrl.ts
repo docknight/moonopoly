@@ -9,16 +9,25 @@ module MonopolyApp.controllers {
         constructor(stateService: angular.ui.IStateService) {
 
             this.stateService = stateService;
-            this.title = "POZDRAVLJEN";
+            this.title = "Knight MONOPOLY";
         }
         title: string;
 
-        startNewGame = () => {
-            this.stateService.go("newgame");
+        get canLoadGame(): boolean {
+            var localStorageAny: any = localStorage;
+            return localStorage.length > 0 && localStorageAny.game;
         }
 
-        settings() {
+        startNewGame = () => {
+            this.stateService.go("newgame", { loadGame: false });
+        }
+
+        public settings() {
             this.stateService.go("settings");
+        }
+
+        public loadGame() {
+            this.stateService.go("newgame", { loadGame: true });
         }
     }
 

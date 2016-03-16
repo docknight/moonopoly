@@ -17,7 +17,9 @@
         winner: string;
         gameState: Model.GameState;
         isComputerMove: boolean;
-        initGame();
+        initGame(loadGame?: boolean);
+        saveGame();
+        loadGame();
         getCurrentPlayer(): string;
         endTurn();
         throwDice();
@@ -54,7 +56,8 @@
         getBoardFieldsInGroup(focusedAssetGroupIndex: number): Array<Model.BoardField>;
         canMortgage(asset: Model.Asset): boolean;
         getOutOfJail();
-        moveProcessingDone();        
+        moveProcessingDone();
+        getAssetGroup(position: number): Model.AssetGroup;
     }
     export interface IDrawingService {
         boardSize: number;
@@ -69,10 +72,10 @@
         pickBoardElement(scene: BABYLON.Scene, coords?: any): MonopolyApp.Viewmodels.PickedObject;
         createBoard(scene: BABYLON.Scene);
         setBoardFieldOwner(boardField: MonopolyApp.Viewmodels.BoardField, asset: Model.Asset, scene: BABYLON.Scene);
-        setBoardFieldHouses(viewBoardField: MonopolyApp.Viewmodels.BoardField, houses: number, hotel: boolean, scene: BABYLON.Scene);
+        setBoardFieldHouses(viewBoardField: MonopolyApp.Viewmodels.BoardField, houses: number, hotel: boolean, uncommittedHouses: number, uncommittedHotel: boolean, scene: BABYLON.Scene);
         setBoardFieldMortgage(boardField: MonopolyApp.Viewmodels.BoardField, asset: Model.Asset, scene: BABYLON.Scene);
         loadMeshes(players: MonopolyApp.Viewmodels.Player[], scene: BABYLON.Scene, gameController: MonopolyApp.controllers.GameController): JQueryDeferred<{}>[];
-        showHouseButtons(focusedAssetGroupIndex: number, scene: BABYLON.Scene);
+        showHouseButtons(focusedAssetGroupIndex: number, scene: BABYLON.Scene, focusedAssetGroup?: Model.AssetGroup);
         onSwipeMove(scene: BABYLON.Scene, coords: any);
         onSwipeEnd(scene: BABYLON.Scene, coords: any): MonopolyApp.Viewmodels.PickedObject;
         showActionButtons();

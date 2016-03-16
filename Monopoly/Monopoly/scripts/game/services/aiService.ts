@@ -186,7 +186,9 @@ module Services {
 
         // buy houses or hotels if available
         private buyHouses(moneyAvailable: number, player: string, actions: Model.AIAction[]) {
-            if (moneyAvailable <= 200) {
+            moneyAvailable -= 200;
+            var assetGroupsToGain = this.numAssetGroupsToGain(player);
+            if (moneyAvailable < 0) {
                 return;
             }
             var ownedAssets = this.gameService.getPlayerAssets(player);
@@ -202,12 +204,27 @@ module Services {
                     var groupFields = this.gameService.getGroupBoardFields(group);
                     if (groupFields.every(f => !f.asset.mortgage)) {
                         var housesLeftToBuy = 0;
+                        var housesPerAsset = 0;
                         groupFields.forEach(f => {
-                            if (!f.asset.mortgage && !f.asset.hotel) {
-                                housesLeftToBuy += !f.asset.houses ? 4 : 4 - f.asset.houses;
+                            if (!f.asset.mortgage) {
+                                if (!f.asset.hotel) {
+                                    housesLeftToBuy += !f.asset.houses ? 4 : 4 - f.asset.houses;
+                                    housesPerAsset += f.asset.houses ? f.asset.houses : 0;
+                                } else {
+                                    housesPerAsset += 5;
+                                }
                             }
                         });
-                        var affordableHouses = Math.floor(moneyAvailable / groupFields[0].asset.priceHouse);
+                        housesPerAsset = Math.floor(housesPerAsset / groupFields.length);
+                        var moneyAvailableForHouses = moneyAvailable;
+                        // don't spend to much on houses if there already are some and there are still asset groups available
+                        if (assetGroupsToGain > 0 && housesPerAsset >= 2) {
+                            moneyAvailableForHouses -= 200;
+                        }
+                        if (assetGroupsToGain >= 3 && housesPerAsset >= 2) {
+                            moneyAvailableForHouses -= 300;
+                        }
+                        var affordableHouses = Math.floor(moneyAvailableForHouses / groupFields[0].asset.priceHouse);
                         var housesToBuy = Math.min(housesLeftToBuy, affordableHouses);
                         if (housesToBuy > 0) {
                             action = new Model.AIAction();
@@ -231,7 +248,15 @@ module Services {
                         groupFields.forEach(f => {
                             hotelsLeftToBuy += f.asset.hotel ? 0 : 1;
                         });
-                        var affordableHotels = Math.floor(moneyAvailable / groupFields[0].asset.priceHotel);
+                        var moneyAvailableForHotels = moneyAvailable;
+                        // don't spend to much on hotels if there are still asset groups available
+                        if (assetGroupsToGain > 0) {
+                            moneyAvailableForHotels -= 300;
+                        }
+                        if (assetGroupsToGain >= 3) {
+                            moneyAvailableForHotels -= 400;
+                        }
+                        var affordableHotels = Math.floor(moneyAvailableForHotels / groupFields[0].asset.priceHotel);
                         var hotelsToBuy = Math.min(hotelsLeftToBuy, affordableHotels);
                         if (hotelsToBuy > 0) {
                             action = new Model.AIAction();
@@ -307,6 +332,22 @@ module Services {
                     }                    
                 }
             });
+        }
+
+        // gets the number of groups that are not entirely owned by the player but have a chance to be
+        private numAssetGroupsToGain(player: string): number {
+            var groups = [Model.AssetGroup.First, Model.AssetGroup.Second, Model.AssetGroup.Third, Model.AssetGroup.Fourth, Model.AssetGroup.Fifth, Model.AssetGroup.Sixth, Model.AssetGroup.Seventh, Model.AssetGroup.Eighth, Model.AssetGroup.Railway, Model.AssetGroup.Utility];
+            var groupsToGain = 0;
+            var playerGroups = this.gameService.getPlayerAssetGroups(player); // don't count groups already owned by the player
+            groups.forEach(group => {
+                if (playerGroups.filter(g => g === group).length === 0) {
+                    var groupFields = this.gameService.getGroupBoardFields(group);
+                    if (groupFields.every(f => f.asset.unowned || f.asset.owner === player)) {
+                        groupsToGain++;
+                    }
+                }
+            });
+            return groupsToGain;
         }
     }
 

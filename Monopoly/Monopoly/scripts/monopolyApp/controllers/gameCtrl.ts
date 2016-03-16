@@ -6,12 +6,13 @@ module MonopolyApp.controllers {
     export class GameController {
         scope: angular.IScope;
         stateService: angular.ui.IStateService;
+        stateParamsService: angular.ui.IStateParamsService;
         timeoutService: angular.ITimeoutService;
         gameService: Interfaces.IGameService;
         drawingService: Interfaces.IDrawingService;
         aiService: Interfaces.IAIService;
         swipeService: any;
-        static $inject = ["$state", "$swipe", "$scope", "$timeout", "gameService", "drawingService", "aiService"];
+        static $inject = ["$state", "$stateParams", "$swipe", "$scope", "$timeout", "gameService", "drawingService", "aiService"];
 
         private players: Array<Viewmodels.Player>;
         private boardFields: Array<Viewmodels.BoardField>;
@@ -40,25 +41,42 @@ module MonopolyApp.controllers {
             return this.players;
         }
 
-        constructor(stateService: angular.ui.IStateService, swipeService: any, scope: angular.IScope, timeoutService: angular.ITimeoutService ,gameService: Interfaces.IGameService, drawingService: Interfaces.IDrawingService, aiService: Interfaces.IAIService) {
+        constructor(stateService: angular.ui.IStateService, stateParamsService: angular.ui.IStateParamsService, swipeService: any, scope: angular.IScope, timeoutService: angular.ITimeoutService ,gameService: Interfaces.IGameService, drawingService: Interfaces.IDrawingService, aiService: Interfaces.IAIService) {
             this.scope = scope;
             this.stateService = stateService;
+            this.stateParamsService = stateParamsService;
             this.timeoutService = timeoutService;
             this.gameService = gameService;
             this.drawingService = drawingService;
             this.aiService = aiService;
             this.swipeService = swipeService;
-            this.initGame();
-            this.createScene();
+            var spService: any = this.stateParamsService;
+            var loadGame:boolean = eval(spService.loadGame);
+            this.initGame(loadGame);
+            var sceneCreated = this.createScene();
             this.availableActions = new Viewmodels.AvailableActions();
             this.setAvailableActions();
             this.initMessageHistory();
             this.currentCard = new Viewmodels.Card();
             this.bindInputEvents();
+            var that = this;
+            $.when(sceneCreated).done(() => {
+                for (var i = 0; i < 8; i++) {
+                    that.refreshBoardFieldGroupHouses(i);
+                }
+                if (loadGame) {
+                    that.drawingService.returnCameraToMainPosition(that.scene, that.gameCamera, that.gameService.getCurrentPlayerPosition().index);
+                }
+                if (this.gameService.isComputerMove) {
+                    that.timeoutService(() => {
+                        that.setupThrowDice();
+                    }, 3000);
+                }
+            });
         }
 
-        initGame() {
-            this.gameService.initGame();
+        initGame(loadGame?: boolean) {
+            this.gameService.initGame(loadGame);
         }
 
         setupThrowDice() {
@@ -164,7 +182,7 @@ module MonopolyApp.controllers {
                         this.gameService.removeHousePreview(this.currentPlayer, action.position);
                         if (this.gameService.commitHouseOrHotel(this.currentPlayer, 0, action.asset.group)) {
                             var viewBoardField = this.boardFields.filter(f => f.index === action.position)[0];
-                            this.drawingService.setBoardFieldHouses(viewBoardField, action.asset.houses, action.asset.hotel, this.scene);
+                            this.drawingService.setBoardFieldHouses(viewBoardField, action.asset.houses, action.asset.hotel, undefined, undefined, this.scene);
                             this.showMessage(this.currentPlayer + " sold " + (action.actionType === Model.AIActionType.SellHouse ? "a house" : "hotel") + " on " + action.asset.name + ".");
                         }
                     }
@@ -179,7 +197,7 @@ module MonopolyApp.controllers {
                         var groupFields = this.gameService.getGroupBoardFields(action.assetGroup);
                         groupFields.forEach(groupField => {
                             var viewBoardFieldWithHouse = this.boardFields.filter(f => f.index === groupField.index)[0];
-                            this.drawingService.setBoardFieldHouses(viewBoardFieldWithHouse, groupField.asset.houses, groupField.asset.hotel, this.scene);                            
+                            this.drawingService.setBoardFieldHouses(viewBoardFieldWithHouse, groupField.asset.houses, groupField.asset.hotel, undefined, undefined, this.scene);                            
                         });
                         this.showMessage(this.currentPlayer + " bought " + action.numHousesOrHotels + (action.actionType === Model.AIActionType.BuyHouse ? " houses." : " hotels."));
 
@@ -265,6 +283,7 @@ module MonopolyApp.controllers {
         manage() {
             if (!this.manageMode) {
                 this.manageMode = true;
+                this.actionButtonsVisible = false;
                 this.focusedAssetGroupIndex = this.gameService.manage();
                 this.setupManageHighlight();
                 this.scene.activeCamera = this.manageCamera;
@@ -302,6 +321,7 @@ module MonopolyApp.controllers {
         endTurn() {
             if (this.gameService.canEndTurn) {
                 this.gameService.endTurn();
+                this.gameService.saveGame();
                 var that = this;
                 this.showMessage(this.currentPlayer + " is starting his turn.");
                 this.timeoutService(() => {
@@ -470,17 +490,17 @@ module MonopolyApp.controllers {
             }
         }
 
-        private createScene() {
+        private createScene(): JQueryDeferred<{}> {
             var canvas = <HTMLCanvasElement>document.getElementById("renderCanvas");
             var engine = new BABYLON.Engine(canvas, true);
-            var theScene = this.createBoard(engine, canvas);
+            var d = this.createBoard(engine, canvas);
             //BABYLON.Scene.MaxDeltaTime = 30.0;
             var that = this;
             engine.runRenderLoop(() => {
                 that.timeoutService(() => {
                     if (that.gameService.gameState === Model.GameState.ThrowDice && that.diceThrowCompleted) {
                         // if the game is at the dice throw state and the dice throw has been triggered, verify if it is done, otherwise just follow with the camera
-                        if (that.drawingService.isDiceAtRestAfterThrowing(theScene)) {
+                        if (that.drawingService.isDiceAtRestAfterThrowing(that.scene)) {
                             that.diceThrowCompleted.resolve();
                         } else {
                             var dicePhysicsLocation = that.drawingService.getDiceLocation(that.scene);
@@ -490,7 +510,7 @@ module MonopolyApp.controllers {
                             }
                         }
                     }
-                    theScene.render();
+                    that.scene.render();
                 }, 1, false);
             });
             window.addEventListener("resize", function () {
@@ -501,9 +521,11 @@ module MonopolyApp.controllers {
             window.addEventListener("resize", function () {
                 engine.resize();
             });
+            return d;
         }
 
-        private createBoard(engine, canvas) {
+        private createBoard(engine, canvas): JQueryDeferred<{}> {
+            var d = $.Deferred();
             // This creates a basic Babylon Scene object (non-mesh)
             this.scene = new BABYLON.Scene(engine);
             this.scene.enablePhysics(new BABYLON.Vector3(0, -10, 0), new BABYLON.CannonJSPlugin());
@@ -529,9 +551,14 @@ module MonopolyApp.controllers {
 
             this.initPlayers();            
             var meshLoads = this.drawingService.loadMeshes(this.players, this.scene, this);
-            $.when.apply($, meshLoads).done(this.setupPlayerPositions);
-            this.setupBoardFields();
-            return this.scene;
+            var that = this;
+            $.when.apply($, meshLoads).done(() => {
+                that.setupPlayerPositions(that);
+                that.setupBoardFields();
+                d.resolve();
+            });
+            
+            return d;
         }
 
         private initPlayers() {
@@ -742,12 +769,14 @@ module MonopolyApp.controllers {
         private addHousePreview(position: number) {
             if (this.gameService.addHousePreview(this.gameService.getCurrentPlayer(), position)) {
                 this.setupActionButtonsForHousePreview(position);
+                this.drawingService.showHouseButtons(0, this.scene, this.gameService.getAssetGroup(position));
             }
         }
 
         private removeHousePreview(position: number) {
             if (this.gameService.removeHousePreview(this.gameService.getCurrentPlayer(), position)) {
                 this.setupActionButtonsForHousePreview(position);
+                this.drawingService.showHouseButtons(0, this.scene, this.gameService.getAssetGroup(position));
             }
         }
 
@@ -788,7 +817,7 @@ module MonopolyApp.controllers {
             var that = this;
             viewGroupBoardFields.forEach(f => {
                 var asset = fields.filter(field => f.index === field.index)[0].asset;
-                that.drawingService.setBoardFieldHouses(f, asset.houses, asset.hotel, that.scene);
+                that.drawingService.setBoardFieldHouses(f, asset.houses, asset.hotel, asset.uncommittedHouses, asset.uncommittedHotel, that.scene);
             });
             
         }
@@ -796,7 +825,9 @@ module MonopolyApp.controllers {
         private commitHouses(data: any) {
             this.gameService.commitHouseOrHotel(this.gameService.getCurrentPlayer(), this.focusedAssetGroupIndex);
             this.actionButtonsVisible = false;
+            this.refreshBoardFieldGroupHouses(this.focusedAssetGroupIndex);
             this.updatePlayersForView();
+            this.drawingService.showHouseButtons(this.focusedAssetGroupIndex, this.scene);
         }
 
         private rollbackHouses(data: any) {
@@ -804,6 +835,7 @@ module MonopolyApp.controllers {
             this.actionButtonsVisible = false;
             this.refreshBoardFieldGroupHouses(this.focusedAssetGroupIndex);
             this.updatePlayersForView();
+            this.drawingService.showHouseButtons(this.focusedAssetGroupIndex, this.scene);
         }
 
         private updatePlayersForView() {
