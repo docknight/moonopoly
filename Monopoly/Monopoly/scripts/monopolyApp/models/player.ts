@@ -4,5 +4,6 @@
         money: number;
         mesh: BABYLON.AbstractMesh;
         index: number;
+        color: string;
     }
 }

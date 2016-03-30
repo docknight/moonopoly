@@ -10,16 +10,21 @@ module Services {
         }
 
         loadSettings = () => {
-            //For the purpose of this demo I am returning the hard coded values, however in real world application
-            //You would probably use "this.httpService.get" method to call backend REST apis to fetch the data from server.
             var settings: Model.Settings = new Model.Settings();
-            settings.numPlayers = 2;
-            settings.playerName = "Player 1";
+            var localStorageAny: any = localStorage;
+            if (localStorage.getItem("settings_v1_0")) {
+                var savedSettings: Model.Settings = JSON.parse(localStorageAny.settings_v1_0);
+                settings.numPlayers = savedSettings.numPlayers;
+                settings.playerName = savedSettings.playerName;
+            } else {
+                settings.playerName = "Player 1";
+            }
             return settings;
         }
 
         saveSettings(settings: Model.Settings) {
-            
+            var localStorageAny: any = localStorage;
+            localStorageAny.settings_v1_0 = JSON.stringify(settings);
         }
     }
 

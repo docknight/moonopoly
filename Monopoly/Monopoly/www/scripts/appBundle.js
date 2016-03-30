@@ -965,16 +965,23 @@ var Services;
     var SettingsService = (function () {
         function SettingsService($http) {
             this.loadSettings = function () {
-                //For the purpose of this demo I am returning the hard coded values, however in real world application
-                //You would probably use "this.httpService.get" method to call backend REST apis to fetch the data from server.
                 var settings = new Model.Settings();
-                settings.numPlayers = 2;
-                settings.playerName = "Player 1";
+                var localStorageAny = localStorage;
+                if (localStorage.getItem("settings_v1_0")) {
+                    var savedSettings = JSON.parse(localStorageAny.settings_v1_0);
+                    settings.numPlayers = savedSettings.numPlayers;
+                    settings.playerName = savedSettings.playerName;
+                }
+                else {
+                    settings.playerName = "Player 1";
+                }
                 return settings;
             };
             this.httpService = $http;
         }
         SettingsService.prototype.saveSettings = function (settings) {
+            var localStorageAny = localStorage;
+            localStorageAny.settings_v1_0 = JSON.stringify(settings);
         };
         SettingsService.$inject = ["$http"];
         return SettingsService;
@@ -3828,6 +3835,7 @@ var MonopolyApp;
                 return d;
             };
             GameController.prototype.initPlayers = function () {
+                var _this = this;
                 this.players = [];
                 var that = this;
                 var index = 0;
@@ -3836,9 +3844,25 @@ var MonopolyApp;
                     playerModel.name = player.playerName;
                     playerModel.money = player.money;
                     playerModel.index = index;
+                    playerModel.color = _this.getColor(player.color);
                     that.playerModels.push(playerModel);
                     index++;
                 });
+            };
+            GameController.prototype.getColor = function (playerColor) {
+                if (playerColor === Model.PlayerColor.Blue) {
+                    return "#4C4CFF";
+                }
+                else if (playerColor === Model.PlayerColor.Red) {
+                    return "#FF4C4C";
+                }
+                else if (playerColor === Model.PlayerColor.Green) {
+                    return "#4CFF4C";
+                }
+                else if (playerColor === Model.PlayerColor.Yellow) {
+                    return "#FFFF4C";
+                }
+                return "#000000";
             };
             GameController.prototype.setupBoardFields = function () {
                 var _this = this;
@@ -4049,7 +4073,7 @@ var MonopolyApp;
                 groupBoardFields.forEach(function (field) {
                     hasUncommittedUpgrades = hasUncommittedUpgrades || field.asset.hasUncommittedUpgrades();
                 });
-                this.refreshBoardFieldGroupHouses(assetGroup);
+                this.refreshBoardFieldGroupHouses(0, assetGroup);
                 if (hasUncommittedUpgrades) {
                     this.setupActionButtons(this.commitHouses, this.rollbackHouses);
                 }
@@ -4069,9 +4093,15 @@ var MonopolyApp;
                     that.actionButtonsVisible = true;
                 });
             };
-            GameController.prototype.refreshBoardFieldGroupHouses = function (focusedAssetGroupIndex) {
-                var firstFocusedBoardField = this.gameService.getBoardFieldsInGroup(focusedAssetGroupIndex)[0];
-                var fields = this.gameService.getGroupBoardFields(firstFocusedBoardField.asset.group);
+            GameController.prototype.refreshBoardFieldGroupHouses = function (focusedAssetGroupIndex, assetGroup) {
+                var fields;
+                if (!assetGroup) {
+                    var firstFocusedBoardField = this.gameService.getBoardFieldsInGroup(focusedAssetGroupIndex)[0];
+                    fields = this.gameService.getGroupBoardFields(firstFocusedBoardField.asset.group);
+                }
+                else {
+                    fields = this.gameService.getGroupBoardFields(assetGroup);
+                }
                 var fieldIndexes = $.map(fields, function (f) { return f.index; });
                 var viewGroupBoardFields = this.boardFields.filter(function (viewBoardField) { return $.inArray(viewBoardField.index, fieldIndexes) >= 0; });
                 var that = this;

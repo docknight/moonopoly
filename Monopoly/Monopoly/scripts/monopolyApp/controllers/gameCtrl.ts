@@ -570,9 +570,24 @@ module MonopolyApp.controllers {
                 playerModel.name = player.playerName;
                 playerModel.money = player.money;
                 playerModel.index = index;
+                playerModel.color = this.getColor(player.color);
                 that.playerModels.push(playerModel);
                 index++;
             });
+        }
+
+        private getColor(playerColor: Model.PlayerColor): string {
+            if (playerColor === Model.PlayerColor.Blue) {
+                return "#4C4CFF";
+            } else if (playerColor === Model.PlayerColor.Red) {
+                return "#FF4C4C";
+            } else if (playerColor === Model.PlayerColor.Green) {
+                return "#4CFF4C";
+            } else if (playerColor === Model.PlayerColor.Yellow) {
+                return "#FFFF4C";
+            }
+
+            return "#000000";
         }
 
         private setupBoardFields() {
@@ -787,7 +802,7 @@ module MonopolyApp.controllers {
             groupBoardFields.forEach(field => {
                 hasUncommittedUpgrades = hasUncommittedUpgrades || field.asset.hasUncommittedUpgrades();
             });
-            this.refreshBoardFieldGroupHouses(assetGroup);
+            this.refreshBoardFieldGroupHouses(0, assetGroup);
             if (hasUncommittedUpgrades) {
                 this.setupActionButtons(this.commitHouses, this.rollbackHouses);
             } else {
@@ -808,9 +823,14 @@ module MonopolyApp.controllers {
             });            
         }
 
-        private refreshBoardFieldGroupHouses(focusedAssetGroupIndex: number) {
-            var firstFocusedBoardField = this.gameService.getBoardFieldsInGroup(focusedAssetGroupIndex)[0];
-            var fields = this.gameService.getGroupBoardFields(firstFocusedBoardField.asset.group);
+        private refreshBoardFieldGroupHouses(focusedAssetGroupIndex: number, assetGroup?: Model.AssetGroup) {
+            var fields: Array<Model.BoardField>;
+            if (!assetGroup) {
+                var firstFocusedBoardField = this.gameService.getBoardFieldsInGroup(focusedAssetGroupIndex)[0];
+                fields = this.gameService.getGroupBoardFields(firstFocusedBoardField.asset.group);
+            } else {
+                fields = this.gameService.getGroupBoardFields(assetGroup);
+            }
 
             var fieldIndexes = $.map(fields, f => f.index);
             var viewGroupBoardFields = this.boardFields.filter(viewBoardField => $.inArray(viewBoardField.index, fieldIndexes) >= 0);
