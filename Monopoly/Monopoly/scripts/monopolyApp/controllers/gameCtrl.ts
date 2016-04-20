@@ -11,8 +11,11 @@ module MonopolyApp.controllers {
         gameService: Interfaces.IGameService;
         drawingService: Interfaces.IDrawingService;
         aiService: Interfaces.IAIService;
+        themeService: Interfaces.IThemeService;
+        settingsService: Interfaces.ISettingsService;
+        tutorialService: Interfaces.ITutorialService;
         swipeService: any;
-        static $inject = ["$state", "$stateParams", "$swipe", "$scope", "$timeout", "gameService", "drawingService", "aiService"];
+        static $inject = ["$state", "$stateParams", "$swipe", "$scope", "$timeout", "gameService", "drawingService", "aiService", "themeService", "settingsService", "tutorialService"];
 
         private players: Array<Viewmodels.Player>;
         private boardFields: Array<Viewmodels.BoardField>;
@@ -32,6 +35,8 @@ module MonopolyApp.controllers {
         assetToManage: Model.Asset; // asset currently being managed
         messages: Array<string>;
         actionButtonsVisible: boolean;
+        tutorial: boolean;
+        tutorialData: Model.TutorialData;
 
         get currentPlayer(): string {
             return this.gameService.getCurrentPlayer();
@@ -41,7 +46,11 @@ module MonopolyApp.controllers {
             return this.players;
         }
 
-        constructor(stateService: angular.ui.IStateService, stateParamsService: angular.ui.IStateParamsService, swipeService: any, scope: angular.IScope, timeoutService: angular.ITimeoutService ,gameService: Interfaces.IGameService, drawingService: Interfaces.IDrawingService, aiService: Interfaces.IAIService) {
+        get theme(): Interfaces.ITheme {
+            return this.themeService.theme;
+        }
+
+        constructor(stateService: angular.ui.IStateService, stateParamsService: angular.ui.IStateParamsService, swipeService: any, scope: angular.IScope, timeoutService: angular.ITimeoutService, gameService: Interfaces.IGameService, drawingService: Interfaces.IDrawingService, aiService: Interfaces.IAIService, themeService: Interfaces.IThemeService, settingsService: Interfaces.ISettingsService, tutorialService: Interfaces.ITutorialService) {
             this.scope = scope;
             this.stateService = stateService;
             this.stateParamsService = stateParamsService;
@@ -49,7 +58,10 @@ module MonopolyApp.controllers {
             this.gameService = gameService;
             this.drawingService = drawingService;
             this.aiService = aiService;
+            this.themeService = themeService;
             this.swipeService = swipeService;
+            this.settingsService = settingsService;
+            this.tutorialService = tutorialService;
             var spService: any = this.stateParamsService;
             var loadGame:boolean = eval(spService.loadGame);
             this.initGame(loadGame);
@@ -64,6 +76,7 @@ module MonopolyApp.controllers {
                 for (var i = 0; i < 8; i++) {
                     that.refreshBoardFieldGroupHouses(i);
                 }
+                that.initTutorial(loadGame);
                 if (loadGame) {
                     that.drawingService.returnCameraToMainPosition(that.scene, that.gameCamera, that.gameService.getCurrentPlayerPosition().index);
                 }
@@ -80,11 +93,19 @@ module MonopolyApp.controllers {
         }
 
         setupThrowDice() {
+            if (this.isBlockedByTutorial("setupthrow")) {
+                return;
+            }
             if (this.gameService.canThrowDice) {
+                this.executeTutorialCallback("setupthrow");
                 this.gameService.throwDice();
                 this.setAvailableActions();
                 this.drawingService.setupDiceForThrow(this.scene);
                 $.when(this.drawingService.moveCameraForDiceThrow(this.scene, this.gameCamera, this.gameService.getCurrentPlayerPosition())).done(() => {
+                    var that = this;
+                    this.scope.$apply(() => {
+                        this.executeTutorialCallback("throw");
+                    });
                     if (this.gameService.isComputerMove) {
                         this.throwDice(this.drawingService.getRandomPointOnDice());
                     }
@@ -120,46 +141,49 @@ module MonopolyApp.controllers {
             var cameraMovementCompleted = this.drawingService.returnCameraToMainPosition(this.scene, this.gameCamera, oldPosition.index);
             var that = this;
             $.when(cameraMovementCompleted).done(() => {
-                var animateMoveCompleted: JQueryDeferred<{}>;
-                var followBoardAnimation: JQueryDeferred<{}> = $.Deferred();
-                if (newPosition) {
-                    animateMoveCompleted = that.animateMove(oldPosition, newPosition, newPositionIndex !== undefined, backwards);
-                    //var positionsToMove = oldPosition.index < newPosition.index ? newPosition.index - oldPosition.index : (40 - oldPosition.index) + newPosition.index;
-                    var positionsToMove = backwards ? (newPosition.index <= oldPosition.index ? oldPosition.index - newPosition.index : 40 - newPosition.index + oldPosition.index) :
-                        newPosition.index >= oldPosition.index ? newPosition.index - oldPosition.index : 40 - oldPosition.index + newPosition.index;
-                    
-                    that.followBoardFields(oldPosition.index, positionsToMove, that.drawingService, that.scene, that.gameCamera, that, followBoardAnimation, newPositionIndex !== undefined, backwards);
-                } else {
-                    animateMoveCompleted = $.Deferred().resolve();
-                    followBoardAnimation = $.Deferred().resolve();
-                }
-                $.when.apply($, [animateMoveCompleted, followBoardAnimation]).done(() => {
-                    that.scope.$apply(() => {
-                        that.setAvailableActions();
-                        $.when(that.processDestinationField()).done(() => {
-                            that.gameService.moveProcessingDone();
-                            if (that.gameService.isComputerMove && (that.gameService.canEndTurn || that.gameService.canSurrender || that.gameService.canGetOutOfJail)) {
-                                // since movePlayer() can be executed several times during a single move, we must ensure this block only runs once
-                                var computerActions: JQueryDeferred<{}> = $.Deferred();
-                                that.processComputerActions(computerActions);
-                                $.when(computerActions).done((anotherMove) => {
-                                    if (!anotherMove) {
-                                        // end the turn after processing, unless one of the computer actions resulted in another move 
-                                        // (for instance, if computer bailed out of jail)
-                                        that.endTurn();
-                                    }
-                                    that.updatePlayersForView();
-                                    that.setAvailableActions();
-                                    d.resolve();
-                                });
-                            } else {
-                                that.timeoutService(() => {
-                                    that.scope.$apply(() => {
+                cameraMovementCompleted = that.drawingService.returnCameraToMainPosition(that.scene, that.gameCamera, oldPosition.index, 30, true);
+                $.when(cameraMovementCompleted).done(() => {
+                    var animateMoveCompleted: JQueryDeferred<{}>;
+                    var followBoardAnimation: JQueryDeferred<{}> = $.Deferred();
+                    if (newPosition) {
+                        animateMoveCompleted = that.animateMove(oldPosition, newPosition, newPositionIndex !== undefined, backwards);
+                        //var positionsToMove = oldPosition.index < newPosition.index ? newPosition.index - oldPosition.index : (40 - oldPosition.index) + newPosition.index;
+                        var positionsToMove = backwards ? (newPosition.index <= oldPosition.index ? oldPosition.index - newPosition.index : 40 - newPosition.index + oldPosition.index) :
+                            newPosition.index >= oldPosition.index ? newPosition.index - oldPosition.index : 40 - oldPosition.index + newPosition.index;
+
+                        that.followBoardFields(oldPosition.index, positionsToMove, that.drawingService, that.scene, that.gameCamera, that, followBoardAnimation, newPositionIndex !== undefined, backwards);
+                    } else {
+                        animateMoveCompleted = $.Deferred().resolve();
+                        followBoardAnimation = $.Deferred().resolve();
+                    }
+                    $.when.apply($, [animateMoveCompleted, followBoardAnimation]).done(() => {
+                        that.scope.$apply(() => {
+                            that.setAvailableActions();
+                            $.when(that.processDestinationField()).done(() => {
+                                that.gameService.moveProcessingDone();
+                                if (that.gameService.isComputerMove && (that.gameService.canEndTurn || that.gameService.canSurrender || that.gameService.canGetOutOfJail)) {
+                                    // since movePlayer() can be executed several times during a single move, we must ensure this block only runs once
+                                    var computerActions: JQueryDeferred<{}> = $.Deferred();
+                                    that.processComputerActions(computerActions);
+                                    $.when(computerActions).done((anotherMove) => {
+                                        if (!anotherMove) {
+                                            // end the turn after processing, unless one of the computer actions resulted in another move 
+                                            // (for instance, if computer bailed out of jail)
+                                            that.endTurn();
+                                        }
+                                        that.updatePlayersForView();
                                         that.setAvailableActions();
+                                        d.resolve();
                                     });
-                                });
-                                d.resolve();
-                            }
+                                } else {
+                                    that.timeoutService(() => {
+                                        that.scope.$apply(() => {
+                                            that.setAvailableActions();
+                                        });
+                                    });
+                                    d.resolve();
+                                }
+                            });
                         });
                     });
                 });
@@ -251,7 +275,7 @@ module MonopolyApp.controllers {
                 if (fast) {
                     numFrames = Math.floor(numFrames / 2);
                 }
-                var cameraMoveCompleted = drawingService.returnCameraToMainPosition(scene, camera, positionIndex, numFrames);
+                var cameraMoveCompleted = drawingService.returnCameraToMainPosition(scene, camera, positionIndex, numFrames, true);
                 $.when(cameraMoveCompleted).done(() => {
                     var processedEvent = gameController.gameService.processFlyBy(positionIndex, backwards);
                     if (processedEvent !== Model.ProcessingEvent.None) {
@@ -342,6 +366,10 @@ module MonopolyApp.controllers {
                     }
                 });
             }
+        }
+
+        pause() {
+            
         }
 
         closeAssetManagementWindow() {
@@ -543,10 +571,9 @@ module MonopolyApp.controllers {
             // This creates a light, aiming 0,1,0 - to the sky (non-mesh)
             var light = new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(0, 1, 0), this.scene);
 
-            // Default intensity is 1. Let's dim the light a small amount
+            // default intensity is 1
             light.intensity = 1;
 
-            // Our built-in 'ground' shape. Params: name, width, depth, subdivs, scene
             this.drawingService.createBoard(this.scene);
 
             this.initPlayers();            
@@ -622,6 +649,7 @@ module MonopolyApp.controllers {
             this.availableActions.manage = !this.gameService.isComputerMove && this.gameService.canManage;
             this.availableActions.getOutOfJail = !this.gameService.isComputerMove && this.gameService.canGetOutOfJail;
             this.availableActions.surrender = !this.gameService.isComputerMove && this.gameService.canSurrender;
+            this.availableActions.pause = !this.gameService.isComputerMove && this.gameService.canPause;
         }
 
         private animateMove(oldPosition: Model.BoardField, newPosition: Model.BoardField, fast?: boolean, backwards?: boolean): JQueryDeferred<{}> {
@@ -716,6 +744,12 @@ module MonopolyApp.controllers {
         private handleClickEvent(eventObject: JQueryEventObject, ...data: any[]) {
             var thisInstance = <GameController>eventObject.data;
             var mouseEventObject: TouchEvent;
+            if (thisInstance.tutorialService.isActive && thisInstance.tutorialService.canAdvanceByClick && $("#tutorialMessage:visible").length > 0) {
+                thisInstance.scope.$apply(() => {
+                    thisInstance.tutorialService.advanceToNextStep();
+                });
+                return;
+            }
             if (thisInstance.manageMode && !thisInstance.swipeInProgress) {
                 mouseEventObject = </*JQueryMouseEventObject*/TouchEvent>eventObject.originalEvent;
                 var pickedObject = thisInstance.drawingService.pickBoardElement(thisInstance.scene, mouseEventObject && mouseEventObject.changedTouches && mouseEventObject.changedTouches.length > 0 ? { x: mouseEventObject.changedTouches[0].clientX, y: mouseEventObject.changedTouches[0].clientY } : undefined);
@@ -1039,8 +1073,10 @@ module MonopolyApp.controllers {
                 //$("#renderCanvas").bind("MSPointerDown", this, this.handleClickEvent);
                 //$("#renderCanvas").bind("pointerdown", this, this.handleClickEvent);
                 $("#renderCanvas").bind("touchend", this, this.handleClickEvent);
+                $("#tutorialMessage").bind("touchend", this, this.handleClickEvent);
             } else {
                 $("#renderCanvas").bind("touchend", this, this.handleClickEvent);
+                $("#tutorialMessage").bind("touchend", this, this.handleClickEvent);
             }
             this.swipeService.bind($("#renderCanvas"), {
                 'move': (coords) => { this.swipeMove(coords); },
@@ -1147,6 +1183,30 @@ module MonopolyApp.controllers {
             if (this.gameService.gameState === Model.GameState.BeginTurn) {
                 this.messages.push(this.currentPlayer + " is starting his turn.");
                 this.refreshMessageHistory();
+            }            
+        }
+
+        private isBlockedByTutorial(action: string) {
+            return this.tutorialService.isActive && !this.tutorialService.canExecuteAction(action);
+        }
+
+        private executeTutorialCallback(action: string) {
+            if (this.tutorialService.isActive) {
+                this.tutorialService.executeActionCallback(action);
+            }
+        }
+
+        private initTutorial(loadGame: boolean) {
+            this.tutorialData = new Model.TutorialData();
+            if (!loadGame) {
+                this.tutorial = this.settingsService.settings.tutorial;
+                if (this.tutorial) {
+                    var that = this;
+                    this.scope.$apply(() => {
+                        that.tutorialService.initialize(that.tutorialData);
+                        that.tutorialService.advanceToNextStep();
+                    });
+                }
             }            
         }
     }

@@ -16,3 +16,18 @@
 * apliciramo filter Render -> Clouds -> Fog
 * apliciramo še filter Light and Shadow -> Xach Effect
 * pred nadaljevanjem združimo layerje (operacija Merge Down na novih layerjih, ki so dodani z cij
+
+
+MOONOPOLY:
+blur:
+ - slike zameglimo tako, da jih najprej oznaèimo s free selection toolom, nato oznaèimo še njihov notranji rob, pri èemer za notranji rob izberemo Subtract opcijo pri izbiranju, tako da imamo na koncu izbran border izbrane širine;
+ - po zakljuèku notranjega roba izberemo še opcijo Select->Feather, da je notranji rob postopoma zasenèen;
+ - opcijsko lahko Feather uporabimo tudi na zunanjem robu robnega pasu;
+ - nato pritisnemo "Del", da pobrišemo izbrano obmoèje (background barva naj bo enaka trenutni barvi ozadja, torej bela); èe Del tipka namesto bele naredi transparentno izbiro, uporabi namesto "Del" Bucket tool
+
+ozadje: 
+ - ozadje apliciramo šele, ko so vse ostale stvari, ki jih izbiramo na podlagi uniformne barve, konèane;
+ - uporabimo moon.pat, ki ga shranemo med patterne v direktorij, ki je naveden v Preferences -> Folders -> Patterns
+ - izberemo belo ozadje (select by color);
+ - ker so izbrana tudi obmoèja znotraj slik, jih roèno odstranimo, tako da uporabimo rectangle selection tool s Subtract opcijo;
+ - uporabimo Bucket tool z opcijo Pattern Fill;

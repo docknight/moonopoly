@@ -45,10 +45,10 @@
             return this._gameParams;
         }
 
-        constructor() {
+        constructor(theme: Interfaces.ITheme) {
             this._currentPlayer = "";
             this.players = new Array<Player>();
-            this._board = new Board();
+            this._board = new Board(theme);
             this._treasureCards = new Array<TreasureCard>();
             this._eventCards = new Array<EventCard>();
             this._moveContext = new MoveContext();
@@ -89,9 +89,9 @@
             }
         }
 
-        public loadDataFrom(savedGame: Game) {
+        public loadDataFrom(savedGame: Game, theme: Interfaces.ITheme) {
             this._currentPlayer = savedGame._currentPlayer;
-            this._board = new Board();
+            this._board = new Board(theme);
             this._board.loadDataFrom(savedGame._board);
             this._treasureCards = savedGame._treasureCards;
             this._eventCards = savedGame._eventCards;

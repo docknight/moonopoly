@@ -1,6 +1,7 @@
 ﻿module Interfaces {
     export interface ISettingsService {
-        loadSettings: () => Model.Settings;
+        settings: Model.Settings;
+        loadSettings: () => Model.Settings;       
         saveSettings(settings: Model.Settings);
     }
     export interface IGameService {
@@ -14,6 +15,7 @@
         canManage: boolean;
         canGetOutOfJail: boolean;
         canSurrender: boolean;
+        canPause: boolean;
         winner: string;
         gameState: Model.GameState;
         isComputerMove: boolean;
@@ -87,7 +89,7 @@
         getDiceResult(): number;
         // get the rotation required for the camera to face the target; position determines the camera position, if it is not equal to its current position
         getCameraRotationForTarget(target: BABYLON.Vector3, camera: BABYLON.FreeCamera, position?: BABYLON.Vector3): BABYLON.Vector3;
-        returnCameraToMainPosition(scene: BABYLON.Scene, camera: BABYLON.FreeCamera, currentPlayerPositionIndex: number, numFrames?: number): JQueryDeferred<{}>;
+        returnCameraToMainPosition(scene: BABYLON.Scene, camera: BABYLON.FreeCamera, currentPlayerPositionIndex: number, numFrames?: number, closer?: boolean): JQueryDeferred<{}>;
         moveCameraForDiceThrow(scene: BABYLON.Scene, camera: BABYLON.FreeCamera, currentPlayerPosition: Model.BoardField): JQueryDeferred<{}>;
         getRandomPointOnDice(): BABYLON.Vector3;
     }
@@ -95,5 +97,21 @@
     export interface IAIService {
         afterMoveProcessing(): Array<Model.AIAction>;
         shouldBuy(asset: Model.Asset): boolean;
+    }
+
+    export interface IThemeService {
+        theme: ITheme;
+    }
+
+    export interface ITutorialService {
+        timeoutService: angular.ITimeoutService;
+        initialize(data: Model.TutorialData);
+        canAdvance: boolean; // whether the user can advance to the next tutorial step
+        canAdvanceByClick: boolean; // whether the user can click to advance to the next tutorial step
+        currentStep: number; // 1-indexed step of the tutorial
+        isActive: boolean;
+        advanceToNextStep();
+        canExecuteAction(action: string): boolean; // whether a user action can be executed within the current tutorial step
+        executeActionCallback(action: string);
     }
 }

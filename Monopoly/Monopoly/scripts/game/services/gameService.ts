@@ -7,6 +7,7 @@ module Services {
     export class GameService implements Interfaces.IGameService {
         httpService: ng.IHttpService;
         settingsService: Interfaces.ISettingsService;
+        themeService: Interfaces.IThemeService;
 
         private game: Model.Game;
         private lastDiceResult1: number;
@@ -17,14 +18,15 @@ module Services {
         private currentEventCardIndex: number;
         private manageGroups: Array<Array<number>>;
 
-        static $inject = ["$http", "settingsService"];
-        constructor($http: ng.IHttpService, settingsService: Interfaces.ISettingsService) {
+        static $inject = ["$http", "settingsService", "themeService"];
+        constructor($http: ng.IHttpService, settingsService: Interfaces.ISettingsService, themeService: Interfaces.IThemeService) {
             this.httpService = $http;
             this.settingsService = settingsService;
+            this.themeService = themeService;
         }
 
         public initGame(loadGame?: boolean) {
-            this.game = new Model.Game();
+            this.game = new Model.Game(this.themeService.theme);
             if (loadGame) {
                 this.loadGame();
             } else {
@@ -48,9 +50,9 @@ module Services {
         public loadGame() {
             var gameString = localStorage.getItem("game");
             if (gameString) {
-                this.game = new Model.Game();
+                this.game = new Model.Game(this.themeService.theme);
                 var savedGame: Model.Game = JSON.parse(gameString);
-                this.game.loadDataFrom(savedGame);
+                this.game.loadDataFrom(savedGame, this.themeService.theme);
             }
         }
 
@@ -163,6 +165,13 @@ module Services {
                 }
             }
             return false;
+        }
+
+        get canPause(): boolean {
+            if (this.game.getState() === Model.GameState.Process || this.game.getState() === Model.GameState.Move) {
+                return false;
+            }
+            return true;
         }
 
         get gameState(): Model.GameState {

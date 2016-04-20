@@ -6,5 +6,6 @@
         }
         numPlayers: number;
         playerName: string;
+        tutorial: boolean;
     }
 } 

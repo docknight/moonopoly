@@ -6,5 +6,6 @@
         manage: boolean;
         getOutOfJail: boolean;
         surrender: boolean;
+        pause: boolean;
     }
 }

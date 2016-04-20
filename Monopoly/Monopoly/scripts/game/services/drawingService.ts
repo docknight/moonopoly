@@ -3,8 +3,10 @@
 /// <reference path="../../monopolyApp/modules/monopolyApp.ts" />
 module Services {
     export class DrawingService implements Interfaces.IDrawingService {
-        httpService: ng.IHttpService;
-        gameService: Interfaces.IGameService;
+        private httpService: ng.IHttpService;
+        private gameService: Interfaces.IGameService;
+        private themeService: Interfaces.IThemeService;
+
         private boardFieldsInQuadrant: number = 11;
         private quadrantStartingCoordinate: MonopolyApp.Viewmodels.Coordinate[]; // top left corners of the individual board quadrants
         private boardGroupLeftCoordinate: MonopolyApp.Viewmodels.Coordinate[]; // top left corners of the individual board groupa
@@ -27,11 +29,12 @@ module Services {
         private numFramesDiceIsAtRest: number;
         private dicePosition: BABYLON.Vector3; // position of the dice at the beginning of a throw
 
-        static $inject = ["$http", "gameService"];
+        static $inject = ["$http", "gameService", "themeService"];
 
-        constructor($http: ng.IHttpService, gameService: Interfaces.IGameService) {
+        constructor($http: ng.IHttpService, gameService: Interfaces.IGameService, themeService: Interfaces.IThemeService) {
             this.httpService = $http;
             this.gameService = gameService;
+            this.themeService = themeService;
             this.boardFieldWidth = this.boardSize / (this.boardFieldsInQuadrant + 2); // assuming the corner fields are double the width of the rest of the fields
             this.boardFieldHeight = this.boardFieldWidth * 2;
             this.boardFieldEdgeWidth = this.boardFieldWidth * 2;
@@ -113,7 +116,9 @@ module Services {
             playerModel.mesh.animations.push(animationplayerPosition);
             playerModel.mesh.animations.push(animationplayerRotation);
             var d = $.Deferred();
+            var particleSystem = this.addParticle(playerModel.mesh, scene);
             scene.beginAnimation(playerModel.mesh, 0, runningFrame, false, undefined, () => { d.resolve() });
+            particleSystem.start();
             return d;
         }
 
@@ -241,11 +246,11 @@ module Services {
         }
 
         // animates camera back to the base viewing position; returns the deferred object that will be resolved when the animation finishes
-        returnCameraToMainPosition(scene: BABYLON.Scene, camera: BABYLON.FreeCamera, currentPlayerPositionIndex: number, numFrames?: number): JQueryDeferred<{}> {
+        returnCameraToMainPosition(scene: BABYLON.Scene, camera: BABYLON.FreeCamera, currentPlayerPositionIndex: number, numFrames?: number, closer?: boolean): JQueryDeferred<{}> {
             var d = $.Deferred();
             var animationCameraPosition = new BABYLON.Animation("myAnimation", "position", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
             var animationCameraRotation = new BABYLON.Animation("myAnimation2", "rotation", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
-            var finalCameraPosition = this.getGameCameraPosition(currentPlayerPositionIndex);
+            var finalCameraPosition = this.getGameCameraPosition(currentPlayerPositionIndex, false, closer);
             var keys = [];
             keys.push({
                 frame: 0,
@@ -260,9 +265,23 @@ module Services {
                 frame: 0,
                 value: camera.rotation
             });
+            var targetCoordinate = this.getPositionCoordinate(currentPlayerPositionIndex);
+            /*var currentTarget = camera.getTarget();
+            var currentRotation = new BABYLON.Vector3(camera.rotation.x, camera.rotation.y, camera.rotation.z);
+            var currentPosition = new BABYLON.Vector3(camera.position.x, camera.position.y, camera.position.z);
+            camera.position = new BABYLON.Vector3(finalCameraPosition.x, finalCameraPosition.y, finalCameraPosition.z);
+            camera.setTarget(new BABYLON.Vector3(targetCoordinate.x, 0, targetCoordinate.z));
+            var targetRotation = new BABYLON.Vector3(camera.rotation.x, camera.rotation.y, camera.rotation.z);
+            camera.setTarget(currentTarget);
+            camera.rotation.x = currentRotation.x;
+            camera.rotation.y = currentRotation.y;
+            camera.rotation.z = currentRotation.z;
+            camera.position.x = currentPosition.x;
+            camera.position.y = currentPosition.y;
+            camera.position.z = currentPosition.z;*/
             keysRotation.push({
                 frame: numFrames ? numFrames : 30,
-                value: this.getCameraRotationForTarget(new BABYLON.Vector3(0, 0, 0), camera, finalCameraPosition)
+                value: this.getCameraRotationForTarget(new BABYLON.Vector3(closer ? targetCoordinate.x + 0.01 : 0, 0, closer ? targetCoordinate.z + 0.01 : 0), camera, finalCameraPosition) // closer ? targetRotation : this.getCameraRotationForTarget(new BABYLON.Vector3(closer ? targetCoordinate.x : 0, 0, closer ? targetCoordinate.z : 0), camera, finalCameraPosition)
             });
             // make sure the starting and ending rotation angle are at the same side of the numeric scale; Math.Pi and -Math.Pi are the same in terms of object rotation, but for
             // computer animation, this is a 360 degree spin, which is undesirable...
@@ -276,7 +295,7 @@ module Services {
             animationCameraPosition.setKeys(keys);
             animationCameraRotation.setKeys(keysRotation);
             camera.animations.splice(0, camera.animations.length);
-            camera.animations = [];
+            camera.animations = [];            
             camera.animations.push(animationCameraPosition);
             camera.animations.push(animationCameraRotation);
             var speedRatio = 1;
@@ -393,21 +412,31 @@ module Services {
         }
 
         createBoard(scene: BABYLON.Scene) {
-            var board = BABYLON.Mesh.CreateGround(this.groundMeshName, this.boardSize, this.boardSize, 2, scene);
             var boardMaterial = new BABYLON.StandardMaterial("boardTexture", scene);
-            boardMaterial.emissiveTexture = new BABYLON.Texture("images/Gameboard-Model.png", scene);
-            boardMaterial.diffuseTexture = new BABYLON.Texture("images/Gameboard-Model.png", scene);
+            var board = BABYLON.Mesh.CreateGround(this.groundMeshName, this.boardSize, this.boardSize, 2, scene);
+            boardMaterial.emissiveTexture = new BABYLON.Texture(this.themeService.theme.imagesFolder + this.themeService.theme.gameboardImage, scene);
+            boardMaterial.diffuseTexture = new BABYLON.Texture(this.themeService.theme.imagesFolder + this.themeService.theme.gameboardImage, scene);
             board.material = boardMaterial;
             board.setPhysicsState({ impostor: BABYLON.PhysicsEngine.BoxImpostor, mass: 0, friction: 0.4, restitution: 0.5 });
             board.checkCollisions = true;
-            var table = BABYLON.Mesh.CreateGround("tableMesh", 20, 13.33, 2, scene);
             var tableMaterial = new BABYLON.StandardMaterial("boardTexture", scene);
-            tableMaterial.emissiveTexture = new BABYLON.Texture("images/wood_texture.jpg", scene);
-            tableMaterial.diffuseTexture = new BABYLON.Texture("images/wood_texture.jpg", scene);
-            table.material = tableMaterial;
-            table.position.y = -0.01;
-            table.setPhysicsState({ impostor: BABYLON.PhysicsEngine.BoxImpostor, mass: 0, friction: 0.5, restitution: 0.5 });
-            table.checkCollisions = true;
+            if (this.themeService.theme.skyboxFolder) {
+                var skybox = BABYLON.Mesh.CreateBox("skyBox", 1000, scene);
+                tableMaterial.backFaceCulling = false;
+                tableMaterial.reflectionTexture = new BABYLON.CubeTexture(this.themeService.theme.imagesFolder + this.themeService.theme.skyboxFolder, scene);
+                tableMaterial.reflectionTexture.coordinatesMode = BABYLON.Texture.SKYBOX_MODE;
+                tableMaterial.diffuseColor = new BABYLON.Color3(0, 0, 0);
+                tableMaterial.specularColor = new BABYLON.Color3(0, 0, 0);
+                skybox.material = tableMaterial;
+            } else {
+                var table = BABYLON.Mesh.CreateGround("tableMesh", this.themeService.theme.backgroundSize[0], this.themeService.theme.backgroundSize[1], 2, scene);
+                tableMaterial.emissiveTexture = new BABYLON.Texture(this.themeService.theme.imagesFolder + this.themeService.theme.backgroundImage, scene);
+                tableMaterial.diffuseTexture = new BABYLON.Texture(this.themeService.theme.imagesFolder + this.themeService.theme.backgroundImage, scene);
+                table.material = tableMaterial;
+                table.position.y = -0.01;
+                table.setPhysicsState({ impostor: BABYLON.PhysicsEngine.BoxImpostor, mass: 0, friction: 0.5, restitution: 0.5 });
+                table.checkCollisions = true;
+            }
         }
 
         setBoardFieldOwner(boardField: MonopolyApp.Viewmodels.BoardField, asset: Model.Asset, scene: BABYLON.Scene) {
@@ -543,15 +572,38 @@ module Services {
                 var d = $.Deferred();
                 meshLoads.push(d);
                 var that = this;
-                BABYLON.SceneLoader.ImportMesh(null, "meshes/", "character.babylon", scene, function(newMeshes, particleSystems) {
+                //var light0 = new BABYLON.DirectionalLight("Dir0", new BABYLON.Vector3(-0.1, -1, 0), scene);
+                //light0.diffuse = new BABYLON.Color3(0.5, 0.5, 0.5);
+                //light0.specular = new BABYLON.Color3(1, 1, 1);
+                BABYLON.SceneLoader.ImportMesh(null, this.themeService.theme.meshFolder, this.themeService.theme.playerMesh, scene, function (newMeshes, particleSystems) {
                     if (newMeshes != null) {
-                        var mesh = newMeshes[0];
+                        var mesh = newMeshes[that.themeService.theme.playerSubmeshIndex];
+                        //sdf
                         playerModel.mesh = mesh;
                         var mat = new BABYLON.StandardMaterial(`player_${player.color}_material`, scene);
                         mat.diffuseColor = that.getColor(player.color, true);
                         //mat.emissiveColor = that.getColor(player.color, false);
                         mat.specularColor = new BABYLON.Color3(0.9, 0.9, 0.9);
-                        newMeshes[1].material = mat;
+                        that.themeService.theme.playerColoredSubmeshIndices.forEach(i => {
+                            newMeshes[i].material = mat;
+                        });
+                        var mat2 = new BABYLON.StandardMaterial(`player_${player.color}_material2`, scene);
+                        //mat2.bumpTexture = new BABYLON.Texture("images/Moonopoly/metal.jpg", scene);
+                        mat2.diffuseColor = new BABYLON.Color3(0.4, 0.4, 0.4);
+                        mat2.specularColor = new BABYLON.Color3(0.9, 0.9, 0.9);
+                        //mat2.diffuseTexture = new BABYLON.Texture("images/Moonopoly/metal.png", scene);
+                        //mat2.ambientTexture = new BABYLON.Texture("images/Moonopoly/metal.png", scene);
+                        //mat2.backFaceCulling = false;
+                        //mat2.diffuseTexture.scale(5);
+                        var mat3 = new BABYLON.StandardMaterial(`player_${player.color}_material3`, scene);
+                        mat3.diffuseColor = new BABYLON.Color3(0.05, 0.05, 0.05);
+                        mat3.ambientColor = new BABYLON.Color3(0.05, 0.05, 0.05);
+                        mat3.specularColor = new BABYLON.Color3(0.9, 0.9, 0.9);
+                        newMeshes[1].material = mat2;
+                        newMeshes[2].material = mat2;
+                        newMeshes[3].material = mat2;
+                        newMeshes[7].material = mat2;
+                        newMeshes[8].material = mat2;
                         d.resolve(gameController);
                     }
                 });
@@ -941,13 +993,14 @@ module Services {
 
         private getPlayerRotationOnBoardField(playerModel: MonopolyApp.Viewmodels.Player, positionIndex: number): BABYLON.Quaternion {
             var playerQuadrant = Math.floor(positionIndex / (this.boardFieldsInQuadrant - 1));
-            var rotationQuaternion = new BABYLON.Quaternion(0, 0, 0, 1);
+            var theme = this.themeService.theme;
+            var rotationQuaternion = new BABYLON.Quaternion(theme.playerMeshRotationQuaternion[0][0], theme.playerMeshRotationQuaternion[0][1], theme.playerMeshRotationQuaternion[0][2], theme.playerMeshRotationQuaternion[0][3]);
             if (playerQuadrant === 1) {
-                rotationQuaternion = new BABYLON.Quaternion(0, 0.7071, 0, 0.7071);
+                rotationQuaternion = new BABYLON.Quaternion(theme.playerMeshRotationQuaternion[1][0], theme.playerMeshRotationQuaternion[1][1], theme.playerMeshRotationQuaternion[1][2], theme.playerMeshRotationQuaternion[1][3]);
             } else if (playerQuadrant === 2) {
-                rotationQuaternion = new BABYLON.Quaternion(0, 1, 0, 0);
+                rotationQuaternion = new BABYLON.Quaternion(theme.playerMeshRotationQuaternion[2][0], theme.playerMeshRotationQuaternion[2][1], theme.playerMeshRotationQuaternion[2][2], theme.playerMeshRotationQuaternion[2][3]);
             } else if (playerQuadrant === 3) {
-                rotationQuaternion = new BABYLON.Quaternion(0, 0.7071, 0, -0.7071);
+                rotationQuaternion = new BABYLON.Quaternion(theme.playerMeshRotationQuaternion[3][0], theme.playerMeshRotationQuaternion[3][1], theme.playerMeshRotationQuaternion[3][2], theme.playerMeshRotationQuaternion[3][3]);
             }
             return rotationQuaternion;
         }
@@ -1013,15 +1066,41 @@ module Services {
             return false;
         }
 
-        private getGameCameraPosition(currentPlayerPositionIndex: number, center?: boolean): BABYLON.Vector3 {
+        private getGameCameraPosition(currentPlayerPositionIndex: number, center?: boolean, closer?: boolean): BABYLON.Vector3 {
             var boardFieldQuadrant = Math.floor(currentPlayerPositionIndex / (this.boardFieldsInQuadrant - 1));
             var runningCoordinate = this.getQuadrantRunningCoordinate(boardFieldQuadrant);
             var heightCoordinate = this.getQuadrantRunningCoordinate(boardFieldQuadrant) === "x" ? "z" : "x";
             var heightDirection = boardFieldQuadrant === 0 || boardFieldQuadrant === 1 ? -1 : 1;
-            var position = new BABYLON.Vector3(0, 5, -10);
-            position[heightCoordinate] = 10 * heightDirection;
+            var position = new BABYLON.Vector3(0, closer ? 2.65 : 5, -10);
+            position[heightCoordinate] = (closer ? 6.85 : 10) * heightDirection;
             position[runningCoordinate] = center ? 0 : this.getPositionCoordinate(currentPlayerPositionIndex)[runningCoordinate];
             return position;
+        }
+
+        private addParticle(abstractMesh: BABYLON.AbstractMesh, scene: BABYLON.Scene): BABYLON.ParticleSystem {
+            var particleSystem = new BABYLON.ParticleSystem("particles", 500, scene);
+            particleSystem.particleTexture = new BABYLON.Texture("images/Moonopoly/Flare.png", scene);
+            particleSystem.emitter = abstractMesh;
+            particleSystem.color1 = new BABYLON.Color4(0.7, 0.8, 1.0, 1.0);
+            particleSystem.color2 = new BABYLON.Color4(0.2, 0.5, 1.0, 1.0);
+            particleSystem.colorDead = new BABYLON.Color4(0, 0, 0.2, 0.0);
+            particleSystem.minSize = 0.1;
+            particleSystem.maxSize = 0.2;
+            particleSystem.minLifeTime = 0.3;
+            particleSystem.maxLifeTime = 0.5;
+            particleSystem.emitRate = 300;
+            particleSystem.direction1 = new BABYLON.Vector3(1, 0, 0);
+            particleSystem.direction2 = new BABYLON.Vector3(1, 0, 0);
+            particleSystem.minAngularSpeed = 0;
+            particleSystem.maxAngularSpeed = Math.PI;
+            particleSystem.minEmitPower = 1;
+            particleSystem.maxEmitPower = 4;
+            particleSystem.updateSpeed = 0.005;
+            particleSystem.targetStopDuration = 3;
+            particleSystem.disposeOnStop = true;
+            particleSystem.minEmitBox = new BABYLON.Vector3(0, -2.2, -0.4); // Starting all From
+            particleSystem.maxEmitBox = new BABYLON.Vector3(0, -2.7, -0);
+            return particleSystem;
         }
     }
 

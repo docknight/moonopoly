@@ -153,3 +153,83 @@ li.messageHistoryItem {
               -2px 2px 1px #000,
               2px -2px 1px #000;
 }
+
+/* comic bubble dialog */
+.comics-dialog,
+.comics-thought {
+    font-family: "Bangers", sans-serif;
+    text-align: center;
+    font-size: 16px;
+    display: inline-block;
+    vertical-align: top;
+    position: relative;
+    padding-left: 40px;
+    padding-right: 40px;    
+    background-color: white;
+    margin: 0px 0px 0px;
+    -webkit-filter: drop-shadow(0 4px 0 #65c1ff);
+    filter: drop-shadow(0 4px 0 #65c1ff);
+    /*-moz-transition: 2s;
+    -o-transition: 2s;
+    -webkit-transition: 2s;
+    transition: 2s;*/
+}
+
+.comics-dialog:after,
+.comics-thought:after {
+    content: "";
+    display: block;
+    position: absolute;
+    z-index: -1;
+}
+
+.comics-dialog:hover,
+.comics-thought:hover {
+    /*top: -30px;
+    -webkit-filter: drop-shadow(0 10px 0 #65c1ff);
+    filter: drop-shadow(0 10px 0 #65c1ff);*/
+}
+
+.comics-dialog {
+    width: 340px;
+    height: 160px;
+    -moz-border-radius: 50%;
+    -webkit-border-radius: 50%;
+    border-radius: 50%;
+}
+
+.comics-dialog:after {
+    border-bottom-right-radius: 370px 200px;
+    border-right: 90px solid white;
+    bottom: 80px;
+    height: 80px;
+    right: -50px;
+    transform: rotate(-180deg);
+    width: 160px;
+}
+
+.comics-thought {
+    width: 150px;
+    -moz-border-radius: 50%;
+    -webkit-border-radius: 50%;
+    border-radius: 50%;
+    -moz-box-shadow: -60px -50px 0 -20px #fff, 60px -45px 0 -40px #fff;
+    -webkit-box-shadow: -60px -50px 0 -20px #fff, 60px -45px 0 -40px #fff;
+    box-shadow: -60px -50px 0 -20px #fff, 60px -45px 0 -40px #fff;
+}
+
+.comics-thought:after {
+    width: 150px;
+    height: 150px;
+    right: -30px;
+    bottom: -10px;
+    background: #fff;
+    -moz-border-radius: 50%;
+    -webkit-border-radius: 50%;
+    border-radius: 50%;
+    -moz-box-shadow: -140px 0px 0 #fff, -50px 30px 0 -10px #fff, -60px 120px 0 -60px #fff, -90px 155px 0 -65px #fff, -120px 175px 0 -70px #fff;
+    -webkit-box-shadow: -140px 0px 0 #fff, -50px 30px 0 -10px #fff, -60px 120px 0 -60px #fff, -90px 155px 0 -65px #fff, -120px 175px 0 -70px #fff;
+    box-shadow: -140px 0px 0 #fff, -50px 30px 0 -10px #fff, -60px 120px 0 -60px #fff, -90px 155px 0 -65px #fff, -120px 175px 0 -70px #fff;
+}
+
+/* END comic bubble dialog */
