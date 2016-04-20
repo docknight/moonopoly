@@ -1200,13 +1200,16 @@ module MonopolyApp.controllers {
             this.tutorialData = new Model.TutorialData();
             if (!loadGame) {
                 this.tutorial = this.settingsService.settings.tutorial;
-                if (this.tutorial) {
-                    var that = this;
-                    this.scope.$apply(() => {
-                        that.tutorialService.initialize(that.tutorialData);
-                        that.tutorialService.advanceToNextStep();
-                    });
-                }
+                var that = this;
+                this.timeoutService(() => {
+                    $("#loadingBar").hide();
+                    if (that.tutorial) {
+                        that.scope.$apply(() => {
+                            that.tutorialService.initialize(that.tutorialData);
+                            that.tutorialService.advanceToNextStep();
+                        });
+                    }
+                }, 3000);
             }            
         }
     }
