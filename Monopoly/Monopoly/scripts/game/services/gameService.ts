@@ -168,7 +168,7 @@ module Services {
         }
 
         get canPause(): boolean {
-            if (this.game.getState() === Model.GameState.Process || this.game.getState() === Model.GameState.Move) {
+            if (this.game.getState() === Model.GameState.Process || this.game.getState() === Model.GameState.Move || this.game.getState() === Model.GameState.ThrowDice) {
                 return false;
             }
             return true;

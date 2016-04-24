@@ -173,6 +173,12 @@ li.messageHistoryItem {
     -o-transition: 2s;
     -webkit-transition: 2s;
     transition: 2s;*/
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
 }
 
 .comics-dialog:after,

@@ -2852,7 +2852,7 @@ var Services;
         });
         Object.defineProperty(GameService.prototype, "canPause", {
             get: function () {
-                if (this.game.getState() === Model.GameState.Process || this.game.getState() === Model.GameState.Move) {
+                if (this.game.getState() === Model.GameState.Process || this.game.getState() === Model.GameState.Move || this.game.getState() === Model.GameState.ThrowDice) {
                     return false;
                 }
                 return true;
@@ -3898,7 +3898,6 @@ var MonopolyApp;
                     for (var i = 0; i < 8; i++) {
                         that.refreshBoardFieldGroupHouses(i);
                     }
-                    //$("#loadingBar").hide();
                     that.initTutorial(loadGame);
                     if (loadGame) {
                         that.drawingService.returnCameraToMainPosition(that.scene, that.gameCamera, that.gameService.getCurrentPlayerPosition().index);
@@ -4103,23 +4102,28 @@ var MonopolyApp;
             // animate game camera by following board fields from player current field to its movement destination field; this animation occurs at the same time that the player is moving
             GameController.prototype.followBoardFields = function (positionIndex, positionsLeftToMove, drawingService, scene, camera, gameController, followBoardAnimation, fast, backwards) {
                 if (positionsLeftToMove > 0) {
-                    if (backwards) {
-                        positionIndex--;
-                        if (positionIndex < 0) {
-                            positionIndex = 40 + positionIndex;
+                    var numFrames = 0;
+                    var processedEvent;
+                    do {
+                        if (backwards) {
+                            positionIndex--;
+                            if (positionIndex < 0) {
+                                positionIndex = 40 + positionIndex;
+                            }
                         }
-                    }
-                    else {
-                        positionIndex = (positionIndex + 1) % 40;
-                    }
-                    positionsLeftToMove--;
-                    var numFrames = positionIndex % 10 === 0 ? drawingService.framesToMoveOneBoardField * 2 : drawingService.framesToMoveOneBoardField;
-                    if (fast) {
-                        numFrames = Math.floor(numFrames / 2);
-                    }
+                        else {
+                            positionIndex = (positionIndex + 1) % 40;
+                        }
+                        positionsLeftToMove--;
+                        var numFramesOneField = positionIndex % 10 === 0 ? drawingService.framesToMoveOneBoardField * 2 : drawingService.framesToMoveOneBoardField;
+                        if (fast) {
+                            numFramesOneField = Math.floor(numFramesOneField / 2);
+                        }
+                        numFrames += numFramesOneField;
+                        processedEvent = gameController.gameService.processFlyBy(positionIndex, backwards);
+                    } while (positionIndex % 10 !== 0 && positionsLeftToMove > 0 && processedEvent === Model.ProcessingEvent.None);
                     var cameraMoveCompleted = drawingService.returnCameraToMainPosition(scene, camera, positionIndex, numFrames, true);
                     $.when(cameraMoveCompleted).done(function () {
-                        var processedEvent = gameController.gameService.processFlyBy(positionIndex, backwards);
                         if (processedEvent !== Model.ProcessingEvent.None) {
                             gameController.timeoutService(function () {
                                 gameController.scope.$apply(function () {
@@ -4347,22 +4351,28 @@ var MonopolyApp;
                 //BABYLON.Scene.MaxDeltaTime = 30.0;
                 var that = this;
                 engine.runRenderLoop(function () {
-                    that.timeoutService(function () {
-                        if (that.gameService.gameState === Model.GameState.ThrowDice && that.diceThrowCompleted) {
-                            // if the game is at the dice throw state and the dice throw has been triggered, verify if it is done, otherwise just follow with the camera
-                            if (that.drawingService.isDiceAtRestAfterThrowing(that.scene)) {
-                                that.diceThrowCompleted.resolve();
-                            }
-                            else {
-                                var dicePhysicsLocation = that.drawingService.getDiceLocation(that.scene);
-                                if (dicePhysicsLocation) {
-                                    that.resetOverboardDice(dicePhysicsLocation);
-                                    that.gameCamera.setTarget(new BABYLON.Vector3(dicePhysicsLocation.x, dicePhysicsLocation.y, dicePhysicsLocation.z));
+                    if (that.gameService.gameState === Model.GameState.Move || that.gameService.gameState === Model.GameState.Process) {
+                        that.scene.render();
+                    }
+                    else {
+                        // not sure why, but the input handlers starve unless the render loop is re-inserted in the queue using a timeout service
+                        that.timeoutService(function () {
+                            if (that.gameService.gameState === Model.GameState.ThrowDice && that.diceThrowCompleted) {
+                                // if the game is at the dice throw state and the dice throw has been triggered, verify if it is done, otherwise just follow with the camera
+                                if (that.drawingService.isDiceAtRestAfterThrowing(that.scene)) {
+                                    that.diceThrowCompleted.resolve();
+                                }
+                                else {
+                                    var dicePhysicsLocation = that.drawingService.getDiceLocation(that.scene);
+                                    if (dicePhysicsLocation) {
+                                        that.resetOverboardDice(dicePhysicsLocation);
+                                        that.gameCamera.setTarget(new BABYLON.Vector3(dicePhysicsLocation.x, dicePhysicsLocation.y, dicePhysicsLocation.z));
+                                    }
                                 }
                             }
-                        }
-                        that.scene.render();
-                    }, 1, false);
+                            that.scene.render();
+                        }, 1, false);
+                    }
                 });
                 window.addEventListener("resize", function () {
                     engine.resize();
@@ -5003,13 +5013,16 @@ var MonopolyApp;
                 this.tutorialData = new Model.TutorialData();
                 if (!loadGame) {
                     this.tutorial = this.settingsService.settings.tutorial;
-                    if (this.tutorial) {
-                        var that = this;
-                        this.scope.$apply(function () {
-                            that.tutorialService.initialize(that.tutorialData);
-                            that.tutorialService.advanceToNextStep();
-                        });
-                    }
+                    var that = this;
+                    this.timeoutService(function () {
+                        $("#loadingBar").hide();
+                        if (that.tutorial) {
+                            that.scope.$apply(function () {
+                                that.tutorialService.initialize(that.tutorialData);
+                                that.tutorialService.advanceToNextStep();
+                            });
+                        }
+                    }, 3000);
                 }
             };
             GameController.$inject = ["$state", "$stateParams", "$swipe", "$scope", "$timeout", "gameService", "drawingService", "aiService", "themeService", "settingsService", "tutorialService"];

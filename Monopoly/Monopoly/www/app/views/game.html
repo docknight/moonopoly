@@ -29,7 +29,7 @@
 <div id="titleDeedArrow" style="position: fixed; top: 10%; left: 10%; width: 35%; height: 80%; background-image: url(images/arrow.png); background-size: contain; background-position: center; background-repeat: no-repeat;" ng-show="gameController.availableActions.buy">
     <div style="position: relative; top: 50%; -webkit-transform: translateY(-50%); -ms-transform: translateY(-50%); transform: translateY(-50%); text-align: center; color: white; font-size: 1.5rem; font-weight: bold">
         Buy Now?<br/>
-        M200
+        M{{gameController.assetToBuy.price}}
     </div>
 </div>
 <div id="titleDeed" style="position: fixed; top: 10%; left: 50%; width: 40%; height: 80%; background-color: white; border: 2px; border-radius: 3px; padding: 7px" ng-show="gameController.availableActions.buy">

@@ -261,23 +261,29 @@ module MonopolyApp.controllers {
         // animate game camera by following board fields from player current field to its movement destination field; this animation occurs at the same time that the player is moving
         private followBoardFields(positionIndex: number, positionsLeftToMove: number, drawingService: Interfaces.IDrawingService, scene: BABYLON.Scene, camera: BABYLON.FreeCamera, gameController: GameController, followBoardAnimation: JQueryDeferred<{}>, fast?: boolean, backwards?: boolean) {
             if (positionsLeftToMove > 0) {
-                if (backwards) {
-                    positionIndex--;
-                    if (positionIndex < 0) {
-                        positionIndex = 40 + positionIndex;
+                var numFrames = 0;
+                var processedEvent: Model.ProcessingEvent;
+                do {
+                    if (backwards) {
+                        positionIndex--;
+                        if (positionIndex < 0) {
+                            positionIndex = 40 + positionIndex;
+                        }
+                    } else {
+                        positionIndex = (positionIndex + 1) % 40;
                     }
-                } else {
-                    positionIndex = (positionIndex + 1) % 40;
-                }
 
-                positionsLeftToMove--;
-                var numFrames = positionIndex % 10 === 0 ? drawingService.framesToMoveOneBoardField * 2 : drawingService.framesToMoveOneBoardField;
-                if (fast) {
-                    numFrames = Math.floor(numFrames / 2);
-                }
+                    positionsLeftToMove--;
+                    var numFramesOneField = positionIndex % 10 === 0 ? drawingService.framesToMoveOneBoardField * 2 : drawingService.framesToMoveOneBoardField;
+                    if (fast) {
+                        numFramesOneField = Math.floor(numFramesOneField / 2);
+                    }
+                    numFrames += numFramesOneField;
+                    processedEvent = gameController.gameService.processFlyBy(positionIndex, backwards);
+                } while (positionIndex % 10 !== 0 && positionsLeftToMove > 0 && processedEvent === Model.ProcessingEvent.None);
+
                 var cameraMoveCompleted = drawingService.returnCameraToMainPosition(scene, camera, positionIndex, numFrames, true);
                 $.when(cameraMoveCompleted).done(() => {
-                    var processedEvent = gameController.gameService.processFlyBy(positionIndex, backwards);
                     if (processedEvent !== Model.ProcessingEvent.None) {
                         gameController.timeoutService(() => {
                             gameController.scope.$apply(() => {
@@ -525,21 +531,26 @@ module MonopolyApp.controllers {
             //BABYLON.Scene.MaxDeltaTime = 30.0;
             var that = this;
             engine.runRenderLoop(() => {
-                that.timeoutService(() => {
-                    if (that.gameService.gameState === Model.GameState.ThrowDice && that.diceThrowCompleted) {
-                        // if the game is at the dice throw state and the dice throw has been triggered, verify if it is done, otherwise just follow with the camera
-                        if (that.drawingService.isDiceAtRestAfterThrowing(that.scene)) {
-                            that.diceThrowCompleted.resolve();
-                        } else {
-                            var dicePhysicsLocation = that.drawingService.getDiceLocation(that.scene);
-                            if (dicePhysicsLocation) {
-                                that.resetOverboardDice(dicePhysicsLocation);
-                                that.gameCamera.setTarget(new BABYLON.Vector3(dicePhysicsLocation.x, dicePhysicsLocation.y, dicePhysicsLocation.z));
+                if (that.gameService.gameState === Model.GameState.Move || that.gameService.gameState === Model.GameState.Process) {
+                    that.scene.render();
+                } else {
+                    // not sure why, but the input handlers starve unless the render loop is re-inserted in the queue using a timeout service
+                    that.timeoutService(() => {
+                        if (that.gameService.gameState === Model.GameState.ThrowDice && that.diceThrowCompleted) {
+                            // if the game is at the dice throw state and the dice throw has been triggered, verify if it is done, otherwise just follow with the camera
+                            if (that.drawingService.isDiceAtRestAfterThrowing(that.scene)) {
+                                that.diceThrowCompleted.resolve();
+                            } else {
+                                var dicePhysicsLocation = that.drawingService.getDiceLocation(that.scene);
+                                if (dicePhysicsLocation) {
+                                    that.resetOverboardDice(dicePhysicsLocation);
+                                    that.gameCamera.setTarget(new BABYLON.Vector3(dicePhysicsLocation.x, dicePhysicsLocation.y, dicePhysicsLocation.z));
+                                }
                             }
                         }
-                    }
-                    that.scene.render();
-                }, 1, false);
+                        that.scene.render();
+                    }, 1, false);                    
+                }
             });
             window.addEventListener("resize", function () {
                 engine.resize();
