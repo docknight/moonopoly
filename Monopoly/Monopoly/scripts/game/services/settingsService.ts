@@ -20,14 +20,15 @@ module Services {
         loadSettings = () => {
             var settings: Model.Settings = new Model.Settings();
             var localStorageAny: any = localStorage;
-            if (localStorage.getItem("settings_v1_0")) {
-                var savedSettings: Model.Settings = JSON.parse(localStorageAny.settings_v1_0);
+            if (localStorage.getItem("settings_v1_01")) {
+                var savedSettings: Model.Settings = JSON.parse(localStorageAny.settings_v1_01);
                 settings.numPlayers = savedSettings.numPlayers;
-                settings.playerName = savedSettings.playerName;
-                settings.tutorial = true;
-                //settings.tutorial = savedSettings.tutorial;
+                settings.players = savedSettings.players;
+                settings.tutorial = savedSettings.tutorial;
+                if (savedSettings.rules) {
+                    settings.rules = savedSettings.rules;
+                }
             } else {
-                settings.playerName = "Player 1";
                 settings.tutorial = true;
             }
             this._settings = settings;
@@ -36,7 +37,7 @@ module Services {
 
         saveSettings(settings: Model.Settings) {
             var localStorageAny: any = localStorage;
-            localStorageAny.settings_v1_0 = JSON.stringify(settings);
+            localStorageAny.settings_v1_01 = JSON.stringify(settings);
         }
     }
 

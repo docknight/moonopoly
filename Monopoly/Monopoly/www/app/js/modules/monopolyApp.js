@@ -21,5 +21,15 @@ monopolyApp.config(function ($stateProvider, $urlRouterProvider) {
         url: "/settings",
         templateUrl: "app/views/settings.html",
         controller: "settingsCtrl as settings"
+    })
+    .state('rules', {
+        url: "/rules/:inGame",
+        templateUrl: "app/views/rules.html",
+        controller: "rulesCtrl as rules"
+    })
+    .state('pause', {
+        url: "/pause",
+        templateUrl: "app/views/pause.html",
+        controller: "pauseCtrl as pause"
     });
 });

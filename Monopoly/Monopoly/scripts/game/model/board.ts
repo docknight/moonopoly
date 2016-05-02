@@ -7,7 +7,8 @@
         fields: Array<BoardField>;
 
         public loadDataFrom(savedBoard: Board) {
-            this.fields = [];
+            this.fields = new Array<BoardField>();
+            var that = this;
             savedBoard.fields.sort((f1, f2) => {
                 return f1.index > f2.index ? 1 : -1;
             }).forEach(f => {
@@ -19,7 +20,7 @@
                 }
                 var boardField = new BoardField(asset);
                 boardField.loadDataFrom(f);
-                this.fields.push(boardField);
+                that.fields.push(boardField);
             });
         }
 

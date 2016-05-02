@@ -5,6 +5,10 @@
         gameboardImage: string;
         backgroundImage: string;
         backgroundSize: number[];
+        gameSetupImage: string;
+        gameRulesImage: string;
+        gamePauseImage: string;
+        mainMenuImage: string;
         skyboxFolder: string;
         meshFolder: string;
         playerMesh: string;

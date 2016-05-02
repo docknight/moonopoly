@@ -90,6 +90,9 @@ module MonopolyApp.controllers {
 
         initGame(loadGame?: boolean) {
             this.gameService.initGame(loadGame);
+            if (loadGame) {
+                this.assetToBuy = this.gameService.getCurrentPlayerPosition().asset;
+            }
         }
 
         setupThrowDice() {
@@ -375,7 +378,8 @@ module MonopolyApp.controllers {
         }
 
         pause() {
-            
+            this.gameService.saveGame();
+            this.stateService.go("pause");
         }
 
         closeAssetManagementWindow() {
@@ -1221,6 +1225,10 @@ module MonopolyApp.controllers {
                         });
                     }
                 }, 3000);
+            } else {
+                this.timeoutService(() => {
+                    $("#loadingBar").hide();
+                }, 3000);                
             }            
         }
     }

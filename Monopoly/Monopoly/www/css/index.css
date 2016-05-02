@@ -239,3 +239,118 @@ li.messageHistoryItem {
 }
 
 /* END comic bubble dialog */
+
+img.background {
+  min-height: 100%;
+  width: 100%;
+  height: auto;
+  position: fixed;
+  top: 0;
+  left: 0;
+}
+
+.gameRulesButton {
+    height: 93px;
+    width: 136px;
+    background: url('../images/gameRulesButton.png') no-repeat;
+    background-size: 100%;
+}
+
+.gameRulesButton:hover {
+    background: url('../images/gameRulesButtonHovered.png') no-repeat;
+    background-size: 100%;
+}
+
+.backButton {
+    height: 32px;
+    width: 105px;
+    background: url('../images/go-back-button.png') no-repeat;
+    background-size: 100%;
+}
+
+.backButton:hover {
+    background: url('../images/go-back-button-hovered.png') no-repeat;
+    background-size: 100%;
+}
+
+.playGameButton {
+    height: 115px;
+    width: 112px;
+    display: inline-block;
+    background: url('../images/PlayGameButton.png') no-repeat;
+    background-size: 100%;
+}
+
+.playGameButton:hover {
+    background: url('../images/PlayGameButtonHovered.png') no-repeat;
+    background-size: 100%;
+}
+
+.optionsButton {
+    height: 111px;
+    width: 183px;
+    display: inline-block;
+    position: relative;
+    top: -12px;
+    background: url('../images/OptionsButton.png') no-repeat;
+    background-size: 100%;
+}
+
+.optionsButton:hover {
+    background: url('../images/OptionsButtonHovered.png') no-repeat;
+    background-size: 100%;
+}
+
+.helpButton {
+    height: 108px;
+    width: 151px;
+    display: inline-block;
+    position: relative;
+    top: -14px;
+    background: url('../images/HelpButton.png') no-repeat;
+    background-size: 100%;
+}
+
+.helpButton:hover {
+    background: url('../images/HelpButtonHovered.png') no-repeat;
+    background-size: 100%;
+}
+
+.statsButton {
+    height: 113px;
+    width: 111px;
+    display: inline-block;
+    background: url('../images/StatsButton.png') no-repeat;
+    background-size: 100%;
+}
+
+.statsButton:hover {
+    background: url('../images/StatsButtonHovered.png') no-repeat;
+    background-size: 100%;
+}
+
+.newGameButton {
+    height: 109px;
+    width: 169px;
+    display: inline-block;
+    background: url('../images/NewGameButton.png') no-repeat;
+    background-size: 100%;
+}
+
+.newGameButton:hover {
+    background: url('../images/NewGameButtonHovered.png') no-repeat;
+    background-size: 100%;
+}
+
+.resumeGameButton {
+    height: 109px;
+    width: 167px;
+    display: inline-block;
+    background: url('../images/ResumeGameButton.png') no-repeat;
+    background-size: 100%;
+}
+
+.resumeGameButton:hover {
+    background: url('../images/ResumeGameButtonHovered.png') no-repeat;
+    background-size: 100%;
+}

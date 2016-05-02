@@ -1,12 +1,36 @@
-﻿<div style="text-align: center">
-    <div style="display: inline-block;">{{mainmenu.title}}</div>
+﻿<img class="background" src="{{mainmenu.themeService.theme.imagesFolder}}{{mainmenu.themeService.theme.mainMenuImage}}" style="z-index:-1" />
+<div style="position: fixed; bottom: 10%; width: 100%">
+    <div id="buttonContainer" style="width: 575px; margin-left: auto; margin-right: auto;">
+        <a ng-click="mainmenu.settings()" ng-show="!mainmenu.chooseGameInitialization">
+            <div class="playGameButton">
+            </div>
+        </a>
+        <a ng-show="!mainmenu.chooseGameInitialization">
+            <div class="optionsButton">
+            </div>
+        </a>
+        <a ng-show="!mainmenu.chooseGameInitialization">
+            <div class="helpButton">
+            </div>
+        </a>
+        <a ng-show="!mainmenu.chooseGameInitialization">
+            <div class="statsButton">
+            </div>
+        </a>
+        <a ng-click="mainmenu.startNewGame()" ng-show="mainmenu.chooseGameInitialization">
+            <div class="newGameButton">
+            </div>
+        </a>
+        <a ng-click="mainmenu.loadGame()" ng-show="mainmenu.chooseGameInitialization">
+            <div class="resumeGameButton">
+            </div>
+        </a>
+    </div>
 </div>
-<button type="button" class="btn btn-primary" ng-model="singleModel" uib-btn-checkbox btn-checkbox-true="1" btn-checkbox-false="0" ng-click="mainmenu.startNewGame()">
-    New game
-</button>
-<button type="button" class="btn btn-primary" ng-model="singleModel" uib-btn-checkbox btn-checkbox-true="1" btn-checkbox-false="0" ng-click="mainmenu.loadGame()" ng-show="mainmenu.canLoadGame">
-    Continue last game
-</button>
-<button type="button" class="btn btn-primary" uib-btn-checkbox btn-checkbox-true="1" btn-checkbox-false="0" ng-click="mainmenu.settings()">
-    Settings
-</button>
+<div style="position: fixed; left: 12px; top:12px" ng-show="mainmenu.chooseGameInitialization">
+    <a ng-click="mainmenu.goBack()">
+        <div class="backButton">
+        </div>
+    </a>
+</div>
+

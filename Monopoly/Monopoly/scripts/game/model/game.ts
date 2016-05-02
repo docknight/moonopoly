@@ -10,6 +10,7 @@
     };
 
     export class Game {
+        public static version = "game_v0_01";
         private _currentPlayer: string; // name of the current player
         private _board: Board;
         private _treasureCards: Array<TreasureCard>;
@@ -105,8 +106,8 @@
             this._gameParams.loadDataFrom(savedGame._gameParams);
             this.players = [];
             savedGame.players.forEach(savedPlayer => {
-                var player = new Player();
-                player.loadDataFrom(savedPlayer);
+                var player = new Player(savedPlayer.playerName, savedPlayer.human);
+                player.loadDataFrom(savedPlayer, this.board);
                 this.players.push(player);
             });
         }

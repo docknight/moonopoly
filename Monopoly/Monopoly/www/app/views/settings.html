@@ -1,14 +1,54 @@
-﻿<div>GAME SETTINGS</div>
-<div>
-    <form ng-submit="settings.saveAndClose()">
-        <div>
-            <label>Player name</label>
-            <input ng-model="settings.settings.playerName" />
-        </div>
-        <div>
-            <label>Number of players</label>
-            <input ng-model="settings.settings.numPlayers" />
-        </div>
-        <input type="submit" />
+﻿<img class="background" src="{{settings.themeService.theme.imagesFolder}}{{settings.themeService.theme.gameSetupImage}}" style="z-index:-1"/>
+<div style="padding-top: 10%">
+    <form>
+        <table style="width: 70%; margin-left: 5%; margin-top: 3%; font-size: 16px">
+            <tr>
+                <td style="width: 40%; z-index: 2; color: #909090"><label>Number of players:</label></td>
+                <td style="width: 60%">
+                    <table style="width: 100%">
+                        <tr>
+                            <td style="width: 10%; vertical-align: middle; color: #f6931f; font-weight: bold;">
+                                {{settings.settings.numPlayers}}
+                            </td>
+                            <td style="width: 90%;">
+                                <div id="numPlayersSlider" style="width: 100%"></div>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+            <tr ng-repeat="player in settings.settings.players">
+                <td style="width: 40%; padding-left: 5%; padding-top: 4px"><input type="checkbox" ng-model="player.human" id="playerType-{{$index}}"></td>
+                <td style="width: 60%">
+                    <table style="width: 100%">
+                        <tr>
+                            <td style="width: 40%; color: #909090"><label for="playerName-{{$index}}">Name: </label></td>
+                            <td style="width: 60%;">
+                                <input class="form-control" type="text" id="playerName-{{$index}}" ng-model="player.playerName" ng-disabled="player.human==false"/>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
     </form>
+</div>
+<div style="position: fixed; right: 1%; top: 45%">
+    <a href="#" ng-click="settings.goToGameRules()">
+        <div class="gameRulesButton">
+        </div>
+    </a>
+</div>
+<div style="position: fixed; left: 12px; top:12px">
+    <a ng-click="settings.goBack()">
+        <div class="backButton">
+        </div>
+    </a>
+</div>
+<div id="commandPanel" style="position: fixed; bottom: 2%; left: 0px; width: 100%; z-index: 100">
+    <div style="display: table; margin-left: auto; margin-right: auto; width: auto">
+        <button type="button" class="btn btn-success btn-lg" ng-click="settings.saveAndClose()">
+            Play
+        </button>        
+    </div>
 </div>

@@ -30,8 +30,10 @@ module Services {
             if (loadGame) {
                 this.loadGame();
             } else {
-                this.initPlayers();
-                this.initCards();                
+                var settings = this.settingsService.loadSettings();
+                this.initPlayers(settings);
+                this.initCards();     
+                this.game.gameParams.rules.loadDataFrom(settings.rules);
             }
             this.initManageGroups();
             if (!loadGame) {
@@ -43,12 +45,12 @@ module Services {
 
         public saveGame() {
             var gameString = JSON.stringify(this.game);
-            localStorage.setItem("game", gameString);    
-            gameString = localStorage.getItem("game");
+            localStorage.setItem(Model.Game.version, gameString);    
+            gameString = localStorage.getItem(Model.Game.version);
         }
 
         public loadGame() {
-            var gameString = localStorage.getItem("game");
+            var gameString = localStorage.getItem(Model.Game.version);
             if (gameString) {
                 this.game = new Model.Game(this.themeService.theme);
                 var savedGame: Model.Game = JSON.parse(gameString);
@@ -757,14 +759,11 @@ module Services {
             player.money = 0;
         }
 
-        private initPlayers() {
-            var settings = this.settingsService.loadSettings();
+        private initPlayers(settings: Model.Settings) {
             var colors: string[] = ["Red", "Green", "Yellow", "Blue"];
             for (var i = 0; i < settings.numPlayers; i++) {
-                var player = new Model.Player();
-                player.playerName = i === 0 ? settings.playerName : "Computer " + i;
-                player.human = i === 0;
-                player.money = 1500;
+                var player = new Model.Player(settings.players[i].playerName, settings.players[i].human);
+                player.money = settings.rules.initialCash;
                 player.color = i;
                 player.active = true;
                 this.game.players.push(player);

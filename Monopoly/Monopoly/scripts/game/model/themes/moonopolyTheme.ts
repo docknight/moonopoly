@@ -34,6 +34,22 @@
             return [25, 25];
         }
 
+        get gameSetupImage(): string {
+            return "GameSetup.png";
+        }
+
+        get gameRulesImage(): string {
+            return "GameRules.png";
+        }
+
+        get gamePauseImage(): string {
+            return "GamePause.png";
+        }
+
+        get mainMenuImage(): string {
+            return "MainMenu.png";
+        }
+
         get skyboxFolder(): string {
             return "skybox3/skybox";
         }

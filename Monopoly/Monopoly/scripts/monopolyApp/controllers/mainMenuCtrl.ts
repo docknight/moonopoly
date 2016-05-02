@@ -5,29 +5,42 @@ module MonopolyApp.controllers {
     export class MainMenuController {
 
         stateService: angular.ui.IStateService;
-        static $inject = ["$state"];
-        constructor(stateService: angular.ui.IStateService) {
-
+        themeService: Interfaces.IThemeService;
+        static $inject = ["$state", "themeService"];
+        constructor(stateService: angular.ui.IStateService, themeService: Interfaces.IThemeService) {
+            this.themeService = themeService;
             this.stateService = stateService;
             this.title = "Knight MONOPOLY";
+            this.chooseGameInitialization = false;
         }
         title: string;
+        chooseGameInitialization: boolean;
 
         get canLoadGame(): boolean {
             var localStorageAny: any = localStorage;
-            return localStorage.length > 0 && localStorageAny.game;
+            return localStorage.length > 0 && localStorageAny[Model.Game.version];
         }
 
         startNewGame = () => {
-            this.stateService.go("newgame", { loadGame: false });
+            this.stateService.go("settings");
         }
 
         public settings() {
-            this.stateService.go("settings");
+            if (this.canLoadGame) {
+                this.chooseGameInitialization = true;
+                $("#buttonContainer").css("width", "340px");
+            } else {
+                this.startNewGame();
+            }
         }
 
         public loadGame() {
             this.stateService.go("newgame", { loadGame: true });
+        }
+
+        public goBack() {
+            this.chooseGameInitialization = false;
+            $("#buttonContainer").css("width", "575px");
         }
     }
 

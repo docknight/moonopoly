@@ -317,8 +317,8 @@ var Model;
             this.initBoard(theme);
         }
         Board.prototype.loadDataFrom = function (savedBoard) {
-            var _this = this;
-            this.fields = [];
+            this.fields = new Array();
+            var that = this;
             savedBoard.fields.sort(function (f1, f2) {
                 return f1.index > f2.index ? 1 : -1;
             }).forEach(function (f) {
@@ -330,7 +330,7 @@ var Model;
                 }
                 var boardField = new Model.BoardField(asset);
                 boardField.loadDataFrom(f);
-                _this.fields.push(boardField);
+                that.fields.push(boardField);
             });
         };
         Board.prototype.initBoard = function (theme) {
@@ -842,11 +842,12 @@ var Model;
             this._gameParams.loadDataFrom(savedGame._gameParams);
             this.players = [];
             savedGame.players.forEach(function (savedPlayer) {
-                var player = new Model.Player();
-                player.loadDataFrom(savedPlayer);
+                var player = new Model.Player(savedPlayer.playerName, savedPlayer.human);
+                player.loadDataFrom(savedPlayer, _this.board);
                 _this.players.push(player);
             });
         };
+        Game.version = "game_v0_01";
         return Game;
     })();
     Model.Game = Game;
@@ -856,6 +857,7 @@ var Model;
     var GameParams = (function () {
         function GameParams() {
             this._jailBail = 50;
+            this._rules = new Model.Rules();
         }
         Object.defineProperty(GameParams.prototype, "jailBail", {
             get: function () {
@@ -864,8 +866,16 @@ var Model;
             enumerable: true,
             configurable: true
         });
+        Object.defineProperty(GameParams.prototype, "rules", {
+            get: function () {
+                return this._rules;
+            },
+            enumerable: true,
+            configurable: true
+        });
         GameParams.prototype.loadDataFrom = function (savedGameParams) {
             this._jailBail = savedGameParams._jailBail;
+            this._rules.loadDataFrom(savedGameParams._rules);
         };
         return GameParams;
     })();
@@ -903,18 +913,19 @@ var Model;
     var PlayerColor = Model.PlayerColor;
     ;
     var Player = (function () {
-        function Player() {
-            this.playerName = "";
-            this.human = false;
+        function Player(name, human) {
+            this.playerName = name;
+            this.human = human;
         }
-        Player.prototype.loadDataFrom = function (savedPlayer) {
+        Player.prototype.loadDataFrom = function (savedPlayer, board) {
             this.playerName = savedPlayer.playerName;
             this.human = savedPlayer.human;
             this.color = savedPlayer.color;
             this.money = savedPlayer.money;
-            this.position = savedPlayer.position;
             this.turnsInPrison = savedPlayer.turnsInPrison;
             this.active = savedPlayer.active;
+            var playerPositionIndex = savedPlayer.position.index;
+            this.position = board.fields.filter(function (f) { return f.index === playerPositionIndex; })[0];
         };
         return Player;
     })();
@@ -931,10 +942,26 @@ var Model;
 })(Model || (Model = {}));
 var Model;
 (function (Model) {
+    var Rules = (function () {
+        function Rules() {
+            this.passStartAward = 200;
+            this.initialCash = 1500;
+        }
+        Rules.prototype.loadDataFrom = function (savedRules) {
+            this.passStartAward = savedRules.passStartAward;
+            this.initialCash = savedRules.initialCash;
+        };
+        return Rules;
+    })();
+    Model.Rules = Rules;
+})(Model || (Model = {}));
+var Model;
+(function (Model) {
     var Settings = (function () {
         function Settings() {
             this.numPlayers = 2;
-            this.playerName = "";
+            this.players = [new Model.Player("Player 1", true), new Model.Player("Computer 1", false)];
+            this.rules = new Model.Rules();
         }
         return Settings;
     })();
@@ -997,6 +1024,34 @@ var Model;
         Object.defineProperty(MonopolyTheme.prototype, "backgroundSize", {
             get: function () {
                 return [20, 13.33];
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(MonopolyTheme.prototype, "gameSetupImage", {
+            get: function () {
+                return undefined;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(MonopolyTheme.prototype, "gameRulesImage", {
+            get: function () {
+                return undefined;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(MonopolyTheme.prototype, "gamePauseImage", {
+            get: function () {
+                return undefined;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(MonopolyTheme.prototype, "mainMenuImage", {
+            get: function () {
+                return undefined;
             },
             enumerable: true,
             configurable: true
@@ -1108,6 +1163,34 @@ var Model;
             enumerable: true,
             configurable: true
         });
+        Object.defineProperty(MoonopolyTheme.prototype, "gameSetupImage", {
+            get: function () {
+                return "GameSetup.png";
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(MoonopolyTheme.prototype, "gameRulesImage", {
+            get: function () {
+                return "GameRules.png";
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(MoonopolyTheme.prototype, "gamePauseImage", {
+            get: function () {
+                return "GamePause.png";
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(MoonopolyTheme.prototype, "mainMenuImage", {
+            get: function () {
+                return "MainMenu.png";
+            },
+            enumerable: true,
+            configurable: true
+        });
         Object.defineProperty(MoonopolyTheme.prototype, "skyboxFolder", {
             get: function () {
                 return "skybox3/skybox";
@@ -1206,14 +1289,16 @@ var Services;
             this.loadSettings = function () {
                 var settings = new Model.Settings();
                 var localStorageAny = localStorage;
-                if (localStorage.getItem("settings_v1_0")) {
-                    var savedSettings = JSON.parse(localStorageAny.settings_v1_0);
+                if (localStorage.getItem("settings_v1_01")) {
+                    var savedSettings = JSON.parse(localStorageAny.settings_v1_01);
                     settings.numPlayers = savedSettings.numPlayers;
-                    settings.playerName = savedSettings.playerName;
-                    settings.tutorial = true;
+                    settings.players = savedSettings.players;
+                    settings.tutorial = savedSettings.tutorial;
+                    if (savedSettings.rules) {
+                        settings.rules = savedSettings.rules;
+                    }
                 }
                 else {
-                    settings.playerName = "Player 1";
                     settings.tutorial = true;
                 }
                 _this._settings = settings;
@@ -1233,7 +1318,7 @@ var Services;
         });
         SettingsService.prototype.saveSettings = function (settings) {
             var localStorageAny = localStorage;
-            localStorageAny.settings_v1_0 = JSON.stringify(settings);
+            localStorageAny.settings_v1_01 = JSON.stringify(settings);
         };
         SettingsService.$inject = ["$http"];
         return SettingsService;
@@ -2684,8 +2769,10 @@ var Services;
                 this.loadGame();
             }
             else {
-                this.initPlayers();
+                var settings = this.settingsService.loadSettings();
+                this.initPlayers(settings);
                 this.initCards();
+                this.game.gameParams.rules.loadDataFrom(settings.rules);
             }
             this.initManageGroups();
             if (!loadGame) {
@@ -2696,11 +2783,11 @@ var Services;
         };
         GameService.prototype.saveGame = function () {
             var gameString = JSON.stringify(this.game);
-            localStorage.setItem("game", gameString);
-            gameString = localStorage.getItem("game");
+            localStorage.setItem(Model.Game.version, gameString);
+            gameString = localStorage.getItem(Model.Game.version);
         };
         GameService.prototype.loadGame = function () {
-            var gameString = localStorage.getItem("game");
+            var gameString = localStorage.getItem(Model.Game.version);
             if (gameString) {
                 this.game = new Model.Game(this.themeService.theme);
                 var savedGame = JSON.parse(gameString);
@@ -3429,14 +3516,11 @@ var Services;
             this.game.board.fields[3].asset.commitHouseOrHotel();
             player.money = 0;
         };
-        GameService.prototype.initPlayers = function () {
-            var settings = this.settingsService.loadSettings();
+        GameService.prototype.initPlayers = function (settings) {
             var colors = ["Red", "Green", "Yellow", "Blue"];
             for (var i = 0; i < settings.numPlayers; i++) {
-                var player = new Model.Player();
-                player.playerName = i === 0 ? settings.playerName : "Computer " + i;
-                player.human = i === 0;
-                player.money = 1500;
+                var player = new Model.Player(settings.players[i].playerName, settings.players[i].human);
+                player.money = settings.rules.initialCash;
                 player.color = i;
                 player.active = true;
                 this.game.players.push(player);
@@ -3932,6 +4016,9 @@ var MonopolyApp;
             });
             GameController.prototype.initGame = function (loadGame) {
                 this.gameService.initGame(loadGame);
+                if (loadGame) {
+                    this.assetToBuy = this.gameService.getCurrentPlayerPosition().asset;
+                }
             };
             GameController.prototype.setupThrowDice = function () {
                 var _this = this;
@@ -4206,6 +4293,8 @@ var MonopolyApp;
                 }
             };
             GameController.prototype.pause = function () {
+                this.gameService.saveGame();
+                this.stateService.go("pause");
             };
             GameController.prototype.closeAssetManagementWindow = function () {
                 $("#assetManagement").hide();
@@ -5024,6 +5113,11 @@ var MonopolyApp;
                         }
                     }, 3000);
                 }
+                else {
+                    this.timeoutService(function () {
+                        $("#loadingBar").hide();
+                    }, 3000);
+                }
             };
             GameController.$inject = ["$state", "$stateParams", "$swipe", "$scope", "$timeout", "gameService", "drawingService", "aiService", "themeService", "settingsService", "tutorialService"];
             return GameController;
@@ -5040,29 +5134,41 @@ var MonopolyApp;
     var controllers;
     (function (controllers) {
         var MainMenuController = (function () {
-            function MainMenuController(stateService) {
+            function MainMenuController(stateService, themeService) {
                 var _this = this;
                 this.startNewGame = function () {
-                    _this.stateService.go("newgame", { loadGame: false });
+                    _this.stateService.go("settings");
                 };
+                this.themeService = themeService;
                 this.stateService = stateService;
                 this.title = "Knight MONOPOLY";
+                this.chooseGameInitialization = false;
             }
             Object.defineProperty(MainMenuController.prototype, "canLoadGame", {
                 get: function () {
                     var localStorageAny = localStorage;
-                    return localStorage.length > 0 && localStorageAny.game;
+                    return localStorage.length > 0 && localStorageAny[Model.Game.version];
                 },
                 enumerable: true,
                 configurable: true
             });
             MainMenuController.prototype.settings = function () {
-                this.stateService.go("settings");
+                if (this.canLoadGame) {
+                    this.chooseGameInitialization = true;
+                    $("#buttonContainer").css("width", "340px");
+                }
+                else {
+                    this.startNewGame();
+                }
             };
             MainMenuController.prototype.loadGame = function () {
                 this.stateService.go("newgame", { loadGame: true });
             };
-            MainMenuController.$inject = ["$state"];
+            MainMenuController.prototype.goBack = function () {
+                this.chooseGameInitialization = false;
+                $("#buttonContainer").css("width", "575px");
+            };
+            MainMenuController.$inject = ["$state", "themeService"];
             return MainMenuController;
         })();
         controllers.MainMenuController = MainMenuController;
@@ -5077,26 +5183,226 @@ var MonopolyApp;
 (function (MonopolyApp) {
     var controllers;
     (function (controllers) {
-        var SettingsController = (function () {
-            function SettingsController(stateService, settingsService) {
+        var PauseController = (function () {
+            function PauseController(stateService, stateParamsService, scope, timeoutService, themeService) {
                 this.stateService = stateService;
+                this.stateParamsService = stateParamsService;
+                this.scope = scope;
+                this.timeoutService = timeoutService;
+                this.themeService = themeService;
+            }
+            PauseController.prototype.goBack = function () {
+                this.stateService.go("newgame", { loadGame: true });
+            };
+            PauseController.prototype.goToGameRules = function () {
+                this.stateService.go("rules", { inGame: true });
+            };
+            PauseController.prototype.saveAndExit = function () {
+                this.stateService.go("mainmenu");
+            };
+            PauseController.$inject = ["$state", "$stateParams", "$scope", "$timeout", "themeService"];
+            return PauseController;
+        })();
+        controllers.PauseController = PauseController;
+        monopolyApp.controller("pauseCtrl", PauseController);
+    })(controllers = MonopolyApp.controllers || (MonopolyApp.controllers = {}));
+})(MonopolyApp || (MonopolyApp = {}));
+/// <reference path="../../../scripts/typings/angularjs/angular.d.ts" />
+/// <reference path="../modules/monopolyApp.ts" />
+/// <reference path="../../../scripts/typings/angular-ui-router/angular-ui-router.d.ts" />
+/// <reference path="../../../scripts/game/model/settings.ts" />
+var MonopolyApp;
+(function (MonopolyApp) {
+    var controllers;
+    (function (controllers) {
+        var RulesController = (function () {
+            function RulesController(stateService, stateParamsService, scope, timeoutService, settingsService, themeService) {
+                var _this = this;
+                this.stateService = stateService;
+                this.stateParamsService = stateParamsService;
+                this.scope = scope;
+                this.timeoutService = timeoutService;
                 this.settingsService = settingsService;
+                this.themeService = themeService;
                 this.loadSettings();
+                var spService = this.stateParamsService;
+                this.inGame = eval(spService.inGame);
+                if (this.settings.rules) {
+                    this.setInitialCash(this.settings.rules.initialCash);
+                    this.setPassStartAward(this.settings.rules.passStartAward);
+                }
+                $('[id|="initialCash"]').click(function (e) {
+                    _this.onButtonClick(e);
+                });
+                $('[id|="passStart"]').click(function (e) {
+                    _this.onButtonClick(e);
+                });
+            }
+            RulesController.prototype.goBack = function () {
+                if (this.inGame) {
+                    this.stateService.go("pause");
+                }
+                else {
+                    this.saveSettings();
+                    this.stateService.go("settings");
+                }
+            };
+            RulesController.prototype.setInitialCash = function (cash) {
+                this.settings.rules.initialCash = cash;
+                $('[id|="initialCash"]').removeClass("btn-primary").addClass("btn-default");
+                if (cash === 1000) {
+                    $("#initialCash-1000").removeClass("btn-default").addClass("btn-primary");
+                }
+                if (cash === 1500) {
+                    $("#initialCash-1500").removeClass("btn-default").addClass("btn-primary");
+                }
+                if (cash === 2000) {
+                    $("#initialCash-2000").removeClass("btn-default").addClass("btn-primary");
+                }
+            };
+            RulesController.prototype.setPassStartAward = function (award) {
+                this.settings.rules.passStartAward = award;
+                $('[id|="passStart"]').removeClass("btn-primary").addClass("btn-default");
+                if (award === 0) {
+                    $("#passStart-0").removeClass("btn-default").addClass("btn-primary");
+                }
+                if (award === 100) {
+                    $("#passStart-100").removeClass("btn-default").addClass("btn-primary");
+                }
+                if (award === 200) {
+                    $("#passStart-200").removeClass("btn-default").addClass("btn-primary");
+                }
+                if (award === 300) {
+                    $("#passStart-300").removeClass("btn-default").addClass("btn-primary");
+                }
+            };
+            RulesController.prototype.loadSettings = function () {
+                this.settings = this.settingsService.loadSettings();
+            };
+            RulesController.prototype.saveSettings = function () {
+                this.settingsService.saveSettings(this.settings);
+            };
+            RulesController.prototype.onButtonClick = function (jQueryEventObject) {
+                var target = $(jQueryEventObject.currentTarget);
+                var targetId = target.attr("id");
+                var idTokens = targetId.split("-");
+                var targetValue = idTokens[1];
+                var targetRule = idTokens[0];
+                if (targetRule === "initialCash") {
+                    this.setInitialCash(parseInt(targetValue));
+                }
+                if (targetRule === "passStart") {
+                    this.setPassStartAward(parseInt(targetValue));
+                }
+            };
+            RulesController.$inject = ["$state", "$stateParams", "$scope", "$timeout", "settingsService", "themeService"];
+            return RulesController;
+        })();
+        controllers.RulesController = RulesController;
+        monopolyApp.controller("rulesCtrl", RulesController);
+    })(controllers = MonopolyApp.controllers || (MonopolyApp.controllers = {}));
+})(MonopolyApp || (MonopolyApp = {}));
+/// <reference path="../../../scripts/typings/angularjs/angular.d.ts" />
+/// <reference path="../modules/monopolyApp.ts" />
+/// <reference path="../../../scripts/typings/angular-ui-router/angular-ui-router.d.ts" />
+/// <reference path="../../../scripts/game/model/settings.ts" />
+var MonopolyApp;
+(function (MonopolyApp) {
+    var controllers;
+    (function (controllers) {
+        var SettingsController = (function () {
+            function SettingsController(stateService, scope, timeoutService, settingsService, themeService) {
+                this.stateService = stateService;
+                this.scope = scope;
+                this.timeoutService = timeoutService;
+                this.settingsService = settingsService;
+                this.themeService = themeService;
+                this.loadSettings();
+                var that = this;
+                $("#numPlayersSlider").slider({
+                    value: this.settings.numPlayers,
+                    min: 2,
+                    max: 4,
+                    step: 1,
+                    slide: function (event, ui) {
+                        $("#numPlayers").val(ui.value);
+                        that.adjustNumPlayers(ui.value);
+                    }
+                });
+                that.timeoutService(function () {
+                    var playerTypeToggle = $('[id|="playerType"]');
+                    playerTypeToggle.bootstrapToggle({
+                        on: "Human",
+                        off: "Computer"
+                    });
+                    playerTypeToggle.on("change", function (event) {
+                        var toggle = $(event.currentTarget);
+                        that.scope.$apply(function () {
+                            var i = parseInt(toggle.attr("id").substr(11));
+                            that.settings.players[i].human = toggle.prop("checked") === true;
+                            that.reassignComputerNames();
+                        });
+                    });
+                }, 1);
             }
             SettingsController.prototype.saveAndClose = function () {
                 this.saveSettings();
+                this.stateService.go("newgame", { loadGame: false });
+            };
+            SettingsController.prototype.goToGameRules = function () {
+                this.stateService.go("rules", { inGame: false });
+            };
+            SettingsController.prototype.goBack = function () {
                 this.stateService.go("mainmenu");
             };
             SettingsController.prototype.loadSettings = function () {
-                this.settings = new Model.Settings();
-                this.settings.playerName = "Noname";
-                this.settings.numPlayers = 2;
                 this.settings = this.settingsService.loadSettings();
             };
             SettingsController.prototype.saveSettings = function () {
                 this.settingsService.saveSettings(this.settings);
             };
-            SettingsController.$inject = ["$state", "settingsService"];
+            SettingsController.prototype.adjustNumPlayers = function (numPlayers) {
+                var that = this;
+                this.scope.$apply(function () {
+                    while (numPlayers < that.settings.numPlayers) {
+                        var playerTypeToggle = $("#playerType-" + (that.settings.players.length - 1));
+                        playerTypeToggle.off();
+                        playerTypeToggle.bootstrapToggle('destroy');
+                        that.settings.players.pop();
+                        that.settings.numPlayers--;
+                    }
+                    while (numPlayers > that.settings.numPlayers) {
+                        var numComputers = that.settings.players.filter(function (p) { return !p.human; }).length;
+                        that.settings.players.push(new Model.Player("Computer " + (numComputers + 1), false));
+                        that.settings.numPlayers++;
+                        that.reassignComputerNames();
+                        that.timeoutService(function () {
+                            var playerTypeToggle = $("#playerType-" + (that.settings.players.length - 1));
+                            playerTypeToggle.bootstrapToggle({
+                                on: "Human",
+                                off: "Computer"
+                            });
+                            playerTypeToggle.on("change", function () {
+                                that.scope.$apply(function () {
+                                    var i = parseInt(playerTypeToggle.attr("id").substr(11));
+                                    that.settings.players[i].human = playerTypeToggle.prop("checked") === true;
+                                    that.reassignComputerNames();
+                                });
+                            });
+                        }, 1);
+                    }
+                });
+            };
+            SettingsController.prototype.reassignComputerNames = function () {
+                var i = 1;
+                this.settings.players.forEach(function (p) {
+                    if (!p.human) {
+                        p.playerName = "Computer " + i;
+                        i++;
+                    }
+                });
+            };
+            SettingsController.$inject = ["$state", "$scope", "$timeout", "settingsService", "themeService"];
             return SettingsController;
         })();
         controllers.SettingsController = SettingsController;

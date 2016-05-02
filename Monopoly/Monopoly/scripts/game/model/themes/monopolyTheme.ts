@@ -28,6 +28,22 @@
             return [20, 13.33];
         }
 
+        get gameSetupImage(): string {
+            return undefined;
+        }
+
+        get gameRulesImage(): string {
+            return undefined;
+        }
+
+        get gamePauseImage(): string {
+            return undefined;
+        }
+
+        get mainMenuImage(): string {
+            return undefined;
+        }
+
         get skyboxFolder(): string {
             return undefined;
         }

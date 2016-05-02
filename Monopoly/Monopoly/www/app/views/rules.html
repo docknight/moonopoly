@@ -1,0 +1,29 @@
+﻿<img class="background" src="{{rules.themeService.theme.imagesFolder}}{{rules.themeService.theme.gameRulesImage}}" style="z-index: -1"/>
+<div style="height: 28%; width:100%"></div>
+<div id="rulesContent" style="height: 72%; overflow-y: auto">
+    <table style="color: #909090; font-size: 20px; margin-left: 5%; width:80%">
+        <tr>
+            <td style="width:35%">Initial cash</td>
+            <td>
+                <button type="button" class="btn" id="initialCash-1000" style="outline:0 none; margin-bottom: 8px; width:65px" ng-disabled="rules.inGame">1000</button>
+                <button type="button" class="btn" id="initialCash-1500" style="outline:0 none; margin-bottom: 8px; width:65px" ng-disabled="rules.inGame">1500</button>
+                <button type="button" class="btn" id="initialCash-2000" style="outline:0 none; margin-bottom: 8px; width:65px" ng-disabled="rules.inGame">2000</button>
+            </td>
+        </tr>
+        <tr>
+            <td style="width:35%">Pass START award</td>
+            <td>
+                <button type="button" class="btn" id="passStart-0" style="outline:0 none; margin-bottom: 8px; width:65px" ng-disabled="rules.inGame">None</button>
+                <button type="button" class="btn" id="passStart-100" style="outline:0 none; margin-bottom: 8px; width:65px" ng-disabled="rules.inGame">100</button>
+                <button type="button" class="btn" id="passStart-200" style="outline:0 none; margin-bottom: 8px; width:65px" ng-disabled="rules.inGame">200</button>
+                <button type="button" class="btn" id="passStart-300" style="outline:0 none; margin-bottom: 8px; width:65px" ng-disabled="rules.inGame">300</button>
+            </td>
+        </tr>
+    </table>
+</div>
+<div style="position: fixed; left: 12px; top:12px">
+    <a ng-click="rules.goBack()">
+        <div class="backButton">
+        </div>
+    </a>
+</div>
