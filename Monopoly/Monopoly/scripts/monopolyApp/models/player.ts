@@ -5,5 +5,6 @@
         mesh: BABYLON.AbstractMesh;
         index: number;
         color: string;
+        active: boolean;
     }
 }

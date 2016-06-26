@@ -1,0 +1,109 @@
+﻿<img class="background" style="z-index: -1" />
+<div style="height: 28%; width:100%"></div>
+<div id="helpContent" style="height: 72%; overflow-y: auto; margin-left: 5%; padding-right: 5%; color: #cccccc">
+    <h2 style="color:#cc5555">OVERVIEW</h2>
+    <p>
+        MOONopoly is a board game played by 2-4 players.<br/>
+        The aim of the game is to colonize the Moon by buying as many properties (valleys, mountains, cliffs, craters, etc.) as you can.
+        The more property you own, the more rent you will have the chance to collect.
+        Type of individual players (human or computer/AI) is selected at the beginning of each game.
+        The game takes place on the Moon surface, which is represented by a rectangular board divided into properties
+        and various action fields.
+        Players are (generally) progressing on the board in the clockwise direction by a distance determined by the dice throw.
+        Each player starts with the same amount of money that is expressed in a lunar currency ⌀ (dim).
+        Last player with a positive balance after all the other players have gone bankrupt wins the game.
+    </p>
+    <p>
+        When it's your turn, you can throw the dice by tapping (or swiping over and releasing) the THROW DICE button.
+        Then, when the dice is focused on the screen, tap anywhere on it to drop it to the Moon surface.
+        Afterwards, you move forward as determined by the dice.
+    </p>
+
+    <h2 style="color:#cc5555">LUNAR PROPERTIES</h2>
+    <p>
+        If you land on an unowned property, you can buy it, provided you have enough money.
+        If the property is already owned by another player, you have to pay the rent to that player.
+        The height of the rent depends on how much the property has been developed.
+    </p>
+
+    <h2 style="color:#cc5555">SPACE DEBRIS and DUST CLOUD</h2>
+    <p>
+        If you encounter a space debris or navigate into a dust cloud, a random event occurs from which you might earn
+        or lose some dims.
+    </p>
+
+    <h2 style="color:#cc5555">IRON MINES</h2>
+    <p>
+        Iron mines are a special kind of property that you can not develop by building habitats or settlement domes.
+        The rent depends on how many iron mines are owned by the player.
+    </p>
+
+    <h2 style="color:#cc5555">OIL RIGS</h2>
+    <p>
+        Like iron mines, you can not develop oil rigs by building habitats or settlement domes.
+        The rent depends on how many oil rigs are owned by the owner as well as the number that a player has thrown
+        when he landed on another player's oil rig.
+    </p>
+
+    <h2 style="color:#cc5555">START</h2>
+    <p>
+        When moving to or passing by the Start field, a player receives ⌀200 from the lunar bank (that amount is actually configurable through the game rules screen).
+    </p>
+
+    <h2 style="color:#cc5555">LUNAR ECOLOGY and ENERGY TAX</h2>
+    <p>
+        Player landing on one of the two tax fields has to pay the tax to the lunar bank.
+    </p>
+
+    <h2 style="color:#cc5555">FREE DOCKING</h2>
+    <p>
+        Time to relax while nothing extraordinary happens.
+    </p>
+
+    <h2 style="color:#cc5555">QUARANTINE</h2>
+    <p>
+        When landing on this field, just a routine check-up is performed and the game continues without delay.
+    </p>
+
+    <h2 style="color:#cc5555">GO TO QUARANTINE</h2>
+    <p>
+        The player landing on this field is immediately transported to the quarantine. While in quarantine, the player
+        is still allowed to collect rent, however he can not leave the quarantine until either he throws a six with the dice
+        or bribes the guard by paying 50 dims. If, after three moves, a six has still not been thrown, the player is forced
+        to pay the aforementioned price to leave the quarantine.
+    </p>
+
+    <h2 style="color:#cc5555">ENDING YOUR TURN</h2>
+    <p>
+        When all the required actions on the destination field have been executed, the player can end his turn by tapping
+        (or swiping over and releasing) the END TURN button, thereby allowing the next player to throw the dice for his move.
+    </p>
+
+    <h2 style="color:#cc5555">PROPERTY MANAGEMENT</h2>
+    <p>
+        Before or after throwing the dice you can view individual properties and manage those you own by tapping (or swiping over and releasing)
+        the MANAGE button.
+        In the management view you can swipe left or right to highlight property groups (properties of the same color) and select
+        individual property. If you own all properties of the same group, you can buy habitats and settlement domes, which increase the amount of
+        rent collected.
+        Habitats and settlement domes can also be sold to the bank. Note, however, that they are sold by half the price that they have been
+        purchased for.
+        An owned and undeveloped property (that belongs to a property group that has no other developed properties) can be mortgaged.
+        When under mortgage, no rent may be collected for the property.
+        To pay off the mortgage, you must pay the bank the price of the property increased by 10 %.
+    </p>
+
+    <h2 style="color:#cc5555">RUNNING OUT OF CASH</h2>
+    <p>
+        When a player's balance is negative, he can not buy unowned properties or develop those he owns. Neither can he end his or her turn.
+        In order to avoid bankrupcy he must mortgage properties he owns or downgrade those already developed. He can do both on the Management screen.
+        If, even after mortgaging all owned properties, a player's balance is still negative, he has no other option than to surrender.
+        He does that by tapping the SURRENDER button.
+    </p>
+</div>
+<div style="position: fixed; left: 12px; top:12px">
+    <a ng-click="help.goBack()">
+        <div class="backButton">
+        </div>
+    </a>
+</div>

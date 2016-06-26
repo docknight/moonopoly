@@ -6,5 +6,22 @@
         },
         "is_top_level": true,
         "variables": {}
+    },
+    "cordova-fs-plugin-fullscreen": {
+        "source": {
+            "type": "local",
+            "path": "C:\\projekti\\AngularTest\\Monopoly\\cordova-plugin-fullscreen-master"
+        },
+        "is_top_level": true,
+        "variables": {}
+    },
+    "cordova.custom.plugins.exitapp": {
+        "source": {
+            "type": "git",
+            "url": "https://github.com/gaqzi/cordova-plugin-exitapp",
+            "subdir": "."
+        },
+        "is_top_level": true,
+        "variables": {}
     }
 }

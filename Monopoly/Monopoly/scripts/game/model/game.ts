@@ -21,6 +21,8 @@
         private _gameParams: GameParams;
 
         players: Array<Player>;
+        currentTreasureCardIndex: number;
+        currentEventCardIndex: number;
 
         get currentPlayer(): string {
             return this._currentPlayer;
@@ -67,19 +69,30 @@
         }
 
         public advanceToNextPlayer() {
+            var isActive: boolean;
             if (this._currentPlayer === "") {
                 if (this.players.length > 0) {
                     this._currentPlayer = this.players[0].playerName;
+                    if (!this.players[0].active) {
+                        this.advanceToNextPlayer();
+                    }
                 }
-
                 return;
             }
 
             var currentPlayerIndex = this.players.indexOf(this.players.filter((p) => p.playerName === this.currentPlayer)[0]);
             if (currentPlayerIndex < this.players.length - 1) {
                 this._currentPlayer = this.players[currentPlayerIndex + 1].playerName;
+                isActive = this.players[currentPlayerIndex + 1].active;
             } else {
                 this._currentPlayer = this.players[0].playerName;
+                isActive = this.players[0].active;
+            }
+            if (!isActive) {
+                var anyActive = this.players.filter(p => p.active).length > 0;
+                if (anyActive) {
+                    this.advanceToNextPlayer();                    
+                }
             }
         }
 
@@ -96,6 +109,8 @@
             this._board.loadDataFrom(savedGame._board);
             this._treasureCards = savedGame._treasureCards;
             this._eventCards = savedGame._eventCards;
+            this.currentEventCardIndex = savedGame.currentEventCardIndex;
+            this.currentTreasureCardIndex = savedGame.currentTreasureCardIndex;
             this.previousState = savedGame.previousState;
             this.state = savedGame.state;
             this._moveContext = new MoveContext();

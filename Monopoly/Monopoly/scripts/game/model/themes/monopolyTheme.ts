@@ -8,8 +8,19 @@
             "Free parking", "Trenta", "Chance", "Rakov Škocjan", "Logarska dolina", "Železniška postaja Zidani most", "Lipica",
             "Volčji potok", "Mestni vodovod", "Postojnska jama", "Go to prison", "Cerkniško jezero", "Bohinj", "Community chest",
             "Bled", "Železniški terminal Koper", "Chance", "Piran", "Tax", "Portorož"];
+
+        private static boardFieldColors = ["", "#723E00", "", "#723E00", "", "#FFFFFF", "#69EEF6", "", "#69EEF6", "#69EEF6",
+                                           "", "#FD23BD", "#FFFFFF", "#FD23BD", "#FD23BD", "#FFFFFF", "#F39D37", "", "#F39D37", "#F39D37",
+                                           "", "#E50E13", "", "#E50E13", "#E50E13", "#FFFFFF", "#F4F10B", "#F4F10B", "#FFFFFF", "#F4F10B",
+                                           "", "#09C123", "#09C123", "", "#09C123", "#FFFFFF", "", "#2231F8", "", "#2231F8"
+                                          ];
+
         get boardFieldName(): Array<string> {
             return MonopolyTheme.boardFields;
+        }
+
+        get boardFieldColor(): Array<string> {
+            return MonopolyTheme.boardFieldColors;
         }
 
         get imagesFolder(): string {
@@ -40,8 +51,36 @@
             return undefined;
         }
 
+        get gameOptionsImage(): string {
+            return undefined;
+        }
+
+        get gameHelpImage(): string {
+            return undefined;
+        }
+
+        get gameStatsImage(): string {
+            return undefined;
+        }
+
         get mainMenuImage(): string {
             return undefined;
+        }
+
+        get mainMenuTitleImage(): string {
+            return undefined;
+        }
+
+        get railroadImage(): string {
+            return "railroad.png";
+        }
+
+        get utility1Image(): string {
+            return "lightbulb.png";
+        }
+
+        get utility2Image(): string {
+            return "faucet.png";
         }
 
         get skyboxFolder(): string {
@@ -68,12 +107,40 @@
             return MonopolyTheme.playerMeshRotation;
         }
 
+        get moneySymbol(): string {
+            return "M";
+        }
+
         get house(): string {
             return "house";
         }
 
         get hotel(): string {
             return "house";
+        }
+
+        get railroad(): string {
+            return "railway station";
+        }
+
+        get utility(): string {
+            return "Utility";
+        }
+
+        get utilities(): string {
+            return "Utilities";
+        }
+
+        get communityChestTitle(): string {
+            return "COMMUNITY CHEST";
+        }
+
+        get eventTitle(): string {
+            return "EVENT";
+        }
+
+        get prison(): string {
+            return "prison";
         }
     }
 }

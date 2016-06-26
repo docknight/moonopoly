@@ -13,7 +13,7 @@ module Services {
         }
 
         // process computer managing his properties or trading
-        public afterMoveProcessing(): Array<Model.AIAction> {            
+        public afterMoveProcessing(skipBuyingHouses?: boolean): Array<Model.AIAction> {            
             var actions = new Array<Model.AIAction>();
             var player = this.gameService.players.filter(p => p.playerName === this.gameService.getCurrentPlayer())[0];
             if (this.gameService.canBuy) {
@@ -47,7 +47,9 @@ module Services {
                     return actions; // getting out of jail is the last thing we are doing while being on the current field
                 }
                 var moneyAvailable = player.money;
-                this.buyHouses(moneyAvailable, player.playerName, actions);
+                if (!skipBuyingHouses) {
+                    this.buyHouses(moneyAvailable, player.playerName, actions);
+                }
             }
             this.unmortgageAssets(player.money, player.playerName, actions);
             return actions;
@@ -56,7 +58,20 @@ module Services {
         // determine whether the computer should buy current property he has landed on
         public shouldBuy(asset: Model.Asset): boolean {
             var player = this.gameService.players.filter(p => p.playerName === this.gameService.getCurrentPlayer())[0];
-            if (player.money > asset.price + 150) {
+            if (player.money < 2000 && this.severalOwners(asset.group)) {
+                return false;
+            }
+            var assetGroupsToGain = this.numAssetGroupsToGain(player.playerName);
+            if (assetGroupsToGain <= 3 && player.money > asset.price + 250) {
+                return true;
+            }
+            if (assetGroupsToGain > 3) {
+                if (player.money > asset.price + 700) {
+                    return true;
+                }
+            }
+            if (player.money > asset.price + 150 && asset.price >= 300 && this.canOwnGroup(asset, player)) {
+                // for higher valued properties AI is prepared to risk a bit more
                 return true;
             }
 
@@ -187,10 +202,10 @@ module Services {
         // buy houses or hotels if available
         private buyHouses(moneyAvailable: number, player: string, actions: Model.AIAction[]) {
             moneyAvailable -= 200;
-            var assetGroupsToGain = this.numAssetGroupsToGain(player);
             if (moneyAvailable < 0) {
                 return;
             }
+            var assetGroupsToGain = this.numAssetGroupsToGain(player);
             var ownedAssets = this.gameService.getPlayerAssets(player);
             if (ownedAssets.length === 0) {
                 return;
@@ -222,14 +237,15 @@ module Services {
                             moneyAvailableForHouses -= 200;
                         }
                         if (assetGroupsToGain >= 3 && housesPerAsset >= 2) {
-                            moneyAvailableForHouses -= 300;
+                            moneyAvailableForHouses -= 2000;
                         }
                         var affordableHouses = Math.floor(moneyAvailableForHouses / groupFields[0].asset.priceHouse);
                         var housesToBuy = Math.min(housesLeftToBuy, affordableHouses);
                         if (housesToBuy > 0) {
                             action = new Model.AIAction();
                             action.actionType = Model.AIActionType.BuyHouse;
-                            action.numHousesOrHotels = housesToBuy;
+                            // never buy more than 3 houses at once
+                            action.numHousesOrHotels = Math.min(housesToBuy , 3);
                             action.assetGroup = group;
                             actions.push(action);
                         }
@@ -296,7 +312,7 @@ module Services {
             // next, release mortgage on railways and utilities
             var railwayFields = this.gameService.getGroupBoardFields(Model.AssetGroup.Railway);
             railwayFields.forEach(groupField => {
-                if (!actionAdded && groupField.asset.mortgage && money - (Math.floor(groupField.asset.price * 1.1)) > 50) {
+                if (!actionAdded && groupField.asset.mortgage && groupField.asset.owner === player && money - (Math.floor(groupField.asset.price * 1.1)) > 50) {
                     var action = new Model.AIAction();
                     action.actionType = Model.AIActionType.Unmortgage;
                     action.asset = groupField.asset;
@@ -308,7 +324,7 @@ module Services {
             });
             var utilityFields = this.gameService.getGroupBoardFields(Model.AssetGroup.Utility);
             utilityFields.forEach(groupField => {
-                if (!actionAdded && groupField.asset.mortgage && money - (Math.floor(groupField.asset.price * 1.1)) > 150) {
+                if (!actionAdded && groupField.asset.mortgage && groupField.asset.owner === player && money - (Math.floor(groupField.asset.price * 1.1)) > 150) {
                     var action = new Model.AIAction();
                     action.actionType = Model.AIActionType.Unmortgage;
                     action.asset = groupField.asset;
@@ -348,6 +364,39 @@ module Services {
                 }
             });
             return groupsToGain;
+        }
+
+        // whether the group that the asset belongs to is still available
+        private canOwnGroup(asset: Model.Asset, player: Model.Player): boolean {
+            var groups = [Model.AssetGroup.First, Model.AssetGroup.Second, Model.AssetGroup.Third, Model.AssetGroup.Fourth, Model.AssetGroup.Fifth, Model.AssetGroup.Sixth, Model.AssetGroup.Seventh, Model.AssetGroup.Eighth];
+            if (groups.filter(g => g === asset.group).length === 0) {
+                // not applicable to railroads and utilities
+                return true;
+            }
+            var groupFields = this.gameService.getGroupBoardFields(asset.group);
+            var ownedByAnotherPlayer = false;
+            groupFields.forEach(f => {
+                ownedByAnotherPlayer = ownedByAnotherPlayer || (!f.asset.unowned && f.asset.owner !== player.playerName);
+            });
+            return !ownedByAnotherPlayer;
+        }
+
+        private severalOwners(group: Model.AssetGroup): boolean {
+            var groups = [Model.AssetGroup.First, Model.AssetGroup.Second, Model.AssetGroup.Third, Model.AssetGroup.Fourth, Model.AssetGroup.Fifth, Model.AssetGroup.Sixth, Model.AssetGroup.Seventh, Model.AssetGroup.Eighth];
+            var owners: Array<string> = [];
+            if (groups.filter(g => g === group).length === 0) {
+                // not applicable to railroads and utilities
+                return false;
+            }
+            var groupFields = this.gameService.getGroupBoardFields(group);
+            groupFields.forEach(f => {
+                if (!f.asset.unowned) {
+                    if (owners.filter(o => o === f.asset.owner).length === 0) {
+                        owners.push(f.asset.owner);
+                    }
+                }
+            });
+            return owners.length > 1;
         }
     }
 

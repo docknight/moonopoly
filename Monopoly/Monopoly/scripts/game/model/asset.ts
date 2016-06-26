@@ -210,5 +210,14 @@
             this.valueMortgage = savedAsset.valueMortgage;
             this.priceMultiplierUtility = savedAsset.priceMultiplierUtility;
         }
+
+        public releaseOwnership() {
+            this.releaseMortgage();
+            this._houses = 0;
+            this._uncommittedHouses = 0;
+            this._hotel = false;
+            this._uncommittedHotel = undefined;
+            this._unowned = true;
+        }
     }
 } 

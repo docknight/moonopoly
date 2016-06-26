@@ -2,331 +2,361 @@
     <select id="messageHistory" style="width: 100%;"></select>
 </div>
 <canvas id="renderCanvas" ng-swipe-left="gameController.handleSwipe(true)" ng-swipe-right="gameController.handleSwipe(false);" style="height: 100%; touch-action: none"></canvas>
-<div id="player1Properties" style="position: fixed; top: 0px; left: 0; width: 15%; height: 11%; border-bottom: 2px solid #404040; border-right: 2px solid #404040; background: -webkit-gradient(linear, left top, left bottom, from({{gameController.playerModels[0].color}}), to(#505050))">
-    <table style="height: 100%; padding-bottom: 2px">
+<div id="player1Properties" style="position: fixed; top: 0px; left: 0; width: 100px; height: 40px; border-bottom: 2px solid #404040; border-right: 2px solid #404040; border-bottom-right-radius: 5px; background: -webkit-gradient(linear, left top, left bottom, from({{gameController.playerModels[0].color}}), to(#505050));     -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;">
+    <table style="height: 100%; padding-bottom: 2px; font-size: 14px">
         <tr style="height: 50%"><td style="color: #DDDDDD; padding-left: 3px">{{gameController.playerModels[0].name}}</td></tr>
-        <tr style="height: 50%"><td style="color: #DDDDDD; padding-left: 3px">M{{gameController.playerModels[0].money}}</td></tr>
+        <tr style="height: 50%"><td id="player1Money" style="color: #DDDDDD; padding-left: 3px">{{gameController.theme.moneySymbol}}{{gameController.playerModels[0].money}}</td></tr>
     </table>
 </div>
-<div id="player2Properties" style="position: fixed; top: 0px; right: 0; width: 15%; height: 11%; border-bottom: 2px solid #404040; border-left: 2px solid #404040; background: -webkit-gradient(linear, left top, left bottom, from({{gameController.playerModels[1].color}}), to(#505050))">
-    <table style="height: 100%; padding-bottom: 2px">
+<div id="player2Properties" style="position: fixed; top: 0px; right: 0; width: 100px; height: 40px; border-bottom: 2px solid #404040; border-left: 2px solid #404040; border-bottom-left-radius: 5px; background: -webkit-gradient(linear, left top, left bottom, from({{gameController.playerModels[1].color}}), to(#505050));     -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;">
+    <table style="height: 100%; padding-bottom: 2px; font-size: 14px">
         <tr style="height: 50%"><td style="color: #DDDDDD; padding-left: 3px">{{gameController.playerModels[1].name}}</td></tr>
-        <tr style="height: 50%;"><td style="color: #DDDDDD; padding-left: 3px">M{{gameController.playerModels[1].money}}</td></tr>
+        <tr style="height: 50%;"><td id="player2Money" style="color: #DDDDDD; padding-left: 3px">{{gameController.theme.moneySymbol}}{{gameController.playerModels[1].money}}</td></tr>
     </table>
 </div>
-<div id="player3Properties" ng-show="gameController.playerModels.length > 2" style="position: fixed; bottom: 0px; left: 0; width: 15%; height: 11%; border-top: 2px solid #404040; border-right: 2px solid #404040; background: -webkit-gradient(linear, left top, left bottom, from({{gameController.playerModels[2].color}}), to(#505050))">
-    <table style="height: 100%; padding-bottom: 2px">
+<div id="player3Properties" ng-show="gameController.playerModels.length > 2" style="position: fixed; bottom: 0px; left: 0; width: 100px; height: 40px; border-top: 2px solid #404040; border-right: 2px solid #404040; border-top-right-radius: 5px; background: -webkit-gradient(linear, left top, left bottom, from({{gameController.playerModels[2].color}}), to(#505050));     -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;">
+    <table style="height: 100%; padding-bottom: 2px; font-size: 14px">
         <tr style="height: 50%"><td style="color: #DDDDDD; padding-left: 3px">{{gameController.playerModels[2].name}}</td></tr>
-        <tr style="height: 50%;"><td style="color: #DDDDDD; padding-left: 3px">M{{gameController.playerModels[2].money}}</td></tr>
+        <tr style="height: 50%;"><td id="player3Money" style="color: #DDDDDD; padding-left: 3px">{{gameController.theme.moneySymbol}}{{gameController.playerModels[2].money}}</td></tr>
     </table>
 </div>
-<div id="player4Properties" ng-show="gameController.playerModels.length > 3" style="position: fixed; bottom: 0px; right: 0; width: 15%; height: 11%; border-top: 2px solid #404040; border-left: 2px solid #404040; background: -webkit-gradient(linear, left top, left bottom, from({{gameController.playerModels[3].color}}), to(#505050))">
-    <table style="height: 100%; padding-bottom: 2px">
+<div id="player4Properties" ng-show="gameController.playerModels.length > 3" style="position: fixed; bottom: 0px; right: 0; width: 100px; height: 40px; border-top: 2px solid #404040; border-left: 2px solid #404040; border-top-left-radius: 5px; background: -webkit-gradient(linear, left top, left bottom, from({{gameController.playerModels[3].color}}), to(#505050));     -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;">
+    <table style="height: 100%; padding-bottom: 2px; font-size: 14px">
         <tr style="height: 50%"><td style="color: #DDDDDD; padding-left: 3px">{{gameController.playerModels[3].name}}</td></tr>
-        <tr style="height: 50%;"><td style="color: #DDDDDD; padding-left: 3px">M{{gameController.playerModels[3].money}}</td></tr>
+        <tr style="height: 50%;"><td id="player4Money" style="color: #DDDDDD; padding-left: 3px">{{gameController.theme.moneySymbol}}{{gameController.playerModels[3].money}}</td></tr>
     </table>
 </div>
 <div id="titleDeedArrow" style="position: fixed; top: 10%; left: 10%; width: 35%; height: 80%; background-image: url(images/arrow.png); background-size: contain; background-position: center; background-repeat: no-repeat;" ng-show="gameController.availableActions.buy">
-    <div style="position: relative; top: 50%; -webkit-transform: translateY(-50%); -ms-transform: translateY(-50%); transform: translateY(-50%); text-align: center; color: white; font-size: 1.5rem; font-weight: bold">
+    <div style="position: relative; top: 50%; -webkit-transform: translateY(-50%); -ms-transform: translateY(-50%); transform: translateY(-50%); text-align: center; color: white; font-size: 2rem; font-weight: bold">
         Buy Now?<br/>
-        M{{gameController.assetToBuy.price}}
+        {{gameController.theme.moneySymbol}}{{gameController.assetToBuy.price}}
     </div>
 </div>
-<div id="titleDeed" style="position: fixed; top: 10%; left: 50%; width: 40%; height: 80%; background-color: white; border: 2px; border-radius: 3px; padding: 7px" ng-show="gameController.availableActions.buy">
-    <table style="width: 100%; height: 100%; border: 2px solid black; border-radius: 3px">
-        <tr>
-            <td>
-                <div id="titleDeedAsset" style="width: 100%; height: 100%; padding-left: 7px; padding-right: 7px; padding-top: 5px" ng-show="!gameController.assetToBuy.isUtility && !gameController.assetToBuy.isRailway">
-                    <table style="background-color: {{gameController.assetToBuy.color}}; width: 100% ; height: 20% ; border: 2px solid black; border-radius: 3px ">
-                        <tr>
-                            <td colspan="2" style="text-align: center; font-size: 12px">TITLE DEED</td>
-                        </tr>
-                        <tr>
-                            <td colspan="2" style="text-align: center; font-size: 16px; font-weight: bold">{{gameController.assetToBuy.name}}</td>
-                        </tr>
-                    </table>
-                    <table style="width: 100%; height: 80%">
-                        <tr style="height: 13%">
-                            <td colspan="2" style="text-align: center; font-weight: bold">RENT M{{gameController.assetToBuy.priceRent[0]}}</td>
-                        </tr>
-                        <tr style="height: 8%">
-                            <td style="width: 70%">With 1 {{gameController.theme.house}}</td>
-                            <td style="text-align: right">M{{gameController.assetToBuy.priceRentHouse[0]}}</td>
-                        </tr>
-                        <tr style="height: 8%">
-                            <td style="width: 70%">With 2 {{gameController.theme.house}}s</td>
-                            <td style="text-align: right">M{{gameController.assetToBuy.priceRentHouse[1]}}</td>
-                        </tr>
-                        <tr style="height: 8%">
-                            <td style="width: 70%">With 3 {{gameController.theme.house}}s</td>
-                            <td style="text-align: right">M{{gameController.assetToBuy.priceRentHouse[2]}}</td>
-                        </tr>
-                        <tr style="height: 8%">
-                            <td style="width: 70%">With 4 {{gameController.theme.house}}s</td>
-                            <td style="text-align: right">M{{gameController.assetToBuy.priceRentHouse[3]}}</td>
-                        </tr>
-                        <tr style="height: 8%">
-                            <td style="width: 70%">With {{gameController.theme.hotel}}</td>
-                            <td style="text-align: right">M{{gameController.assetToBuy.priceRentHotel}}</td>
-                        </tr>
-                        <tr style="height: 13%">
-                            <td colspan="2" style="text-align: center; font-weight: bold">Mortage Value M{{gameController.assetToBuy.valueMortgage}}</td>
-                        </tr>
-                        <tr style="height: 10%">
-                            <td colspan="2" style="text-align: center;">{{gameController.theme.house}}s cost M{{gameController.assetToBuy.priceHouse}} each</td>
-                        </tr>
-                        <tr style="height: 10%">
-                            <td colspan="2" style="text-align: center;">{{gameController.theme.hotel}}s, M{{gameController.assetToBuy.priceHotel}} each</td>
-                        </tr>
-                        <tr style="height: 8%">
-                            <td colspan="2" style="text-align: center;">plus 4 {{gameController.theme.house}}s</td>
-                        </tr>
-                        <tr >
-                            <td colspan="2"></td>
-                        </tr>
-                    </table>
-                </div>
-                <div id="titleDeedUtility" style="width: 100%; height: 100%; padding-left: 7px; padding-right: 7px; padding-top: 5px" ng-show="gameController.assetToBuy.isUtility">
-                    <table style="width: 100%; height: 100%">
-                        <tr style="height: 30%">
-                            <td>
-                                <div style="background-image: url(images/lightbulb.png); background-size: contain; background-position: center; background-repeat: no-repeat; height: 100%; width: 100%" ng-show="gameController.assetToBuy.name == 'Javna razsvetljava'">
-                                </div>
-                                <div style="background-image: url(images/faucet.png); background-size: contain; background-position: center; background-repeat: no-repeat; height: 100%; width: 100%" ng-show="gameController.assetToBuy.name != 'Javna razsvetljava'">
-                                </div>
-                            </td>
-                        </tr>
-                        <tr style="height: 12%">
-                            <td style="text-align: center; font-weight: bold;">{{gameController.assetToBuy.name}}</td>
-                        </tr>
-                        <tr style="height: 16%">
-                            <td style="text-align: center">If one Utility is owned, rent is 4 times the amount shown on dice.</td>
-                        </tr>
-                        <tr style="height: 27%">
-                            <td style="text-align: center; vertical-align: top">If both Utilities are owned, rent is 10 times the amount shown on dice.</td>
-                        </tr>
-                        <tr style="height: 15%">
-                            <td style="text-align: center">Mortgage Value M{{gameController.assetToBuy.valueMortgage}}</td>
-                        </tr>
-                    </table>
-                </div>
-                <div id="titleDeedRailway" style="width: 100%; height: 100%; padding-left: 7px; padding-right: 7px; padding-top: 5px" ng-show="gameController.assetToBuy.isRailway">
-                    <table style="width: 100%; height: 100%">
-                        <tr style="height: 30%">
-                            <td>
-                                <div style="background-image: url(images/railroad.png); background-size: contain; background-position: center; background-repeat: no-repeat; height: 100%; width: 100%">
-                                </div>
-                            </td>
-                        </tr>
-                        <tr style="height: 15%">
-                            <td style="text-align: center; font-weight: bold; vertical-align: middle">{{gameController.assetToBuy.name}}</td>
-                        </tr>
-                        <tr style="height: 55%">
-                            <td>
-                                <table style="width: 100%; height: 100%">
-                                    <tr style="height: 15%">
-                                        <td>RENT</td>
-                                        <td style="text-align: right">M{{gameController.assetToBuy.priceRent[0]}}</td>
-                                    </tr>
-                                    <tr style="height: 15%">
-                                        <td style="width: 70%">If 2 Stations Owned</td>
-                                        <td style="text-align: right">M{{gameController.assetToBuy.priceRent[1]}}</td>
-                                    </tr>
-                                    <tr style="height: 15%">
-                                        <td style="width: 70%">If 3 Stations Owned</td>
-                                        <td style="text-align: right">M{{gameController.assetToBuy.priceRent[2]}}</td>
-                                    </tr>
-                                    <tr style="height: 15%">
-                                        <td style="width: 70%">If 4 Stations Owned</td>
-                                        <td style="text-align: right">M{{gameController.assetToBuy.priceRent[3]}}</td>
-                                    </tr>
-                                    <tr style="height: 40%">
-                                        <td colspan="2" style="text-align: center; vertical-align: middle">Mortage Value M{{gameController.assetToBuy.valueMortgage}}</td>
-                                    </tr>
-                                </table>                                
-                            </td>
-                        </tr>
-                    </table>
-                </div>
-            </td>
-        </tr>
-    </table>
-</div>
-<div id="assetManagement" style="position: fixed; top: 10%; left: 10%; width: 80%; height: 80%; background-color: lightgray; border: 2px; border-color: black; border-radius: 3px; display: none">
-    <table style="width: 100%; height: 100%">
-        <tr>
-            <td style="width: 47%; height: 100%">
-                <div style="position: relative; padding: 10px; box-shadow: 10px 10px 5px #888888; width: 100%; height: 100%; border: 2px double black">
-                    <table style="width: 100%; height: 100%">
-                        <tr style="height: 50px">
-                            <td>
-                                <a ng-click="gameController.closeAssetManagementWindow()"><img id="buttoncloseAssetManagementWindow" class="commandButton unhighlightedButton" src="images/back.png" draggable="false"/></a>
-                            </td>
-                        </tr>
-                        <tr style="height: 60px">
-                            <td>
-                                <div style="display: table; margin-left: auto; margin-right: auto; width: auto">
-                                    <a ng-disabled="!gameController.canMortgageSelected()" ng-click="gameController.toggleMortgageConfirm()"><img id="buttonToggleMortgage" class="commandButton unhighlightedButton" src="images/home-price-hi.png" draggable="false"/></a>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr style="height: 20px">
-                            <td style="text-align: center">
-                                <div ng-show="!gameController.assetToManage.unowned">
-                                    Owned by {{gameController.assetToManage.owner}}
-                                </div>
-                                <div ng-show="gameController.assetToManage.unowned">
-                                    Unowned
-                                </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td></td>
-                        </tr>
-                    </table>
-                </div>
-            </td>
-            <td style="width: 10px"></td>
-            <td>
-                <div style="padding: 10px; width: 100%; height: 100%;">
-                    <table style="width: 100%; height: 100%; border: 2px solid black; border-radius: 3px">
-                        <tr>
-                            <td>
-                                <div id="manageTitleDeedAsset" style="width: 100%; height: 100%; padding-left: 7px; padding-right: 7px; padding-top: 5px" ng-show="!gameController.assetToManage.isUtility && !gameController.assetToManage.isRailway">
-                                    <table style="background-color: {{gameController.assetToManage.color}}; width: 100% ; height: 20% ; border: 2px solid black; border-radius: 3px ">
-                                        <tr>
-                                            <td colspan="2" style="text-align: center; font-size: 12px">TITLE DEED</td>
-                                        </tr>
-                                        <tr>
-                                            <td colspan="2" style="text-align: center; font-size: 16px; font-weight: bold">{{gameController.assetToManage.name}}</td>
-                                        </tr>
-                                    </table>
-                                    <table style="width: 100%; height: 80%">
-                                        <tr style="height: 13%">
-                                            <td colspan="2" style="text-align: center; font-weight: bold">RENT M{{gameController.assetToManage.priceRent[0]}}</td>
-                                        </tr>
-                                        <tr style="height: 8%">
-                                            <td style="width: 70%">With 1 {{gameController.theme.house}}</td>
-                                            <td style="text-align: right">M{{gameController.assetToManage.priceRentHouse[0]}}</td>
-                                        </tr>
-                                        <tr style="height: 8%">
-                                            <td style="width: 70%">With 2 {{gameController.theme.house}}s</td>
-                                            <td style="text-align: right">M{{gameController.assetToManage.priceRentHouse[1]}}</td>
-                                        </tr>
-                                        <tr style="height: 8%">
-                                            <td style="width: 70%">With 3 {{gameController.theme.house}}s</td>
-                                            <td style="text-align: right">M{{gameController.assetToManage.priceRentHouse[2]}}</td>
-                                        </tr>
-                                        <tr style="height: 8%">
-                                            <td style="width: 70%">With 4 {{gameController.theme.house}}s</td>
-                                            <td style="text-align: right">M{{gameController.assetToManage.priceRentHouse[3]}}</td>
-                                        </tr>
-                                        <tr style="height: 8%">
-                                            <td style="width: 70%">With {{gameController.theme.hotel}}</td>
-                                            <td style="text-align: right">M{{gameController.assetToManage.priceRentHotel}}</td>
-                                        </tr>
-                                        <tr style="height: 13%">
-                                            <td colspan="2" style="text-align: center; font-weight: bold">Mortage Value M{{gameController.assetToManage.valueMortgage}}</td>
-                                        </tr>
-                                        <tr style="height: 10%">
-                                            <td colspan="2" style="text-align: center;">{{gameController.theme.house}}s cost M{{gameController.assetToManage.priceHouse}} each</td>
-                                        </tr>
-                                        <tr style="height: 10%">
-                                            <td colspan="2" style="text-align: center;">{{gameController.theme.hotel}}s, M{{gameController.assetToManage.priceHotel}} each</td>
-                                        </tr>
-                                        <tr style="height: 8%">
-                                            <td colspan="2" style="text-align: center;">plus 4 {{gameController.theme.house}}s</td>
-                                        </tr>
-                                        <tr>
-                                            <td colspan="2"></td>
-                                        </tr>
-                                    </table>
-                                </div>
-                                <div id="manageTitleDeedUtility" style="width: 100%; height: 100%; padding-left: 7px; padding-right: 7px; padding-top: 5px" ng-show="gameController.assetToManage.isUtility">
+<div style="position: absolute; top: 50%; margin-top: -137px; left: 40%; width: 60%;">
+    <div id="titleDeed" style="width: 250px; margin-left: auto; margin-right: auto; height: 267px; background-color: white; border: 2px; border-radius: 3px; padding: 7px" ng-show="gameController.availableActions.buy">
+        <table style="width: 100%; height: 100%; border: 2px solid black; border-radius: 3px">
+            <tr>
+                <td>
+                    <div id="titleDeedAsset" style="width: 100%; height: 100%; padding-left: 7px; padding-right: 7px; padding-top: 5px" ng-show="!gameController.assetToBuy.isUtility && !gameController.assetToBuy.isRailway">
+                        <table style="background-color: {{gameController.assetToBuy.color}}; width: 100% ; height: 16% ; border: 2px solid black; border-radius: 3px ">
+                            <tr>
+                                <td colspan="2" style="text-align: center; font-size: 12px">PROPERTY CARD</td>
+                            </tr>
+                            <tr>
+                                <td colspan="2" style="text-align: center; font-size: 16px; font-weight: bold">{{gameController.assetToBuy.name}}</td>
+                            </tr>
+                        </table>
+                        <table style="width: 100%; height: 84%">
+                            <tr style="height: 13%">
+                                <td colspan="2" style="text-align: center; font-weight: bold">RENT {{gameController.theme.moneySymbol}}{{gameController.assetToBuy.priceRent[0]}}</td>
+                            </tr>
+                            <tr style="height: 8%">
+                                <td style="width: 70%">With 1 {{gameController.theme.house}}</td>
+                                <td style="text-align: right">{{gameController.theme.moneySymbol}}{{gameController.assetToBuy.priceRentHouse[0]}}</td>
+                            </tr>
+                            <tr style="height: 8%">
+                                <td style="width: 70%">With 2 {{gameController.theme.house}}s</td>
+                                <td style="text-align: right">{{gameController.theme.moneySymbol}}{{gameController.assetToBuy.priceRentHouse[1]}}</td>
+                            </tr>
+                            <tr style="height: 8%">
+                                <td style="width: 70%">With 3 {{gameController.theme.house}}s</td>
+                                <td style="text-align: right">{{gameController.theme.moneySymbol}}{{gameController.assetToBuy.priceRentHouse[2]}}</td>
+                            </tr>
+                            <tr style="height: 8%">
+                                <td style="width: 70%">With 4 {{gameController.theme.house}}s</td>
+                                <td style="text-align: right">{{gameController.theme.moneySymbol}}{{gameController.assetToBuy.priceRentHouse[3]}}</td>
+                            </tr>
+                            <tr style="height: 8%">
+                                <td style="width: 70%">With {{gameController.theme.hotel}}</td>
+                                <td style="text-align: right">{{gameController.theme.moneySymbol}}{{gameController.assetToBuy.priceRentHotel}}</td>
+                            </tr>
+                            <tr style="height: 13%">
+                                <td colspan="2" style="text-align: center; font-weight: bold">Mortage Value {{gameController.theme.moneySymbol}}{{gameController.assetToBuy.valueMortgage}}</td>
+                            </tr>
+                            <tr style="height: 10%">
+                                <td colspan="2" style="text-align: center;">{{gameController.theme.house}}s cost {{gameController.theme.moneySymbol}}{{gameController.assetToBuy.priceHouse}} each</td>
+                            </tr>
+                            <tr style="height: 10%">
+                                <td colspan="2" style="text-align: center;">{{gameController.theme.hotel}}s, {{gameController.theme.moneySymbol}}{{gameController.assetToBuy.priceHotel}} each</td>
+                            </tr>
+                            <tr style="height: 8%">
+                                <td colspan="2" style="text-align: center;">plus 4 {{gameController.theme.house}}s</td>
+                            </tr>
+                            <tr>
+                                <td colspan="2"></td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div id="titleDeedUtility" style="width: 100%; height: 100%; padding-left: 7px; padding-right: 7px; padding-top: 5px" ng-show="gameController.assetToBuy.isUtility">
+                        <table style="width: 100%; height: 100%">
+                            <tr style="height: 30%">
+                                <td>
+                                    <div style="background-image: url({{gameController.theme.imagesFolder}}{{gameController.theme.utility1Image}}); background-size: contain; background-position: center; background-repeat: no-repeat; height: 100%; width: 100%" ng-show="gameController.assetToBuy.name == 'Javna razsvetljava'">
+                                    </div>
+                                    <div style="background-image: url({{gameController.theme.imagesFolder}}{{gameController.theme.utility2Image}}); background-size: contain; background-position: center; background-repeat: no-repeat; height: 100%; width: 100%" ng-show="gameController.assetToBuy.name != 'Javna razsvetljava'">
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr style="height: 12%">
+                                <td style="text-align: center; font-weight: bold;">{{gameController.assetToBuy.name}}</td>
+                            </tr>
+                            <tr style="height: 16%">
+                                <td style="text-align: center">If one {{gameController.theme.utility}} is owned, rent is 8 times the amount shown on dice.</td>
+                            </tr>
+                            <tr style="height: 27%">
+                                <td style="text-align: center; vertical-align: top">If both {{gameController.theme.utilities}} are owned, rent is 20 times the amount shown on dice.</td>
+                            </tr>
+                            <tr style="height: 15%">
+                                <td style="text-align: center">Mortgage Value {{gameController.theme.moneySymbol}}{{gameController.assetToBuy.valueMortgage}}</td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div id="titleDeedRailway" style="width: 100%; height: 100%; padding-left: 7px; padding-right: 7px; padding-top: 5px" ng-show="gameController.assetToBuy.isRailway">
+                        <table style="width: 100%; height: 100%">
+                            <tr style="height: 30%">
+                                <td>
+                                    <div style="background-image: url({{gameController.theme.imagesFolder}}{{gameController.theme.railroadImage}}); background-size: contain; background-position: center; background-repeat: no-repeat; height: 100%; width: 100%">
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr style="height: 15%">
+                                <td style="text-align: center; font-weight: bold; vertical-align: middle">{{gameController.assetToBuy.name}}</td>
+                            </tr>
+                            <tr style="height: 55%">
+                                <td>
                                     <table style="width: 100%; height: 100%">
-                                        <tr style="height: 30%">
-                                            <td>
-                                                <div style="background-image: url(images/lightbulb.png); background-size: contain; background-position: center; background-repeat: no-repeat; height: 100%; width: 100%" ng-show="gameController.assetToManage.name == 'Javna razsvetljava'">
-                                                </div>
-                                                <div style="background-image: url(images/faucet.png); background-size: contain; background-position: center; background-repeat: no-repeat; height: 100%; width: 100%" ng-show="gameController.assetToManage.name != 'Javna razsvetljava'">
-                                                </div>
-                                            </td>
-                                        </tr>
-                                        <tr style="height: 12%">
-                                            <td style="text-align: center; font-weight: bold;">{{gameController.assetToManage.name}}</td>
-                                        </tr>
-                                        <tr style="height: 16%">
-                                            <td style="text-align: center">If one Utility is owned, rent is 4 times the amount shown on dice.</td>
-                                        </tr>
-                                        <tr style="height: 27%">
-                                            <td style="text-align: center; vertical-align: top">If both Utilities are owned, rent is 10 times the amount shown on dice.</td>
+                                        <tr style="height: 15%">
+                                            <td>RENT</td>
+                                            <td style="text-align: right">{{gameController.theme.moneySymbol}}{{gameController.assetToBuy.priceRent[0]}}</td>
                                         </tr>
                                         <tr style="height: 15%">
-                                            <td style="text-align: center">Mortgage Value M{{gameController.assetToManage.valueMortgage}}</td>
-                                        </tr>
-                                    </table>
-                                </div>
-                                <div id="manageTitleDeedRailway" style="width: 100%; height: 100%; padding-left: 7px; padding-right: 7px; padding-top: 5px" ng-show="gameController.assetToManage.isRailway">
-                                    <table style="width: 100%; height: 100%">
-                                        <tr style="height: 30%">
-                                            <td>
-                                                <div style="background-image: url(images/railroad.png); background-size: contain; background-position: center; background-repeat: no-repeat; height: 100%; width: 100%">
-                                                </div>
-                                            </td>
+                                            <td style="width: 70%">If 2 {{gameController.theme.railroad}}s owned</td>
+                                            <td style="text-align: right">{{gameController.theme.moneySymbol}}{{gameController.assetToBuy.priceRent[1]}}</td>
                                         </tr>
                                         <tr style="height: 15%">
-                                            <td style="text-align: center; font-weight: bold; vertical-align: middle">{{gameController.assetToManage.name}}</td>
+                                            <td style="width: 70%">If 3 {{gameController.theme.railroad}}s owned</td>
+                                            <td style="text-align: right">{{gameController.theme.moneySymbol}}{{gameController.assetToBuy.priceRent[2]}}</td>
                                         </tr>
-                                        <tr style="height: 55%">
-                                            <td>
-                                                <table style="width: 100%; height: 100%">
-                                                    <tr style="height: 15%">
-                                                        <td>RENT</td>
-                                                        <td style="text-align: right">M{{gameController.assetToManage.priceRent[0]}}</td>
-                                                    </tr>
-                                                    <tr style="height: 15%">
-                                                        <td style="width: 70%">If 2 Stations Owned</td>
-                                                        <td style="text-align: right">M{{gameController.assetToManage.priceRent[1]}}</td>
-                                                    </tr>
-                                                    <tr style="height: 15%">
-                                                        <td style="width: 70%">If 3 Stations Owned</td>
-                                                        <td style="text-align: right">M{{gameController.assetToManage.priceRent[2]}}</td>
-                                                    </tr>
-                                                    <tr style="height: 15%">
-                                                        <td style="width: 70%">If 4 Stations Owned</td>
-                                                        <td style="text-align: right">M{{gameController.assetToManage.priceRent[3]}}</td>
-                                                    </tr>
-                                                    <tr style="height: 40%">
-                                                        <td colspan="2" style="text-align: center; vertical-align: middle">Mortage Value M{{gameController.assetToManage.valueMortgage}}</td>
-                                                    </tr>
-                                                </table>
-                                            </td>
+                                        <tr style="height: 15%">
+                                            <td style="width: 70%">If 4 {{gameController.theme.railroad}}s owned</td>
+                                            <td style="text-align: right">{{gameController.theme.moneySymbol}}{{gameController.assetToBuy.priceRent[3]}}</td>
+                                        </tr>
+                                        <tr style="height: 40%">
+                                            <td colspan="2" style="text-align: center; vertical-align: middle">Mortage Value {{gameController.theme.moneySymbol}}{{gameController.assetToBuy.valueMortgage}}</td>
                                         </tr>
                                     </table>
-                                </div>
-                            </td>
-                        </tr>
-                    </table>
-                </div>
-            </td>
-        </tr>
-    </table>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </div>
 </div>
-
-<div id="card" style="position: fixed; display: none; top: 25%; left: 15%; width: 70%; height: 50%; background-color: white; border: 2px; border-color: black; border-radius: 3px">
-    <table style="width: 100%; height: 100%">
-        <tr style="height:20%">
-            <td style="text-align: center; font-size: 18px; font-weight: bold">{{gameController.currentCard.title}}</td>
+<div style="position: absolute; top: 50%; margin-top: -137px; left: 0; width: 100%;">
+    <div id="assetManagement" style="width: 530px; margin-left: auto; margin-right: auto; height: 270px; background-color: lightgray; border: 2px; border-color: black; border-radius: 3px; display: none">
+        <table style="width: 100%; height: 100%">
+            <tr>
+                <td style="width: 47%; height: 100%">
+                    <div style="position: relative; padding: 10px; box-shadow: 10px 10px 5px #888888; width: 100%; height: 100%; border: 2px double black">
+                        <table style="width: 100%; height: 100%">
+                            <tr style="height: 50px">
+                                <td>
+                                    <a ng-click="gameController.closeAssetManagementWindow()"><img id="buttoncloseAssetManagementWindow" class="commandButton unhighlightedButton" src="images/back.png" draggable="false" /></a>
+                                </td>
+                            </tr>
+                            <tr style="height: 60px">
+                                <td>
+                                    <div style="display: table; margin-left: auto; margin-right: auto; width: auto">
+                                        <a ng-disabled="!gameController.canMortgageSelected()" ng-click="gameController.toggleMortgageConfirm()"><img id="buttonToggleMortgage" class="commandButton unhighlightedButton" src="images/home-price-hi.png" draggable="false" /></a>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr style="height: 20px">
+                                <td style="text-align: center">
+                                    <div ng-show="!gameController.assetToManage.unowned">
+                                        Owned by {{gameController.assetToManage.owner}}
+                                    </div>
+                                    <div ng-show="gameController.assetToManage.unowned">
+                                        Unowned
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr style="height: 20px">
+                                <td style="text-align: center">
+                                    <div ng-show="gameController.assetToManage.mortgage">
+                                        MORTGAGED
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td></td>
+                            </tr>
+                        </table>
+                    </div>
+                </td>
+                <td style="width: 10px"></td>
+                <td>
+                    <div style="padding: 10px; width: 100%; height: 100%;">
+                        <table style="width: 100%; height: 100%; border: 2px solid black; border-radius: 3px">
+                            <tr>
+                                <td>
+                                    <div id="manageTitleDeedAsset" style="width: 100%; height: 100%; padding-left: 7px; padding-right: 7px; padding-top: 5px" ng-show="!gameController.assetToManage.isUtility && !gameController.assetToManage.isRailway">
+                                        <table style="background-color: {{gameController.assetToManage.color}}; width: 100% ; height: 16% ; border: 2px solid black; border-radius: 3px ">
+                                            <tr>
+                                                <td colspan="2" style="text-align: center; font-size: 12px">PROPERTY CARD</td>
+                                            </tr>
+                                            <tr>
+                                                <td colspan="2" style="text-align: center; font-size: 16px; font-weight: bold">{{gameController.assetToManage.name}}</td>
+                                            </tr>
+                                        </table>
+                                        <table style="width: 100%; height: 84%">
+                                            <tr style="height: 13%">
+                                                <td colspan="2" style="text-align: center; font-weight: bold">RENT {{gameController.theme.moneySymbol}}{{gameController.assetToManage.priceRent[0]}}</td>
+                                            </tr>
+                                            <tr style="height: 8%">
+                                                <td style="width: 70%">With 1 {{gameController.theme.house}}</td>
+                                                <td style="text-align: right">{{gameController.theme.moneySymbol}}{{gameController.assetToManage.priceRentHouse[0]}}</td>
+                                            </tr>
+                                            <tr style="height: 8%">
+                                                <td style="width: 70%">With 2 {{gameController.theme.house}}s</td>
+                                                <td style="text-align: right">{{gameController.theme.moneySymbol}}{{gameController.assetToManage.priceRentHouse[1]}}</td>
+                                            </tr>
+                                            <tr style="height: 8%">
+                                                <td style="width: 70%">With 3 {{gameController.theme.house}}s</td>
+                                                <td style="text-align: right">{{gameController.theme.moneySymbol}}{{gameController.assetToManage.priceRentHouse[2]}}</td>
+                                            </tr>
+                                            <tr style="height: 8%">
+                                                <td style="width: 70%">With 4 {{gameController.theme.house}}s</td>
+                                                <td style="text-align: right">{{gameController.theme.moneySymbol}}{{gameController.assetToManage.priceRentHouse[3]}}</td>
+                                            </tr>
+                                            <tr style="height: 8%">
+                                                <td style="width: 70%">With {{gameController.theme.hotel}}</td>
+                                                <td style="text-align: right">{{gameController.theme.moneySymbol}}{{gameController.assetToManage.priceRentHotel}}</td>
+                                            </tr>
+                                            <tr style="height: 13%">
+                                                <td colspan="2" style="text-align: center; font-weight: bold">Mortage Value {{gameController.theme.moneySymbol}}{{gameController.assetToManage.valueMortgage}}</td>
+                                            </tr>
+                                            <tr style="height: 8%">
+                                                <td colspan="2" style="text-align: center;">{{gameController.theme.house}}s cost {{gameController.theme.moneySymbol}}{{gameController.assetToManage.priceHouse}} each</td>
+                                            </tr>
+                                            <tr style="height: 8%">
+                                                <td colspan="2" style="text-align: center;">{{gameController.theme.hotel}}s, {{gameController.theme.moneySymbol}}{{gameController.assetToManage.priceHotel}} each</td>
+                                            </tr>
+                                            <tr style="height: 8%">
+                                                <td colspan="2" style="text-align: center;">plus 4 {{gameController.theme.house}}s</td>
+                                            </tr>
+                                            <tr style="height: 10%">
+                                                <td colspan="2"></td>
+                                            </tr>
+                                        </table>
+                                    </div>
+                                    <div id="manageTitleDeedUtility" style="width: 100%; height: 100%; padding-left: 7px; padding-right: 7px; padding-top: 5px" ng-show="gameController.assetToManage.isUtility">
+                                        <table style="width: 100%; height: 100%">
+                                            <tr style="height: 30%">
+                                                <td>
+                                                    <div style="background-image: url({{gameController.theme.imagesFolder}}{{gameController.theme.utility1Image}}); background-size: contain; background-position: center; background-repeat: no-repeat; height: 100%; width: 100%" ng-show="gameController.assetToManage.name == 'Javna razsvetljava'">
+                                                    </div>
+                                                    <div style="background-image: url({{gameController.theme.imagesFolder}}{{gameController.theme.utility2Image}}); background-size: contain; background-position: center; background-repeat: no-repeat; height: 100%; width: 100%" ng-show="gameController.assetToManage.name != 'Javna razsvetljava'">
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr style="height: 12%">
+                                                <td style="text-align: center; font-weight: bold;">{{gameController.assetToManage.name}}</td>
+                                            </tr>
+                                            <tr style="height: 16%">
+                                                <td style="text-align: center">If one {{gameController.theme.utility}} is owned, rent is 8 times the amount shown on dice.</td>
+                                            </tr>
+                                            <tr style="height: 27%">
+                                                <td style="text-align: center; vertical-align: top">If both {{gameController.theme.utilities}} are owned, rent is 20 times the amount shown on dice.</td>
+                                            </tr>
+                                            <tr style="height: 15%">
+                                                <td style="text-align: center">Mortgage Value {{gameController.theme.moneySymbol}}{{gameController.assetToManage.valueMortgage}}</td>
+                                            </tr>
+                                        </table>
+                                    </div>
+                                    <div id="manageTitleDeedRailway" style="width: 100%; height: 100%; padding-left: 7px; padding-right: 7px; padding-top: 5px" ng-show="gameController.assetToManage.isRailway">
+                                        <table style="width: 100%; height: 100%">
+                                            <tr style="height: 30%">
+                                                <td>
+                                                    <div style="background-image: url({{gameController.theme.imagesFolder}}{{gameController.theme.railroadImage}}); background-size: contain; background-position: center; background-repeat: no-repeat; height: 100%; width: 100%">
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr style="height: 15%">
+                                                <td style="text-align: center; font-weight: bold; vertical-align: middle">{{gameController.assetToManage.name}}</td>
+                                            </tr>
+                                            <tr style="height: 55%">
+                                                <td>
+                                                    <table style="width: 100%; height: 100%">
+                                                        <tr style="height: 15%">
+                                                            <td>RENT</td>
+                                                            <td style="text-align: right">{{gameController.theme.moneySymbol}}{{gameController.assetToManage.priceRent[0]}}</td>
+                                                        </tr>
+                                                        <tr style="height: 15%">
+                                                            <td style="width: 70%">If 2 {{gameController.theme.railroad}}s owned</td>
+                                                            <td style="text-align: right">{{gameController.theme.moneySymbol}}{{gameController.assetToManage.priceRent[1]}}</td>
+                                                        </tr>
+                                                        <tr style="height: 15%">
+                                                            <td style="width: 70%">If 3 {{gameController.theme.railroad}}s owned</td>
+                                                            <td style="text-align: right">{{gameController.theme.moneySymbol}}{{gameController.assetToManage.priceRent[2]}}</td>
+                                                        </tr>
+                                                        <tr style="height: 15%">
+                                                            <td style="width: 70%">If 4 {{gameController.theme.railroad}}s owned</td>
+                                                            <td style="text-align: right">{{gameController.theme.moneySymbol}}{{gameController.assetToManage.priceRent[3]}}</td>
+                                                        </tr>
+                                                        <tr style="height: 40%">
+                                                            <td colspan="2" style="text-align: center; vertical-align: middle">Mortage Value {{gameController.theme.moneySymbol}}{{gameController.assetToManage.valueMortgage}}</td>
+                                                        </tr>
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </div>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </div>
+</div>
+<div id="card" style="position: fixed; display: none; top: 25%; left: 15%; width: 70%; height: 50%; background: -webkit-gradient(linear, left top, left bottom, from(#202090), to(#C0C0C0)); border-radius: 8px; padding: 2px; box-shadow: 6px 6px 2px #666666;">
+    <table style="width: 100%; height: 100%; border: 3px solid; border-color: #dddd00; border-radius: 8px; border-collapse: separate;">
+        <tr style="height: 20%">
+            <td style="text-align: center; font-size: 20px; font-weight: bold; width: 80%; color: black; background: #7bacdf">{{gameController.currentCard.title}}</td>
         </tr>
-        <tr style="height:10%"><td></td></tr>
-        <tr style="height:70%">
-            <td style="text-align: center; font-size: 16px;">{{gameController.currentCard.message}}</td>
+        <tr style="height: 10%"><td></td></tr>
+        <tr style="height: 70%">
+            <td style="text-align: center; font-size: 17px; color:#202020">{{gameController.currentCard.message}}</td>
         </tr>
     </table>
 </div>
 
 <div style="position: fixed; top: 15%; left: 10%; width: 80%;">
-    <div id="messageOverlay" style="position: relative; display: none; color: red; font-size: 16px; font-weight: bold; width: 100%; text-align: center; z-index: 1" class="shadow-basic"></div>    
+    <div id="messageOverlay" style="position: relative; display: none; color: red; font-size: 16px; font-weight: bold; width: 100%; text-align: center; z-index: 1" class="shadow-basic"></div>
 </div>
 
 <div id="commandPanel" style="position: fixed; bottom: 2%; left: 0px; width: 100%; z-index:100">
@@ -337,7 +367,7 @@
                     Throw dice
                 </div>
             </div>
-            <img id="buttonThrowDice" class="commandButton unhighlightedButton" src="images/Dice2.png" draggable="false"/>
+            <img id="buttonThrowDice" class="commandButton unhighlightedButton" src="images/Dice2.png" draggable="false" />
         </a>
         <a ng-show="gameController.availableActions.getOutOfJail" ng-click="gameController.getOutOfJail()" style="position: relative">
             <div style="position: absolute; top: -53px; left: 0px; width: 80px;">
@@ -345,7 +375,7 @@
                     Bail out
                 </div>
             </div>
-            <img id="buttonGetOutOfJail" class="commandButton unhighlightedButton" src="images/out_of_jail.png" draggable="false"/>
+            <img id="buttonGetOutOfJail" class="commandButton unhighlightedButton" src="images/out_of_jail.png" draggable="false" />
         </a>
         <a ng-show="gameController.availableActions.buy" ng-click="gameController.buy()" style="position: relative">
             <div style="position: absolute; top: -53px; left: 0px; width: 80px;">
@@ -353,7 +383,7 @@
                     Buy
                 </div>
             </div>
-            <img id="buttonBuy" class="commandButton unhighlightedButton" src="images/buy.png" draggable="false"/>
+            <img id="buttonBuy" class="commandButton unhighlightedButton" src="images/buy.png" draggable="false" />
         </a>
         <a ng-show="gameController.availableActions.manage" ng-click="gameController.manage()" style="position: relative">
             <div style="position: absolute; top: -53px; left: 0px; width: 80px;">
@@ -361,7 +391,7 @@
                     Manage
                 </div>
             </div>
-            <img id="buttonManage" class="commandButton unhighlightedButton" src="images/management.png" draggable="false"/>
+            <img id="buttonManage" class="commandButton unhighlightedButton" src="images/management.png" draggable="false" />
         </a>
         <a ng-show="gameController.availableActions.surrender" ng-click="gameController.surrender()" style="position: relative">
             <div style="position: absolute; top: -53px; left: 0px; width: 80px;">
@@ -369,7 +399,7 @@
                     Surrender
                 </div>
             </div>
-            <img id="buttonSurrender" class="commandButton unhighlightedButton" src="images/surrender.png" draggable="false"/>
+            <img id="buttonSurrender" class="commandButton unhighlightedButton" src="images/surrender.png" draggable="false" />
         </a>
         <a ng-show="gameController.availableActions.endTurn" ng-click="gameController.endTurn()" style="position: relative">
             <div style="position: absolute; top: -53px; left: 0px; width: 80px;">
@@ -377,7 +407,7 @@
                     End turn
                 </div>
             </div>
-            <img id="buttonEndTurn" class="commandButton unhighlightedButton" src="images/next.png" draggable="false"/>
+            <img id="buttonEndTurn" class="commandButton unhighlightedButton" src="images/next.png" draggable="false" />
         </a>
         <a ng-show="gameController.availableActions.pause" ng-click="gameController.pause()" style="position: relative">
             <div style="position: absolute; top: -53px; left: 0px; width: 80px;">
@@ -392,21 +422,16 @@
         <img src="images/handDown.png" draggable="false" style="max-width:100%; max-height:100%;" />
     </div>
 </div>
-<div id="manageCommandPanel" style="position: fixed; bottom: 2%; left: 0px; width: 100%; display: none">
+<div id="manageCommandPanel" style="position: fixed; bottom: 2%; left: 0px; width: 100%; display: none" class="panelHidden">
     <div style="display: table; margin-left: auto; margin-right: auto; width: auto" ng-show="!gameController.actionButtonsVisible">
         <a ng-click="gameController.returnFromManage()"><img id="buttonReturnFromManage" class="commandButton unhighlightedButton" src="images/back.png" draggable="false" /></a>
     </div>
 </div>
 <div id="actionButtonPanel" style="position: fixed; bottom: 8%; width: 100%;" ng-show="gameController.actionButtonsVisible">
     <div style="display: block; margin-left: auto; margin-right: auto; width: 120px">
-        <a ng-click="gameController.executeCancelAction({})"><img style="width: 40px; height: 40px" src="images/Cancel.png"/></a>
-        <a ng-click="gameController.executeConfirmAction({})" style="margin-left: 20px"><img style="width: 40px; height: 40px" src="images/CheckMark.png"/></a>
+        <a ng-click="gameController.executeCancelAction({})"><img style="width: 40px; height: 40px" src="images/Cancel.png" /></a>
+        <a ng-click="gameController.executeConfirmAction({})" style="margin-left: 20px"><img style="width: 40px; height: 40px" src="images/CheckMark.png" /></a>
     </div>
-</div>
-<div id="mortgageConfirmDialog" style="display: none">
-    <div id="mortgageConfirmText">Confirm mortgage</div>
-</div>
-<div id="generalPopupDialog" style="display: none">
 </div>
 
 <div style="position: fixed; right: 35px; top: {{gameController.tutorialData.messageDialogTop}}px; ">

@@ -3,6 +3,7 @@
 /// <reference path="../../../scripts/typings/angular-ui-router/angular-ui-router.d.ts" />
 /// <reference path="../../../scripts/game/model/settings.ts" />
 module MonopolyApp.controllers {
+    declare var sweetAlert: any;
     export class SettingsController {
 
         stateService: angular.ui.IStateService;
@@ -18,6 +19,7 @@ module MonopolyApp.controllers {
             this.timeoutService = timeoutService;
             this.settingsService = settingsService;
             this.themeService = themeService;
+            $(".background").attr("src", this.themeService.theme.imagesFolder + this.themeService.theme.gameSetupImage);
             this.loadSettings();
             var that = this;     
             $("#numPlayersSlider").slider({
@@ -41,6 +43,9 @@ module MonopolyApp.controllers {
                     that.scope.$apply(() => {
                         var i: number = parseInt(toggle.attr("id").substr(11));
                         that.settings.players[i].human = toggle.prop("checked") === true;
+                        if (that.settings.players[i].human) {
+                            that.settings.players[i].playerName = "";
+                        }
                         that.reassignComputerNames();
                     });
                 });
@@ -50,11 +55,14 @@ module MonopolyApp.controllers {
         settings: Model.Settings;
 
         public saveAndClose() {
-            this.saveSettings();
-            this.stateService.go("newgame", { loadGame: false });
+            if (this.checkData()) {
+                this.saveSettings();
+                this.stateService.go("newgame", { loadGame: false });
+            }
         }
 
         public goToGameRules() {
+            this.saveSettings();
             this.stateService.go("rules", { inGame: false});            
         }
 
@@ -85,8 +93,8 @@ module MonopolyApp.controllers {
                     that.settings.players.push(new Model.Player("Computer " + (numComputers + 1), false));
                     that.settings.numPlayers++;
                     that.reassignComputerNames();
-                    that.timeoutService(() => {
-                        var playerTypeToggle: any = $("#playerType-" + (that.settings.players.length - 1));
+                    that.timeoutService((i) => {
+                        var playerTypeToggle: any = $("#playerType-" + i);
                         playerTypeToggle.bootstrapToggle({
                             on: "Human",
                             off: "Computer"
@@ -98,19 +106,54 @@ module MonopolyApp.controllers {
                                 that.reassignComputerNames();
                             });
                         });
-                    }, 1);
+                    }, 1, false, that.settings.numPlayers - 1);
                 }
             });
         }
 
         private reassignComputerNames() {
-            var i = 1;
+            var computerNames = ["Apollo", "Gemini", "Voshkod", "Altair"];
+            var i = 0;
             this.settings.players.forEach(p => {
                 if (!p.human) {
-                    p.playerName = "Computer " + i;
+                    p.playerName = computerNames[i];
                     i++;
                 }                
             });
+        }
+
+        private checkData(): boolean {
+            var unique = true;
+            var empty = false;
+            var that = this;
+            this.settings.players.forEach(p => {
+                if (that.settings.players.filter(p2 => p.playerName === p2.playerName).length >= 2) {
+                    unique = false;
+                }
+                if (!p.playerName || p.playerName.length === 0) {
+                    empty = true;
+                }
+            });
+            if (!unique) {
+                sweetAlert({
+                    title: "Data entry error",
+                    text: "Please enter unique player names.",
+                    type: "error",
+                    confirmButtonText: "Ok",
+                    allowOutsideClick: true
+                });
+            } else {
+                if (empty) {
+                    sweetAlert({
+                        title: "Data entry error",
+                        text: "Please enter missing player names.",
+                        type: "error",
+                        confirmButtonText: "Ok",
+                        allowOutsideClick: true
+                    });                    
+                }
+            }
+            return unique && !empty;
         }
     }
 

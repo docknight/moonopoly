@@ -1,0 +1,40 @@
+{
+  "name": "cordova-fs-plugin-fullscreen",
+  "version": "1.0.2",
+  "description": "A cordova plugin for controlling fullscreen",
+  "author": "filfat-studios-ab",
+  "license": "MIT",
+  "homepage": "https://github.com/filfat-Studios-AB/cordova-plugin-fullscreen",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/filfat-Studios-AB/cordova-plugin-fullscreen.git"
+  },
+  "cordova": {
+    "id": "cordova-plugin-fullscreen",
+    "platforms": [
+      "android",
+      "windows"
+    ]
+  },
+  "keywords": [
+    "cordova",
+    "fullscreen",
+    "controller",
+    "controls",
+    "immersify",
+    "plugin",
+    "notification",
+    "ecosystem:cordova",
+    "cordova-android",
+    "cordova-windows"
+  ],
+  "engines": [
+    {
+      "name": "cordova",
+      "version": ">=3.4.0"
+    }
+  ],
+  "bugs": {
+    "url": "https://github.com/filfat-Studios-AB/cordova-plugin-fullscreen/issues"
+  }
+}

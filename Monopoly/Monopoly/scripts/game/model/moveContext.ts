@@ -9,6 +9,7 @@
 
         reset() {
             this.skipGoAward = false;
+            this.doubleRent = false;
             this.flyByEvents = [];
         }
 

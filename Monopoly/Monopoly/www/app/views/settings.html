@@ -1,4 +1,4 @@
-﻿<img class="background" src="{{settings.themeService.theme.imagesFolder}}{{settings.themeService.theme.gameSetupImage}}" style="z-index:-1"/>
+﻿<img class="background" style="z-index:-1"/>
 <div style="padding-top: 10%">
     <form>
         <table style="width: 70%; margin-left: 5%; margin-top: 3%; font-size: 16px">
@@ -18,13 +18,13 @@
                 </td>
             </tr>
             <tr ng-repeat="player in settings.settings.players">
-                <td style="width: 40%; padding-left: 5%; padding-top: 4px"><input type="checkbox" ng-model="player.human" id="playerType-{{$index}}"></td>
+                <td style="width: 40%; padding-left: 5%; padding-top: 4px"><input type="checkbox" ng-model="player.human" id="playerType-{{$index}}"/></td>
                 <td style="width: 60%">
                     <table style="width: 100%">
                         <tr>
                             <td style="width: 40%; color: #909090"><label for="playerName-{{$index}}">Name: </label></td>
                             <td style="width: 60%;">
-                                <input class="form-control" type="text" id="playerName-{{$index}}" ng-model="player.playerName" ng-disabled="player.human==false"/>
+                                <input class="form-control" type="text" id="playerName-{{$index}}" ng-model="player.playerName" ng-disabled="player.human==false" maxlength="11"/>
                             </td>
                         </tr>
                     </table>

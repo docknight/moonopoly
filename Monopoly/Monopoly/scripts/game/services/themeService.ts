@@ -2,7 +2,7 @@
     export class ThemeService implements Interfaces.IThemeService {
 
         // TODO: move this to build-time variable
-        private static theme: Model.Themes = Model.Themes.Moonopoly;
+        private static theme: Model.Themes = 1/*Model.Themes.Moonopoly*/;
 
         private themeInstance: Interfaces.ITheme;
 

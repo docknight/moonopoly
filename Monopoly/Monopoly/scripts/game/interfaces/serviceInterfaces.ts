@@ -1,8 +1,11 @@
 ﻿module Interfaces {
     export interface ISettingsService {
         settings: Model.Settings;
+        options: Model.Options;
         loadSettings: () => Model.Settings;       
         saveSettings(settings: Model.Settings);
+        loadOptions: () => Model.Options;
+        saveOptions(options: Model.Options);
     }
     export interface IGameService {
         players: Array<Model.Player>;
@@ -69,7 +72,7 @@
         animatePlayerMove(oldPositionIndex: Model.BoardField, newPosition: Model.BoardField, playerModel: MonopolyApp.Viewmodels.Player, scene: BABYLON.Scene, fast?: boolean, backwards?: boolean): JQueryDeferred<{}>;
         animatePlayerPrisonMove(newPosition: Model.BoardField, playerModel: MonopolyApp.Viewmodels.Player, scene: BABYLON.Scene, camera: BABYLON.FreeCamera): JQueryDeferred<{}>;
         setGameCameraInitialPosition(camera: BABYLON.FreeCamera);
-        setManageCameraPosition(camera: BABYLON.ArcRotateCamera, focusedAssetGroupIndex: number, scene: BABYLON.Scene);
+        setManageCameraPosition(camera: BABYLON.FreeCamera, focusedAssetGroupIndex: number, scene: BABYLON.Scene, animate: boolean);
         returnFromManage(scene: BABYLON.Scene);
         pickBoardElement(scene: BABYLON.Scene, coords?: any): MonopolyApp.Viewmodels.PickedObject;
         createBoard(scene: BABYLON.Scene);
@@ -83,7 +86,9 @@
         showActionButtons();
         animateDiceThrow(scene: BABYLON.Scene, impulsePoint?: BABYLON.Vector3);
         isDiceAtRestAfterThrowing(scene: BABYLON.Scene): boolean; // whether the dice has come to rest after being thrown
+        diceIsColliding(): boolean;
         setupDiceForThrow(scene: BABYLON.Scene);
+        unregisterPhysicsMeshes(scene: BABYLON.Scene);
         moveDiceToPosition(position: BABYLON.Vector3, scene: BABYLON.Scene);
         getDiceLocation(scene: BABYLON.Scene): BABYLON.Vector3;
         getDiceResult(): number;
@@ -92,10 +97,12 @@
         returnCameraToMainPosition(scene: BABYLON.Scene, camera: BABYLON.FreeCamera, currentPlayerPositionIndex: number, numFrames?: number, closer?: boolean): JQueryDeferred<{}>;
         moveCameraForDiceThrow(scene: BABYLON.Scene, camera: BABYLON.FreeCamera, currentPlayerPosition: Model.BoardField): JQueryDeferred<{}>;
         getRandomPointOnDice(): BABYLON.Vector3;
+        addParticle(abstractMesh: BABYLON.AbstractMesh, scene: BABYLON.Scene): BABYLON.ParticleSystem;
+        clearBoardField(boardField: MonopolyApp.Viewmodels.BoardField, scene: BABYLON.Scene);
     }
 
     export interface IAIService {
-        afterMoveProcessing(): Array<Model.AIAction>;
+        afterMoveProcessing(skipBuyingHouses?: boolean): Array<Model.AIAction>;
         shouldBuy(asset: Model.Asset): boolean;
     }
 
@@ -113,5 +120,7 @@
         advanceToNextStep();
         canExecuteAction(action: string): boolean; // whether a user action can be executed within the current tutorial step
         executeActionCallback(action: string);
+        initManageModeTutorial(scope: angular.IScope);
+        endCurrentSection();
     }
 }

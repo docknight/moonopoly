@@ -1,19 +1,35 @@
-﻿<img class="background" src="{{mainmenu.themeService.theme.imagesFolder}}{{mainmenu.themeService.theme.mainMenuImage}}" style="z-index:-1" />
+﻿<!--<img class="background" src="{{mainmenu.themeService.theme.imagesFolder}}{{mainmenu.themeService.theme.mainMenuImage}}" style="z-index:-1"/>-->
+<canvas id="renderCanvas" style="height: 100%; touch-action: none"></canvas>
+<div style="position: fixed; top: 10%; width:100%">
+    <div style="width: 313px; margin-left: auto; margin-right: auto;">
+        <img id="mainMenuTitleImage" />
+    </div>
+</div>
+<div style="position: fixed; top: 1%; right: 1%">
+    <img id="mainMenuExitImage"/>
+</div>
+<div style="position: fixed; top: 1%; right: 1%">
+    <div style="position: relative; right: 21px; top:18px">
+        <img id="earthImage" style="width: 53px;" ng-click="mainmenu.exit()" />
+    </div>
+</div>
+
+
 <div style="position: fixed; bottom: 10%; width: 100%">
     <div id="buttonContainer" style="width: 575px; margin-left: auto; margin-right: auto;">
         <a ng-click="mainmenu.settings()" ng-show="!mainmenu.chooseGameInitialization">
             <div class="playGameButton">
             </div>
         </a>
-        <a ng-show="!mainmenu.chooseGameInitialization">
+        <a ng-click="mainmenu.options()" ng-show="!mainmenu.chooseGameInitialization">
             <div class="optionsButton">
             </div>
         </a>
-        <a ng-show="!mainmenu.chooseGameInitialization">
+        <a ng-click="mainmenu.help()" ng-show="!mainmenu.chooseGameInitialization">
             <div class="helpButton">
             </div>
         </a>
-        <a ng-show="!mainmenu.chooseGameInitialization">
+        <a ng-click="mainmenu.stats()" ng-show="!mainmenu.chooseGameInitialization">
             <div class="statsButton">
             </div>
         </a>
@@ -33,4 +49,3 @@
         </div>
     </a>
 </div>
-

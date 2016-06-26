@@ -8,16 +8,35 @@
         For details, see http://go.microsoft.com/fwlink/?LinkID=617521
     -->
     <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: gap: https://ssl.gstatic.com 'unsafe-eval'; style-src 'self' 'unsafe-inline'; media-src *">
-    <title>BlankCordovaApp3</title>
+    <title>Moonopoly</title>
 
     <link href="css/index.css" rel="stylesheet"/>
     <link href="css/angular-ui.css" rel="stylesheet"/>
     <link href="css/select2.css" rel="stylesheet"/>
     <link href="css/bootstrap.css" rel="stylesheet"/>
     <link href="css/bootstrap-toggle.css" rel="stylesheet" />
-    <link href="scripts/jquery-ui-1.11.4.custom/jquery-ui.css" rel="stylesheet" />
+    <link href="scripts/jquery-ui-1.11.4.custom/jquery-ui.css" rel="stylesheet"/>
+    <link href="css/sweetalert.css" rel="stylesheet" />
 </head>
 <body>
+    <audio id="audioTick1" class="audio_tick stopped">
+        <source src="sounds/Tick.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="audioBounce1" class="audio_bounce stopped">
+        <source src="sounds/Bounce.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="audioBounce2" class="audio_bounce stopped">
+        <source src="sounds/Bounce.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="audioRocket" class="audio_rocket">
+        <source src="sounds/Rocket.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="music1" class="backgroundMusic playing">
+        <source src="sounds/Blazing-Stars.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="music2" class="backgroundMusic stopped">
+        <source src="sounds/Urban-Jungle.mp3" type="audio/mpeg">
+    </audio>
     <div style="height:100%" ui-view></div>
 
 <!-- Cordova reference, this is added to your app when it's built. -->
@@ -42,6 +61,7 @@
 <script src="scripts/angular-ui/ui-bootstrap.js"></script>
 <script src="scripts/angular-ui/ui-bootstrap-tpls.js"></script>
 <script src="scripts/bootstrap-toggle.js"></script>
+<script src="scripts/sweetalert.min.js"></script>
 <script src="scripts/appBundle.js"></script>
 
 <!--modules-->

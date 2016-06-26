@@ -1,0 +1,30 @@
+﻿<img class="background" style="z-index: -1" />
+<div style="height: 28%; width:100%"></div>
+<div id="optionsContent" style="height: 72%; overflow-y: auto">
+    <table style="color: #909090; font-size: 20px; margin-left: 5%; width:80%">
+        <tr>
+            <td style="width:35%">Tutorial</td>
+            <td style="padding-top: 4px;">
+                <input type="checkbox" ng-model="options.options.tutorial" id="optiontoggle-tutorial" />
+            </td>
+        </tr>
+        <tr>
+            <td style="width:35%">Sound</td>
+            <td style="padding-top: 4px;">
+                <input type="checkbox" ng-model="options.options.sound" id="optiontoggle-sound" />
+            </td>
+        </tr>
+        <tr>
+            <td style="width:35%">Music</td>
+            <td style="padding-top: 4px;">
+                <input type="checkbox" ng-model="options.options.music" id="optiontoggle-music" />
+            </td>
+        </tr>
+    </table>
+</div>
+<div style="position: fixed; left: 12px; top:12px">
+    <a ng-click="options.goBack()">
+        <div class="backButton">
+        </div>
+    </a>
+</div>

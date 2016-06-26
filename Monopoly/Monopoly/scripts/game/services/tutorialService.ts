@@ -2,20 +2,25 @@
 
     export class TutorialService implements Interfaces.ITutorialService {
         private numSteps: number;
+        private numStepsGame: number;
+        private numStepsManage: number;
         private data: Model.TutorialData;
         public timeoutService: angular.ITimeoutService;
         gameService: Interfaces.IGameService;
         swipeService: any;
         static $inject = ["$swipe", "$timeout", "gameService"];
         constructor(swipeService: any, timeoutService: angular.ITimeoutService, gameService: Interfaces.IGameService) {
-            this.numSteps = 6;
+            this.numStepsGame = 6;
+            this.numStepsManage = 9;
+            this.numSteps = this.numStepsGame;
             this.timeoutService = timeoutService;
             this.gameService = gameService;
-            this.swipeService = swipeService;
+            this.swipeService = swipeService;            
         }
 
         public initialize(data: Model.TutorialData) {
             this.data = data;
+            this.currentStep = undefined;
         }
 
         public advanceToNextStep() {
@@ -34,6 +39,14 @@
                 if (this.data.customFunction) {
                     this.data.customFunction(this, this.data, undefined);
                 }
+            }
+        }
+
+        public endCurrentSection() {
+            if (this.currentStep <= this.numStepsGame) {
+                this.currentStep = this.numStepsGame + 1;
+            } else if (this.currentStep <= this.numStepsManage) {
+                this.currentStep = this.numStepsManage + 1;
             }
         }
 
@@ -61,6 +74,12 @@
             if (action === "setupthrow" && this.currentStep === 5) {
                 return true;
             }
+            if (action === "manage" && this.currentStep > this.numStepsGame) {
+                return true;
+            }
+            if (action === "pause" && this.currentStep > this.numStepsGame) {
+                return true;
+            }
 
             return false;
         }
@@ -69,6 +88,19 @@
             if (this.data.executeOnAction) {
                 this.data.executeOnAction(action, this, this.data);
             }    
+        }
+
+        public initManageModeTutorial(scope: angular.IScope) {
+            if (this.numSteps === this.numStepsGame) {
+                this.numSteps = this.numStepsManage;
+                var that = this;
+                // delay showing the tutorial message before the new camera position is loaded
+                this.timeoutService(() => {
+                    scope.$apply(() => {
+                        that.advanceToNextStep();
+                    });                    
+                }, 1500);
+            }
         }
 
         private setupCurrentStep() {
@@ -161,8 +193,18 @@
                 this.data.disableClickForward = false;
                 this.data.customFunction = undefined;
                 this.data.executeOnAction = undefined;
-            }
-            else {
+            // step 7 is a marker that ends tutorial mode on the main screen
+            } else if (this.currentStep === 8) {
+                this.data.messageDialogVisible = true;
+                this.data.messageDialogText = "On this screen you can view properties and manage those owned by you.";
+                this.data.messageDialogTop = 70;
+                this.data.messagePaddingTop = 50;
+            } else if (this.currentStep === 9) {
+                this.data.messageDialogVisible = true;
+                this.data.messageDialogText = "Swipe your finger left or right to highlight another group, then tap anywhere on a chosen property to select it.";
+                this.data.messageDialogTop = 70;
+                this.data.messagePaddingTop = 35;
+            } else {
                 this.data.messageDialogVisible = false;
                 this.data.customFunction = undefined;
             }

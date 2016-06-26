@@ -23,11 +23,14 @@ module Services {
         private houseRemoveButtonMeshes: BABYLON.AbstractMesh[]; // meshes of currently available house remove buttons
         private houseButtonMaterial: BABYLON.StandardMaterial;
         private houseRemoveButtonMaterial: BABYLON.StandardMaterial;
+        private mortgageMaterial: BABYLON.StandardMaterial;
         private groundMeshName = "board";
         private diceMesh: BABYLON.AbstractMesh;
+        private boardMesh: BABYLON.AbstractMesh;
         private throwingDice: boolean; // whether the dices are currently being thrown
         private numFramesDiceIsAtRest: number;
         private dicePosition: BABYLON.Vector3; // position of the dice at the beginning of a throw
+        private diceColliding: boolean;
 
         static $inject = ["$http", "gameService", "themeService"];
 
@@ -40,6 +43,7 @@ module Services {
             this.boardFieldEdgeWidth = this.boardFieldWidth * 2;
             this.initQuadrantStartingCoordinates();
             this.dicePosition = new BABYLON.Vector3(0, 3, 0);
+            this.diceColliding = false;
         }
 
         /// board dimenzion in both, X and Z directions
@@ -57,13 +61,13 @@ module Services {
         }
 
         positionPlayer(playerModel: MonopolyApp.Viewmodels.Player) {
-            var player = this.gameService.players.filter((player, index) => { return player.playerName === playerModel.name; })[0];
-            var playerCoordinate = this.getPlayerPositionOnBoardField(playerModel, player.position.index);
-            var playerQuadrant = Math.floor(player.position.index / (this.boardFieldsInQuadrant - 1));
-            var playerQuadrantOffset = player.position.index % (this.boardFieldsInQuadrant - 1);
-            playerModel.mesh.position.x = playerCoordinate.x;
-            playerModel.mesh.position.z = playerCoordinate.z;
-            playerModel.mesh.rotationQuaternion = this.getPlayerRotationOnBoardField(playerModel, player.position.index);
+            if (playerModel.mesh) {
+                var player = this.gameService.players.filter((player, index) => { return player.playerName === playerModel.name; })[0];
+                var playerCoordinate = this.getPlayerPositionOnBoardField(playerModel, player.position.index);
+                playerModel.mesh.position.x = playerCoordinate.x;
+                playerModel.mesh.position.z = playerCoordinate.z;
+                playerModel.mesh.rotationQuaternion = this.getPlayerRotationOnBoardField(playerModel, player.position.index);
+            }
         }
 
         animatePlayerMove(oldPosition: Model.BoardField, newPosition: Model.BoardField, playerModel: MonopolyApp.Viewmodels.Player, scene: BABYLON.Scene, fast?: boolean, backwards?: boolean): JQueryDeferred<{}> {
@@ -165,6 +169,10 @@ module Services {
             this.diceMesh.position.x = this.dicePosition.x;
             this.diceMesh.position.y = this.dicePosition.y;
             this.diceMesh.position.z = this.dicePosition.z;
+            this.unregisterPhysicsMeshes(scene);
+        }
+
+        unregisterPhysicsMeshes(scene: BABYLON.Scene) {
             var physicsEngine = scene.getPhysicsEngine();
             physicsEngine._unregisterMesh(this.diceMesh);
         }
@@ -327,6 +335,12 @@ module Services {
             return false;
         }
 
+        diceIsColliding(): boolean {
+            var collision = this.diceColliding;
+            this.diceColliding = false;
+            return collision; //this.boardMesh.intersectsMesh(this.diceMesh, true);
+        }
+
         getDiceLocation(scene: BABYLON.Scene): BABYLON.Vector3 {
             //var physicsEngine = scene.getPhysicsEngine();
             //var body = physicsEngine.getPhysicsBodyOfMesh(this.diceMesh);
@@ -341,7 +355,7 @@ module Services {
             camera.setTarget(BABYLON.Vector3.Zero());
         }
 
-        setManageCameraPosition(camera: BABYLON.ArcRotateCamera, focusedAssetGroupIndex: number, scene: BABYLON.Scene) {
+        setManageCameraPosition(camera: BABYLON.FreeCamera, focusedAssetGroupIndex: number, scene: BABYLON.Scene, animate: boolean) {
             var firstFocusedBoardField = this.gameService.getBoardFieldsInGroup(focusedAssetGroupIndex)[0];
             if (!this.boardGroupLeftCoordinate) {
                 this.initBoardGroupCoordinates();
@@ -357,23 +371,68 @@ module Services {
                 centerVector = new BABYLON.Vector3(centerCoordinate.x, 0, centerCoordinate.z);
             }
             var groupQuadrant = group === Model.AssetGroup.Railway ? Math.floor(firstFocusedBoardField.index / 10) : Math.floor((group - 1) / 2);
-            camera.setTarget(centerVector);
-            camera.target = centerVector;
+            var currentRotation = new BABYLON.Vector3(camera.rotation.x, camera.rotation.y, camera.rotation.z);
+            var newPosition: BABYLON.Vector3;
             if (groupQuadrant === 0) {
-                camera.setPosition(new BABYLON.Vector3(centerVector.x, 2, -7));
+                newPosition = new BABYLON.Vector3(centerVector.x, 2, -7);
             }
             if (groupQuadrant === 1) {
-                camera.setPosition(new BABYLON.Vector3(-7, 2, centerVector.z));
+                newPosition = new BABYLON.Vector3(-7, 2, centerVector.z);
             }
             if (groupQuadrant === 2) {
-                camera.setPosition(new BABYLON.Vector3(centerVector.x, 2, 7));
+                newPosition = new BABYLON.Vector3(centerVector.x, 2, 7);
             }
             if (groupQuadrant === 3) {
-                camera.setPosition(new BABYLON.Vector3(7, 2, centerVector.z));
+                newPosition = new BABYLON.Vector3(7, 2, centerVector.z);
+            }
+            var newRotation = this.getCameraRotationForTarget(new BABYLON.Vector3(centerVector.x + 0.01, 0, centerVector.z + 0.01), camera, newPosition);
+            if (!animate) {
+                camera.rotation = newRotation;
+            }
+            if (animate) {
+                var animationCameraPosition = new BABYLON.Animation("cameraManageMoveAnimation", "position", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
+                var animationCameraRotation = new BABYLON.Animation("cameraManageRotateAnimation", "rotation", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
+                var keys = [];
+                keys.push({
+                    frame: 0,
+                    value: new BABYLON.Vector3(camera.position.x, camera.position.y, camera.position.z)
+                });
+                keys.push({
+                    frame: 15,
+                    value: newPosition
+                });
+                var keysRotation = [];
+                keysRotation.push({
+                    frame: 0,
+                    value: new BABYLON.Vector3(camera.rotation.x, camera.rotation.y, camera.rotation.z)
+                });
+                keysRotation.push({
+                    frame: 15,
+                    value: newRotation
+                });
+                // make sure the starting and ending rotation angle are at the same side of the numeric scale; Math.Pi and -Math.Pi are the same in terms of object rotation, but for
+                // computer animation, this is a 360 degree spin, which is undesirable...
+                if (keysRotation[0].value.y < 0 && keysRotation[1].value.y >= 0 && keysRotation[1].value.y + Math.abs(keysRotation[0].value.y) > Math.PI) {
+                    keysRotation[0].value.y = Math.PI + Math.PI + keysRotation[0].value.y;
+                }
+                if (keysRotation[0].value.y >= 0 && keysRotation[1].value.y < 0 && keysRotation[0].value.y + Math.abs(keysRotation[1].value.y) > Math.PI) {
+                    keysRotation[0].value.y = -Math.PI - Math.PI + keysRotation[0].value.y;
+                }
+
+                animationCameraPosition.setKeys(keys);
+                animationCameraRotation.setKeys(keysRotation);
+                camera.animations = [];
+                camera.animations.push(animationCameraPosition);
+                camera.animations.push(animationCameraRotation);
+                var that = this;
+                scene.beginAnimation(camera, 0, 15, false, undefined, () => {
+                    that.highlightGroupFields(focusedAssetGroupIndex, groupQuadrant, centerVector, scene); });
+            } else {
+                camera.position = newPosition;
+                this.highlightGroupFields(focusedAssetGroupIndex, groupQuadrant, centerVector, scene);
             }
 
             this.cleanupHouseButtons(scene);
-            this.highlightGroupFields(focusedAssetGroupIndex, groupQuadrant, centerVector, scene);
         }
 
         returnFromManage(scene: BABYLON.Scene) {
@@ -414,12 +473,13 @@ module Services {
         createBoard(scene: BABYLON.Scene) {
             var boardMaterial = new BABYLON.StandardMaterial("boardTexture", scene);
             var board = BABYLON.Mesh.CreateGround(this.groundMeshName, this.boardSize, this.boardSize, 2, scene);
+            this.boardMesh = board;
             boardMaterial.emissiveTexture = new BABYLON.Texture(this.themeService.theme.imagesFolder + this.themeService.theme.gameboardImage, scene);
             boardMaterial.diffuseTexture = new BABYLON.Texture(this.themeService.theme.imagesFolder + this.themeService.theme.gameboardImage, scene);
             board.material = boardMaterial;
             board.setPhysicsState({ impostor: BABYLON.PhysicsEngine.BoxImpostor, mass: 0, friction: 0.4, restitution: 0.5 });
             board.checkCollisions = true;
-            var tableMaterial = new BABYLON.StandardMaterial("boardTexture", scene);
+            var tableMaterial = new BABYLON.StandardMaterial("tableTexture", scene);
             if (this.themeService.theme.skyboxFolder) {
                 var skybox = BABYLON.Mesh.CreateBox("skyBox", 1000, scene);
                 tableMaterial.backFaceCulling = false;
@@ -437,6 +497,36 @@ module Services {
                 table.setPhysicsState({ impostor: BABYLON.PhysicsEngine.BoxImpostor, mass: 0, friction: 0.5, restitution: 0.5 });
                 table.checkCollisions = true;
             }
+            var wallMaterial = new BABYLON.StandardMaterial("wallTexture", scene);
+            wallMaterial.alpha = 0;
+            var wall1 = BABYLON.Mesh.CreateGround("wall1", 10, 10, 2, scene);
+            wall1.position = new BABYLON.Vector3(0, 5.01, 3.78 + 0.4);
+            wall1.material = wallMaterial;
+            wall1.rotation = new BABYLON.Vector3(-1.41, 0, 0);
+            wall1.setPhysicsState({ impostor: BABYLON.PhysicsEngine.BoxImpostor, mass: 0, friction: 0.4, restitution: 0.8 });
+            wall1.checkCollisions = true;
+            wall1.isPickable = false;
+            var wall2 = BABYLON.Mesh.CreateGround("wall2", 10, 10, 2, scene);
+            wall2.position = new BABYLON.Vector3(-3.78 - 0.4, 5.01, 0);
+            wall2.material = wallMaterial;
+            wall2.rotation = new BABYLON.Vector3(0, 0, -1.41);
+            wall2.setPhysicsState({ impostor: BABYLON.PhysicsEngine.BoxImpostor, mass: 0, friction: 0.4, restitution: 0.8 });
+            wall2.checkCollisions = true;
+            wall2.isPickable = false;
+            var wall3 = BABYLON.Mesh.CreateGround("wall3", 10, 10, 2, scene);
+            wall3.position = new BABYLON.Vector3(3.78 + 0.4, 5.01, 0);
+            wall3.material = wallMaterial;
+            wall3.rotation = new BABYLON.Vector3(0, 0, 1.41);
+            wall3.setPhysicsState({ impostor: BABYLON.PhysicsEngine.BoxImpostor, mass: 0, friction: 0.4, restitution: 0.8 });
+            wall3.checkCollisions = true;
+            wall3.isPickable = false;
+            var wall4 = BABYLON.Mesh.CreateGround("wall4", 10, 10, 2, scene);
+            wall4.position = new BABYLON.Vector3(0, 5.01, -3.78 - 0.4);
+            wall4.material = wallMaterial;
+            wall4.rotation = new BABYLON.Vector3(1.41, 0, 0);
+            wall4.setPhysicsState({ impostor: BABYLON.PhysicsEngine.BoxImpostor, mass: 0, friction: 0.4, restitution: 0.8 });
+            wall4.checkCollisions = true;
+            wall4.isPickable = false;
         }
 
         setBoardFieldOwner(boardField: MonopolyApp.Viewmodels.BoardField, asset: Model.Asset, scene: BABYLON.Scene) {
@@ -543,14 +633,10 @@ module Services {
                 var heightCoordinate = this.getQuadrantRunningCoordinate(fieldQuadrant) === "x" ? "z" : "x";
                 var heightDirection = fieldQuadrant === 0 || fieldQuadrant === 1 ? -1 : 1;
                 var bottomCenter = new MonopolyApp.Viewmodels.Coordinate(topCenter.x, topCenter.z);
-                bottomCenter[heightCoordinate] += this.boardFieldHeight * 0.65 * heightDirection;
+                bottomCenter[heightCoordinate] += this.boardFieldHeight * 0.7 * heightDirection;
 
                 boardField.mortgageMesh = BABYLON.Mesh.CreateGround("mortgage_" + boardField.index, this.boardFieldWidth * 0.8, this.boardFieldWidth * 0.8, 2, scene);
-                var mat = new BABYLON.StandardMaterial("mortgagematerial_" + boardField.index, scene);
-                mat.diffuseTexture = new BABYLON.Texture("images/Mortgage.png", scene);
-                mat.diffuseTexture.hasAlpha = true;
-                mat.useAlphaFromDiffuseTexture = true;
-                boardField.mortgageMesh.material = mat;
+                boardField.mortgageMesh.material = this.mortgageMaterial;
                 boardField.mortgageMesh.position.x = bottomCenter.x;
                 boardField.mortgageMesh.position.z = bottomCenter.z;
                 boardField.mortgageMesh.position.y = 0.05;
@@ -564,49 +650,77 @@ module Services {
             }
         }
 
+        public clearBoardField(boardField: MonopolyApp.Viewmodels.BoardField, scene: BABYLON.Scene) {
+            if (boardField.ownerMesh) {
+                scene.removeMesh(boardField.ownerMesh);
+                boardField.ownerMesh.dispose();
+                boardField.ownerMesh = undefined;
+            }
+            if (boardField.mortgageMesh) {
+                scene.removeMesh(boardField.mortgageMesh);
+                boardField.mortgageMesh.dispose();
+                boardField.mortgageMesh = undefined;
+            }
+            if (boardField.hotelMesh) {
+                scene.removeMesh(boardField.hotelMesh);
+                boardField.hotelMesh.dispose();
+                boardField.hotelMesh = undefined;
+            }
+            if (boardField.houseMeshes && boardField.houseMeshes.length > 0) {
+                boardField.houseMeshes.forEach(hm => {
+                    scene.removeMesh(hm);
+                    hm.dispose();
+                });
+                boardField.houseMeshes = undefined;
+            }
+        }
+
         loadMeshes(players: MonopolyApp.Viewmodels.Player[], scene: BABYLON.Scene, gameController: MonopolyApp.controllers.GameController): JQueryDeferred<{}>[] {
             var meshLoads = [];
             this.gameService.players.forEach((player) => {
                 var playerModel = players.filter(p => p.name === player.playerName)[0];
                 playerModel.name = player.playerName;
-                var d = $.Deferred();
-                meshLoads.push(d);
-                var that = this;
-                //var light0 = new BABYLON.DirectionalLight("Dir0", new BABYLON.Vector3(-0.1, -1, 0), scene);
-                //light0.diffuse = new BABYLON.Color3(0.5, 0.5, 0.5);
-                //light0.specular = new BABYLON.Color3(1, 1, 1);
-                BABYLON.SceneLoader.ImportMesh(null, this.themeService.theme.meshFolder, this.themeService.theme.playerMesh, scene, function (newMeshes, particleSystems) {
-                    if (newMeshes != null) {
-                        var mesh = newMeshes[that.themeService.theme.playerSubmeshIndex];
-                        //sdf
-                        playerModel.mesh = mesh;
-                        var mat = new BABYLON.StandardMaterial(`player_${player.color}_material`, scene);
-                        mat.diffuseColor = that.getColor(player.color, true);
-                        //mat.emissiveColor = that.getColor(player.color, false);
-                        mat.specularColor = new BABYLON.Color3(0.9, 0.9, 0.9);
-                        that.themeService.theme.playerColoredSubmeshIndices.forEach(i => {
-                            newMeshes[i].material = mat;
-                        });
-                        var mat2 = new BABYLON.StandardMaterial(`player_${player.color}_material2`, scene);
-                        //mat2.bumpTexture = new BABYLON.Texture("images/Moonopoly/metal.jpg", scene);
-                        mat2.diffuseColor = new BABYLON.Color3(0.4, 0.4, 0.4);
-                        mat2.specularColor = new BABYLON.Color3(0.9, 0.9, 0.9);
-                        //mat2.diffuseTexture = new BABYLON.Texture("images/Moonopoly/metal.png", scene);
-                        //mat2.ambientTexture = new BABYLON.Texture("images/Moonopoly/metal.png", scene);
-                        //mat2.backFaceCulling = false;
-                        //mat2.diffuseTexture.scale(5);
-                        var mat3 = new BABYLON.StandardMaterial(`player_${player.color}_material3`, scene);
-                        mat3.diffuseColor = new BABYLON.Color3(0.05, 0.05, 0.05);
-                        mat3.ambientColor = new BABYLON.Color3(0.05, 0.05, 0.05);
-                        mat3.specularColor = new BABYLON.Color3(0.9, 0.9, 0.9);
-                        newMeshes[1].material = mat2;
-                        newMeshes[2].material = mat2;
-                        newMeshes[3].material = mat2;
-                        newMeshes[7].material = mat2;
-                        newMeshes[8].material = mat2;
-                        d.resolve(gameController);
-                    }
-                });
+                if (player.active) {
+                    var d = $.Deferred();
+                    meshLoads.push(d);
+                    var that = this;
+                    //var light0 = new BABYLON.DirectionalLight("Dir0", new BABYLON.Vector3(-0.1, -1, 0), scene);
+                    //light0.diffuse = new BABYLON.Color3(0.5, 0.5, 0.5);
+                    //light0.specular = new BABYLON.Color3(1, 1, 1);
+                    BABYLON.SceneLoader.ImportMesh(null, this.themeService.theme.meshFolder, this.themeService.theme.playerMesh, scene, function(newMeshes, particleSystems) {
+                        if (newMeshes != null) {
+                            var mesh = newMeshes[that.themeService.theme.playerSubmeshIndex];
+                            playerModel.mesh = mesh;
+                            var mat = new BABYLON.StandardMaterial(`player_${player.color}_material`, scene);
+                            mat.diffuseColor = that.getColor(player.color, true);
+                            //mat.emissiveColor = that.getColor(player.color, false);
+                            mat.specularColor = new BABYLON.Color3(0.9, 0.9, 0.9);
+                            that.themeService.theme.playerColoredSubmeshIndices.forEach(i => {
+                                newMeshes[i].material = mat;
+                            });
+                            var mat2 = new BABYLON.StandardMaterial(`player_${player.color}_material2`, scene);
+                            //mat2.bumpTexture = new BABYLON.Texture("images/Moonopoly/metal.jpg", scene);
+                            mat2.diffuseColor = new BABYLON.Color3(0.4, 0.4, 0.4);
+                            mat2.specularColor = new BABYLON.Color3(0.9, 0.9, 0.9);
+                            //mat2.diffuseTexture = new BABYLON.Texture("images/Moonopoly/metal.png", scene);
+                            //mat2.ambientTexture = new BABYLON.Texture("images/Moonopoly/metal.png", scene);
+                            //mat2.backFaceCulling = false;
+                            //mat2.diffuseTexture.scale(5);
+                            var mat3 = new BABYLON.StandardMaterial(`player_${player.color}_material3`, scene);
+                            mat3.diffuseColor = new BABYLON.Color3(0.05, 0.05, 0.05);
+                            mat3.ambientColor = new BABYLON.Color3(0.05, 0.05, 0.05);
+                            mat3.specularColor = new BABYLON.Color3(0.9, 0.9, 0.9);
+                            newMeshes[1].material = mat2;
+                            newMeshes[2].material = mat2;
+                            newMeshes[3].material = mat2;
+                            newMeshes[7].material = mat2;
+                            newMeshes[8].material = mat2;
+                            d.resolve(gameController);
+                        }
+                    });
+                } else {
+                    playerModel.color = "#808080";
+                }
             });
 
             var d = $.Deferred();
@@ -661,6 +775,9 @@ module Services {
                     that.diceMesh.getBoundingInfo().boundingBox = diceMeshImpostor.getBoundingInfo().boundingBox;
                     scene.removeMesh(diceMeshImpostor);
                     that.diceMesh.checkCollisions = true;
+                    that.diceMesh.onPhysicsCollide = (mesh, contact) => {
+                        that.diceColliding = true;
+                    };
                     d1.resolve(gameController);
                 }
             });
@@ -670,6 +787,7 @@ module Services {
             this.houseButtonMaterial.diffuseTexture = new BABYLON.Texture("images/House3.png", scene);
             this.houseButtonMaterial.diffuseTexture.hasAlpha = true;
             this.houseButtonMaterial.useAlphaFromDiffuseTexture = true;
+            this.houseButtonMaterial.opacityTexture = this.houseButtonMaterial.diffuseTexture;
             var houseButtonMeshTemplateMaterial = new BABYLON.StandardMaterial("houseButtonTemplateTexture", scene);
             houseButtonMeshTemplateMaterial.alpha = 0;
             this.houseButtonMeshTemplate.material = houseButtonMeshTemplateMaterial;
@@ -682,12 +800,19 @@ module Services {
             this.houseRemoveButtonMaterial.diffuseTexture = new BABYLON.Texture("images/House-remove.png", scene);
             this.houseRemoveButtonMaterial.diffuseTexture.hasAlpha = true;
             this.houseRemoveButtonMaterial.useAlphaFromDiffuseTexture = true;
+            this.houseRemoveButtonMaterial.opacityTexture = this.houseRemoveButtonMaterial.diffuseTexture;
             var houseRemoveButtonMeshTemplateMaterial = new BABYLON.StandardMaterial("houseRemoveButtonTemplateTexture", scene);
             houseRemoveButtonMeshTemplateMaterial.alpha = 0;
             this.houseRemoveButtonMeshTemplate.material = houseRemoveButtonMeshTemplateMaterial;
             this.houseRemoveButtonMeshTemplate.position.y = 0.01;
             //this.houseButtonMeshTemplate.visibility = 0;
             scene.removeMesh(this.houseRemoveButtonMeshTemplate);
+
+            this.mortgageMaterial = new BABYLON.StandardMaterial("mortgagematerial", scene);
+            this.mortgageMaterial.diffuseTexture = new BABYLON.Texture("images/Mortgage.png", scene);
+            this.mortgageMaterial.diffuseTexture.hasAlpha = true;
+            this.mortgageMaterial.useAlphaFromDiffuseTexture = true;
+            this.mortgageMaterial.opacityTexture = this.mortgageMaterial.diffuseTexture;
 
             return meshLoads;
         }
@@ -768,6 +893,32 @@ module Services {
         }
 
         showActionButtons() {
+        }
+
+        public addParticle(abstractMesh: BABYLON.AbstractMesh, scene: BABYLON.Scene): BABYLON.ParticleSystem {
+            var particleSystem = new BABYLON.ParticleSystem("particles", 500, scene);
+            particleSystem.particleTexture = new BABYLON.Texture("images/Moonopoly/Flare.png", scene);
+            particleSystem.emitter = abstractMesh;
+            particleSystem.color1 = new BABYLON.Color4(0.7, 0.8, 1.0, 1.0);
+            particleSystem.color2 = new BABYLON.Color4(0.2, 0.5, 1.0, 1.0);
+            particleSystem.colorDead = new BABYLON.Color4(0, 0, 0.2, 0.0);
+            particleSystem.minSize = 0.1;
+            particleSystem.maxSize = 0.2;
+            particleSystem.minLifeTime = 0.3;
+            particleSystem.maxLifeTime = 0.5;
+            particleSystem.emitRate = 300;
+            particleSystem.direction1 = new BABYLON.Vector3(1, 0, 0);
+            particleSystem.direction2 = new BABYLON.Vector3(1, 0, 0);
+            particleSystem.minAngularSpeed = 0;
+            particleSystem.maxAngularSpeed = Math.PI;
+            particleSystem.minEmitPower = 1;
+            particleSystem.maxEmitPower = 4;
+            particleSystem.updateSpeed = 0.005;
+            particleSystem.targetStopDuration = 3;
+            particleSystem.disposeOnStop = true;
+            particleSystem.minEmitBox = new BABYLON.Vector3(0, -2.2, -0.4); // Starting all From
+            particleSystem.maxEmitBox = new BABYLON.Vector3(0, -2.7, -0);
+            return particleSystem;
         }
 
         private initQuadrantStartingCoordinates() {
@@ -1075,32 +1226,6 @@ module Services {
             position[heightCoordinate] = (closer ? 6.85 : 10) * heightDirection;
             position[runningCoordinate] = center ? 0 : this.getPositionCoordinate(currentPlayerPositionIndex)[runningCoordinate];
             return position;
-        }
-
-        private addParticle(abstractMesh: BABYLON.AbstractMesh, scene: BABYLON.Scene): BABYLON.ParticleSystem {
-            var particleSystem = new BABYLON.ParticleSystem("particles", 500, scene);
-            particleSystem.particleTexture = new BABYLON.Texture("images/Moonopoly/Flare.png", scene);
-            particleSystem.emitter = abstractMesh;
-            particleSystem.color1 = new BABYLON.Color4(0.7, 0.8, 1.0, 1.0);
-            particleSystem.color2 = new BABYLON.Color4(0.2, 0.5, 1.0, 1.0);
-            particleSystem.colorDead = new BABYLON.Color4(0, 0, 0.2, 0.0);
-            particleSystem.minSize = 0.1;
-            particleSystem.maxSize = 0.2;
-            particleSystem.minLifeTime = 0.3;
-            particleSystem.maxLifeTime = 0.5;
-            particleSystem.emitRate = 300;
-            particleSystem.direction1 = new BABYLON.Vector3(1, 0, 0);
-            particleSystem.direction2 = new BABYLON.Vector3(1, 0, 0);
-            particleSystem.minAngularSpeed = 0;
-            particleSystem.maxAngularSpeed = Math.PI;
-            particleSystem.minEmitPower = 1;
-            particleSystem.maxEmitPower = 4;
-            particleSystem.updateSpeed = 0.005;
-            particleSystem.targetStopDuration = 3;
-            particleSystem.disposeOnStop = true;
-            particleSystem.minEmitBox = new BABYLON.Vector3(0, -2.2, -0.4); // Starting all From
-            particleSystem.maxEmitBox = new BABYLON.Vector3(0, -2.7, -0);
-            return particleSystem;
         }
     }
 

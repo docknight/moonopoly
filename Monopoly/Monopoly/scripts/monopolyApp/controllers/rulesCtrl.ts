@@ -21,6 +21,7 @@ module MonopolyApp.controllers {
             this.timeoutService = timeoutService;
             this.settingsService = settingsService;
             this.themeService = themeService;
+            $(".background").attr("src", this.theme.imagesFolder + this.theme.gameRulesImage);
             this.loadSettings();
             var spService: any = this.stateParamsService;
             this.inGame = eval(spService.inGame);
@@ -36,6 +37,10 @@ module MonopolyApp.controllers {
             });
         }
         settings: Model.Settings;
+
+        get theme(): Interfaces.ITheme {
+            return this.themeService.theme;
+        }
 
         public goBack() {
             if (this.inGame) {

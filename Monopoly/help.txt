@@ -1,0 +1,71 @@
+MOONopoly is a board game played by 2-4 players.
+The aim of the game is to colonize the Moon by buying as many properties (valleys, mountains, cliffs, craters, etc.) as you can.
+The more property you own, the more rent you will have the chance to collect.
+Type of individual players (human or computer/AI) is selected at the beginning of each game.
+The game takes place on the Moon surface, which is represented by a rectangular board, divided into properties
+and various action fields.
+Players are (generally) moving on the board in the clockwise direction by a distance determined by the dice throw.
+Each player starts with the same amount of money that is expressed in a Lunar currency fi (dim).
+Last player with a positive balance after all the other players have gone bankrupt wins the game.
+
+When it's your turn, you can throw the dice by tapping (or swiping over and releasing) the THROW DICE button. 
+Then, when the dice is focused on the screen, tap anywhere on it to drop it to the Moon surface.
+Afterwards, you move forward as determined by the dice.
+
+LUNAR PROPERTIES
+If you land on an unowned property, you can buy it, provided you have enough money.
+If the property is already owned by another player, you have to pay the rent to that player.
+The height of the rent depends on how much the property has been developed.
+
+SPACE DEBRIS and DUST CLOUDS
+If you encounter a space debris or navigate into a dust cloud, a random event occurs from which you might earn
+or lose some dims.
+
+IRON MINES
+Iron mines are a special kind of properties that you can not develop by building habitats or settlement domes.
+The rent depends on how many iron mines are owned by the player.
+
+OIL RIGS
+Like iron mines, you can not develop oil rigs by building habitats or settlement domes.
+The rent depends on how many oil rigs are owned by the owner as well as the number that a player has thrown
+when he landed on another player's oil rig.
+
+START
+When moving to or passing by the Start field, a player receives fi200 from the Lunar bank.
+
+LUNAR ECOLOGY and ENERGY TAX
+Player landing on one of the two tax fields has to pay the tax to the Lunar bank.
+
+FREE DOCKING
+Time to relax while nothing extraordinary happens. 
+
+QUARANTINE
+When landing on this field, just a routine check-up is performed and the game continues without delay.
+
+GO TO QUARANTINE
+The player landing on this field is immediately transported to the quarantine. While in quarantine, the player
+is still allowed to collect rent, however he can not leave the quarantine until either he throws a six with the dice
+or bribes the guard by paying 50 dims. If, after three moves, a six has still not been thrown, the player is forced
+to pay the aforementioned price to leave the quarantine.
+
+ENDING YOUR TURN
+When all the required actions on the destination field have been executed, the player can end his turn by tapping 
+(or swiping over and releasing) the END TURN button, thereby allowing the next player to throw the dice for his move.
+
+PROPERTY MANAGEMENT
+Before or after throwing the dice you can view individual properties and manage your own by tapping (or swiping over and releasing)
+the MANAGE button.
+In the management view you can swipe left or right to highlight property groups (properties of the same color) and select 
+individual property. If you own all properties of the same group, you can buy habitats and settlement domes, which increase the amount of 
+rent collected.
+Habitats and settlement domes can also be sold to the bank. Note, however, that they are sold by half the price that they have been
+purchased for.
+An owned and undeveloped property (that belongs to a property group that has no other developed properties) can be mortgaged.
+When under mortgage, no rent may be collected on the property.
+To pay off the mortgage, you must pay the bank the price of the property increased by 10 %. 
+
+RUNNING OUT OF CASH
+When a player's balance is negative, he can not buy unowned properties or develop those he owns. Neither can he end his or her turn. 
+In order to avoid bankrupcy, he must mortgage properties he owns or downgrade those already developed. He can do both on the Management screen.
+If, even after mortgaging all owned properties, a player's balance is still negative, he has no other option than to surrender.
+He does that by tapping the SURRENDER button.

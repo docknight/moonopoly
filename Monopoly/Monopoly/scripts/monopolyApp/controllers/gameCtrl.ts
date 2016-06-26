@@ -3,6 +3,8 @@
 /// <reference path="../../../scripts/typings/angular-ui-router/angular-ui-router.d.ts" />
 /// <reference path="../../../scripts/game/model/game.ts" />
 module MonopolyApp.controllers {
+    declare var sweetAlert: any;
+
     export class GameController {
         scope: angular.IScope;
         stateService: angular.ui.IStateService;
@@ -21,14 +23,17 @@ module MonopolyApp.controllers {
         private boardFields: Array<Viewmodels.BoardField>;
         private currentCard: Viewmodels.Card; // card currently being displayed
         private scene: BABYLON.Scene;
+        private gameEngine: BABYLON.Engine;
         private gameCamera: BABYLON.FreeCamera;
-        private manageCamera: BABYLON.ArcRotateCamera;
+        private gameCameraPosition: BABYLON.Vector3;
+        private gameCameraRotation: BABYLON.Vector3;
         private manageMode: boolean;
         private focusedAssetGroupIndex: number; // currently focused asset group in manage mode
         private swipeInProgress: boolean;
         private confirmButtonCallback: (data: any) => void; // callbacks currently assigned to action buttons
         private cancelButtonCallback: (data: any) => void;
         private diceThrowCompleted: JQueryDeferred<{}>;
+        private playerMoving: boolean; // true while the player is moving on the board
 
         availableActions: Viewmodels.AvailableActions;
         assetToBuy: Model.Asset; // asset currently available for purchase
@@ -72,10 +77,22 @@ module MonopolyApp.controllers {
             this.currentCard = new Viewmodels.Card();
             this.bindInputEvents();
             var that = this;
+            this.scope.$on("$destroy", () => {
+                that.gameEngine.stopRenderLoop();
+                that.gameEngine.dispose();
+            });
+            this.timeoutService(() => {
+                that.initAudio();
+                that.stopMusic();
+                //that.playMusic();
+            });
             $.when(sceneCreated).done(() => {
-                for (var i = 0; i < 8; i++) {
+                for (var i = 0; i < 12; i++) {
                     that.refreshBoardFieldGroupHouses(i);
                 }
+                //if (loadGame) {
+                    that.refreshBoardFieldMortgage();
+                //}
                 that.initTutorial(loadGame);
                 if (loadGame) {
                     that.drawingService.returnCameraToMainPosition(that.scene, that.gameCamera, that.gameService.getCurrentPlayerPosition().index);
@@ -126,6 +143,7 @@ module MonopolyApp.controllers {
                     var diceResult = that.drawingService.getDiceResult();
                     if (diceResult && diceResult > 0) {
                         that.gameService.setDiceResult(diceResult);
+                        that.drawingService.unregisterPhysicsMeshes(that.scene);
                         that.movePlayer();
                     } else {
                         // something went wrong - unable to determine dice orientation; just drop it again from a height
@@ -149,6 +167,8 @@ module MonopolyApp.controllers {
                     var animateMoveCompleted: JQueryDeferred<{}>;
                     var followBoardAnimation: JQueryDeferred<{}> = $.Deferred();
                     if (newPosition) {
+                        that.playerMoving = true;
+                        that.playRocketSound();
                         animateMoveCompleted = that.animateMove(oldPosition, newPosition, newPositionIndex !== undefined, backwards);
                         //var positionsToMove = oldPosition.index < newPosition.index ? newPosition.index - oldPosition.index : (40 - oldPosition.index) + newPosition.index;
                         var positionsToMove = backwards ? (newPosition.index <= oldPosition.index ? oldPosition.index - newPosition.index : 40 - newPosition.index + oldPosition.index) :
@@ -160,6 +180,8 @@ module MonopolyApp.controllers {
                         followBoardAnimation = $.Deferred().resolve();
                     }
                     $.when.apply($, [animateMoveCompleted, followBoardAnimation]).done(() => {
+                        that.playerMoving = false;
+                        that.playRocketSound(true);
                         that.scope.$apply(() => {
                             that.setAvailableActions();
                             $.when(that.processDestinationField()).done(() => {
@@ -194,8 +216,8 @@ module MonopolyApp.controllers {
             return d;
         }
 
-        private processComputerActions(allActionsProcessed: JQueryDeferred<{}>) {
-            var actions = this.aiService.afterMoveProcessing();
+        private processComputerActions(allActionsProcessed: JQueryDeferred<{}>, skipBuyingHouses?: boolean) {
+            var actions = this.aiService.afterMoveProcessing(skipBuyingHouses);
             var computerActions = $.Deferred();
             if (actions.length > 0) {
                 actions.forEach(action => {
@@ -210,7 +232,7 @@ module MonopolyApp.controllers {
                         if (this.gameService.commitHouseOrHotel(this.currentPlayer, 0, action.asset.group)) {
                             var viewBoardField = this.boardFields.filter(f => f.index === action.position)[0];
                             this.drawingService.setBoardFieldHouses(viewBoardField, action.asset.houses, action.asset.hotel, undefined, undefined, this.scene);
-                            this.showMessage(this.currentPlayer + " sold " + (action.actionType === Model.AIActionType.SellHouse ? "a house" : "hotel") + " on " + action.asset.name + ".");
+                            this.showMessage(this.currentPlayer + " sold " + (action.actionType === Model.AIActionType.SellHouse ? "a " + this.theme.house : this.theme.hotel) + " on " + action.asset.name + ".");
                         }
                     }
                     if (action.actionType === Model.AIActionType.BuyHouse || action.actionType === Model.AIActionType.BuyHotel) {
@@ -226,7 +248,7 @@ module MonopolyApp.controllers {
                             var viewBoardFieldWithHouse = this.boardFields.filter(f => f.index === groupField.index)[0];
                             this.drawingService.setBoardFieldHouses(viewBoardFieldWithHouse, groupField.asset.houses, groupField.asset.hotel, undefined, undefined, this.scene);                            
                         });
-                        this.showMessage(this.currentPlayer + " bought " + action.numHousesOrHotels + (action.actionType === Model.AIActionType.BuyHouse ? " houses." : " hotels."));
+                        this.showMessage(this.currentPlayer + " bought " + action.numHousesOrHotels + " " + (action.actionType === Model.AIActionType.BuyHouse ? this.theme.house : this.theme.hotel) + "s.");
 
                     }
                     if (action.actionType === Model.AIActionType.Surrender) {
@@ -252,8 +274,8 @@ module MonopolyApp.controllers {
             }
             var that = this;
             $.when(computerActions).done(() => {
-                if (actions.length > 0 && actions.every(a => a.actionType !== Model.AIActionType.GetOutOfJail)) {
-                    // if any action, beside getting out of jail, has been processed, repeat until there are no more actions for the computer to perform
+                if (actions.length > 0 && actions.every(a => a.actionType !== Model.AIActionType.GetOutOfJail && a.actionType !== Model.AIActionType.Surrender)) {
+                    // if any action, beside getting out of jail or surrendering, has been processed, repeat until there are no more actions for the computer to perform
                     that.processComputerActions(allActionsProcessed);
                 } else {
                     allActionsProcessed.resolve(actions.length > 0 && actions.some(a => a.actionType === Model.AIActionType.GetOutOfJail));
@@ -307,7 +329,7 @@ module MonopolyApp.controllers {
             if (bought) {
                 var boardField = this.gameService.getCurrentPlayerPosition();
                 this.drawingService.setBoardFieldOwner(this.boardFields.filter(f => f.index === boardField.index)[0], boardField.asset, this.scene);
-                this.showMessage(this.currentPlayer + " bought " + boardField.asset.name + " for M" + boardField.asset.price + ".");
+                this.showMessage(this.currentPlayer + " bought " + boardField.asset.name + " for " + this.theme.moneySymbol + boardField.asset.price + ".");
                 this.updatePlayersForView();
             }
             this.setAvailableActions();
@@ -315,20 +337,27 @@ module MonopolyApp.controllers {
 
         manage() {
             if (!this.manageMode) {
+                if (this.isBlockedByTutorial("manage")) {
+                    return;
+                }
+
                 this.manageMode = true;
                 this.actionButtonsVisible = false;
                 this.focusedAssetGroupIndex = this.gameService.manage();
-                this.setupManageHighlight();
-                this.scene.activeCamera = this.manageCamera;
-                //var canvas = <HTMLCanvasElement>document.getElementById("renderCanvas");
-                //this.manageCamera.attachControl(canvas, true);
+                this.gameCameraPosition = new BABYLON.Vector3(this.gameCamera.position.x, this.gameCamera.position.y, this.gameCamera.position.z);
+                this.gameCameraRotation = new BABYLON.Vector3(this.gameCamera.rotation.x, this.gameCamera.rotation.y, this.gameCamera.rotation.z);
+                this.setupManageHighlight(true);
                 this.setAvailableActions();
                 $("#commandPanel").hide();
+                $("#manageCommandPanel").addClass("panelShown");
                 $("#manageCommandPanel").show();
+                if (this.tutorial) {
+                    this.tutorialService.initManageModeTutorial(this.scope);
+                }
                 //var that = this;
                 //this.timeoutService(() => { $(window).on("click", null, that, that.handleClickEvent); }, 1000, false);
                 //this.scope.$evalAsync(() => { $(window).on("click", null, that, that.handleClickEvent); });
-                
+
                 //$(window).on("click", null, this, this.handleClickEvent);
             }
         }
@@ -337,11 +366,15 @@ module MonopolyApp.controllers {
             this.manageMode = false;
             //$(window).off("click", this.handleClickEvent);
             this.closeAssetManagementWindow();            
-            this.scene.activeCamera = this.gameCamera;
+            //this.scene.activeCamera = this.gameCamera;
+            this.gameCamera.position = new BABYLON.Vector3(this.gameCameraPosition.x, this.gameCameraPosition.y, this.gameCameraPosition.z);
+            this.gameCamera.rotation = new BABYLON.Vector3(this.gameCameraRotation.x, this.gameCameraRotation.y, this.gameCameraRotation.z);
+
             this.gameService.returnFromManage();
+            if (this.tutorialService.isActive) {
+                this.tutorialService.endCurrentSection();
+            }
             this.drawingService.returnFromManage(this.scene);
-            //var canvas = <HTMLCanvasElement>document.getElementById("renderCanvas");
-            //this.manageCamera.detachControl(canvas);            
             this.setAvailableActions();
             this.actionButtonsVisible = false;
             this.toggleManageCommandPanel(true);
@@ -378,13 +411,17 @@ module MonopolyApp.controllers {
         }
 
         pause() {
+            if (this.isBlockedByTutorial("pause")) {
+                return;
+            }
             this.gameService.saveGame();
             this.stateService.go("pause");
         }
 
-        closeAssetManagementWindow() {
+        closeAssetManagementWindow() {            
+            $("#assetManagement").removeClass("assetManagementShown");
             $("#assetManagement").hide();
-            this.toggleManageCommandPanel();
+            this.showManageCommandPanel();                
         }
 
         executeConfirmAction(data: any) {
@@ -399,43 +436,37 @@ module MonopolyApp.controllers {
             if (processingEvent === Model.ProcessingEvent.None) {
                 return;
             } else if (processingEvent === Model.ProcessingEvent.PassGoAward) {
-                this.showMessage(this.gameService.getCurrentPlayer() + " passed GO and received M200.");
+                this.showMessage(this.gameService.getCurrentPlayer() + " passed START and received " + this.themeService.theme.moneySymbol + this.settingsService.settings.rules.passStartAward + ".");
             }
         }
 
         toggleMortgageConfirm() {
             if (this.gameService.canMortgage(this.assetToManage)) {
                 var that = this;
+                var dialogText;
                 if (!this.assetToManage.mortgage) {
-                    $("#mortgageConfirmText").text("Do you wish to mortgage " + this.assetToManage.name + " for M" + this.assetToManage.valueMortgage + "?");
+                    dialogText = "Do you wish to mortgage " + this.assetToManage.name + " for " + this.themeService.theme.moneySymbol + this.assetToManage.valueMortgage + "?";
                 } else {
-                    $("#mortgageConfirmText").text("Do you wish to pay off mortgage " + this.assetToManage.name + " for M" + (Math.floor(this.assetToManage.valueMortgage * 1.1)) + "?");
+                    dialogText = "Do you wish to pay off mortgage " + this.assetToManage.name + " for " + this.themeService.theme.moneySymbol + (Math.floor(this.assetToManage.valueMortgage * 1.1)) + "?";
                 }
-                $("#mortgageConfirmDialog").dialog({
-                    autoOpen: true,
-                    dialogClass: "no-close",
-                    width: 300,
-                    buttons: [
-                        {
-                            text: "Yes",
-                            click: function () {
-                                $(this).dialog("close");
-                                if (!that.toggleMortgageAsset(that.assetToManage)) {
-                                    that.showConfirmationPopup("Sorry, you do not have enough money!");
-                                }
-                                that.scope.$apply(() => {
-                                    that.updatePlayersForView();
-                                });
+                sweetAlert({
+                        title: "Mortgage confirmation",
+                        text: dialogText,
+                        type: "info",
+                        showCancelButton: true,
+                        confirmButtonText: "Yes",
+                        cancelButtonText: "No"
+                    },
+                    isConfirm => {
+                        if (isConfirm) {
+                            if (!this.toggleMortgageAsset(this.assetToManage)) {
+                                this.showConfirmationPopup("Sorry, you do not have enough money!", true, false);
                             }
-                        },
-                        {
-                            text: "No",
-                            click: function () {
-                                $(this).dialog("close");
-                            }
+                            this.scope.$apply(() => {
+                                this.updatePlayersForView();
+                            });
                         }
-                    ]
-                });
+                    });
             }
         }
 
@@ -453,46 +484,32 @@ module MonopolyApp.controllers {
             return success;
         }
 
-        showConfirmationPopup(text: string) {
-            $("#generalPopupDialog").text(text);
-            $("#generalPopupDialog").dialog({
-                autoOpen: true,
-                dialogClass: "no-close",
-                width: 300,
-                buttons: [
-                    {
-                        text: "Ok",
-                        click: function () {
-                            $(this).dialog("close");
-                        }
-                    }
-                ]
-            });            
+        showConfirmationPopup(text: string, isError: boolean, isSuccess: boolean) {
+            sweetAlert({
+                title: isError ? "Error" : "Moonopoly message",
+                text: text,
+                type: isError ? "error" : (isSuccess ? "success" : "info"),
+                confirmButtonText: "Ok",
+                allowOutsideClick: true
+            });
         }
 
         showActionPopup(text: string, onConfirm: () => any, onCancel: () => any) {
-            $("#generalPopupDialog").text(text);
-            $("#generalPopupDialog").dialog({
-                autoOpen: true,
-                dialogClass: "no-close",
-                width: 300,
-                buttons: [
-                    {
-                        text: "Yes",
-                        click: function () {
-                            $(this).dialog("close");
-                            onConfirm();
-                        }
-                    },
-                    {
-                        text: "No",
-                        click: function () {
-                            $(this).dialog("close");
-                            onCancel();
-                        }
+            sweetAlert({
+                    title: "Moonopoly message",
+                    text: text,
+                    type: "info",
+                    showCancelButton: true,
+                    confirmButtonText: "Yes",
+                    cancelButtonText: "No"
+                },
+                isConfirm => {
+                    if (isConfirm) {
+                        onConfirm();
+                    } else {
+                        onCancel();
                     }
-                ]
-            });
+                });
         }
 
         public canMortgageSelected(): boolean {
@@ -501,7 +518,7 @@ module MonopolyApp.controllers {
 
         public getOutOfJail() {
             this.gameService.getOutOfJail();
-            this.showMessage(this.currentPlayer + " paid " + this.gameService.gameParams.jailBail + " to bail out of jail.");
+            this.showMessage(this.currentPlayer + " paid " + this.themeService.theme.moneySymbol + this.gameService.gameParams.jailBail + " to end his quarantine.");
             this.setAvailableActions();
             if (this.gameService.lastDiceResult) {
                 this.movePlayer();
@@ -513,17 +530,19 @@ module MonopolyApp.controllers {
             if (this.gameService.canSurrender) {
                 this.showActionPopup("Are you sure you wish to surrender?", () => {
                     that.doSurrender();
+                    that.endTurn();
                 }, () => {});
             }
         }
 
         private doSurrender() {
             if (this.gameService.canSurrender) {
+                this.clearCurrentPlayerFromBoard();
                 this.gameService.surrender();
                 this.showMessage(this.currentPlayer + " has surrendered!");
                 this.setAvailableActions();
                 if (this.gameService.gameState === Model.GameState.EndOfGame) {
-                    this.showConfirmationPopup(this.gameService.winner + " has won the game!");
+                    this.showConfirmationPopup(this.gameService.winner + " has won the game!", false, true);
                 }
             }
         }
@@ -531,6 +550,7 @@ module MonopolyApp.controllers {
         private createScene(): JQueryDeferred<{}> {
             var canvas = <HTMLCanvasElement>document.getElementById("renderCanvas");
             var engine = new BABYLON.Engine(canvas, true);
+            this.gameEngine = engine;
             var d = this.createBoard(engine, canvas);
             //BABYLON.Scene.MaxDeltaTime = 30.0;
             var that = this;
@@ -549,6 +569,9 @@ module MonopolyApp.controllers {
                                 if (dicePhysicsLocation) {
                                     that.resetOverboardDice(dicePhysicsLocation);
                                     that.gameCamera.setTarget(new BABYLON.Vector3(dicePhysicsLocation.x, dicePhysicsLocation.y, dicePhysicsLocation.z));
+                                    if (that.drawingService.diceIsColliding()) {
+                                        that.playBounceSound();
+                                    }
                                 }
                             }
                         }
@@ -577,7 +600,6 @@ module MonopolyApp.controllers {
             // This creates and positions a free camera (non-mesh)
             this.gameCamera = new BABYLON.FreeCamera("camera1", BABYLON.Vector3.Zero(), this.scene);
             this.drawingService.setGameCameraInitialPosition(this.gameCamera);
-            this.manageCamera = new BABYLON.ArcRotateCamera("camera2", 0,0,0,BABYLON.Vector3.Zero(), this.scene);
             this.scene.activeCamera = this.gameCamera;
 
             // This attaches the camera to the canvas
@@ -613,6 +635,7 @@ module MonopolyApp.controllers {
                 playerModel.money = player.money;
                 playerModel.index = index;
                 playerModel.color = this.getColor(player.color);
+                playerModel.active = player.active;
                 that.playerModels.push(playerModel);
                 index++;
             });
@@ -653,7 +676,9 @@ module MonopolyApp.controllers {
 
         private setupPlayerPositions(that: GameController) {
             that.players.forEach((playerModel) => {
-                that.drawingService.positionPlayer(playerModel);
+                if (playerModel.active) {
+                    that.drawingService.positionPlayer(playerModel);
+                }
             });
         }
 
@@ -664,7 +689,7 @@ module MonopolyApp.controllers {
             this.availableActions.manage = !this.gameService.isComputerMove && this.gameService.canManage;
             this.availableActions.getOutOfJail = !this.gameService.isComputerMove && this.gameService.canGetOutOfJail;
             this.availableActions.surrender = !this.gameService.isComputerMove && this.gameService.canSurrender;
-            this.availableActions.pause = !this.gameService.isComputerMove && this.gameService.canPause;
+            this.availableActions.pause = (!this.gameService.isComputerMove || this.gameService.players.filter(p => p.active && p.human).length === 0) && this.gameService.canPause;
         }
 
         private animateMove(oldPosition: Model.BoardField, newPosition: Model.BoardField, fast?: boolean, backwards?: boolean): JQueryDeferred<{}> {
@@ -744,13 +769,15 @@ module MonopolyApp.controllers {
 
         private handleSwipe(left: boolean) {
             if (this.manageMode) {
-                this.focusedAssetGroupIndex = this.gameService.manageFocusChange(left);
-                this.setupManageHighlight();
+                if (!this.tutorialService.isActive) {
+                    this.focusedAssetGroupIndex = this.gameService.manageFocusChange(left);
+                    this.setupManageHighlight(true);
+                }
             }
         }
 
-        private setupManageHighlight() {
-            this.drawingService.setManageCameraPosition(this.manageCamera, this.focusedAssetGroupIndex, this.scene);
+        private setupManageHighlight(animate: boolean) {
+            this.drawingService.setManageCameraPosition(this.gameCamera, this.focusedAssetGroupIndex, this.scene, animate);
             if (this.gameService.hasMonopoly(this.gameService.getCurrentPlayer(), this.focusedAssetGroupIndex)) {
                 this.drawingService.showHouseButtons(this.focusedAssetGroupIndex, this.scene);
             }            
@@ -769,6 +796,9 @@ module MonopolyApp.controllers {
                 mouseEventObject = </*JQueryMouseEventObject*/TouchEvent>eventObject.originalEvent;
                 var pickedObject = thisInstance.drawingService.pickBoardElement(thisInstance.scene, mouseEventObject && mouseEventObject.changedTouches && mouseEventObject.changedTouches.length > 0 ? { x: mouseEventObject.changedTouches[0].clientX, y: mouseEventObject.changedTouches[0].clientY } : undefined);
                 if (pickedObject && pickedObject.pickedObjectType === Viewmodels.PickedObjectType.BoardField) {
+                    if ($("#assetManagement").hasClass("assetManagementShown")) {
+                        return;
+                    }
                     var groupFields = thisInstance.gameService.getBoardFieldsInGroup(thisInstance.focusedAssetGroupIndex);
                     var clickedFields = groupFields.filter(f => f.index === pickedObject.position);
                     if (clickedFields.length > 0) {
@@ -794,16 +824,29 @@ module MonopolyApp.controllers {
 
         private manageField(asset: Model.Asset) {
             this.assetToManage = asset;
+            $("#assetManagement").addClass("assetManagementShown");
             this.toggleManageCommandPanel();
             $("#assetManagement").show();
         }
 
         private toggleManageCommandPanel(hide?: boolean) {
             if (hide) {
+                $("#manageCommandPanel").removeClass("panelShown").addClass("panelHidden");
                 $("#manageCommandPanel").hide();
                 return;
             }
-            $("#manageCommandPanel").toggle();
+            if ($("#manageCommandPanel").hasClass("panelShown")) {
+                $("#manageCommandPanel").removeClass("panelShown").addClass("panelHidden");
+                $("#manageCommandPanel").hide();
+            } else {
+                $("#manageCommandPanel").removeClass("panelHidden").addClass("panelShown");
+                $("#manageCommandPanel").show();
+            }
+        }
+
+        private showManageCommandPanel() {
+            $("#manageCommandPanel").removeClass("panelHidden").addClass("panelShown");
+            $("#manageCommandPanel").show();
         }
 
         private swipeMove(coords: any) {
@@ -891,6 +934,26 @@ module MonopolyApp.controllers {
             
         }
 
+        private refreshBoardFieldMortgage() {
+            var assetGroups = [Model.AssetGroup.First, Model.AssetGroup.Second, Model.AssetGroup.Third, Model.AssetGroup.Fourth, Model.AssetGroup.Fifth, Model.AssetGroup.Sixth, Model.AssetGroup.Seventh, Model.AssetGroup.Eighth, Model.AssetGroup.Railway, Model.AssetGroup.Utility];
+            var that = this;
+            assetGroups.forEach(assetGroup => {
+                var fields = that.gameService.getGroupBoardFields(assetGroup);
+                fields.forEach(field => {
+                    var viewGroupBoardField = that.boardFields.filter(f => f.index === field.index)[0];
+                    if (viewGroupBoardField.mortgageMesh) {
+                        that.scene.removeMesh(viewGroupBoardField.mortgageMesh);
+                        viewGroupBoardField.mortgageMesh.dispose();
+                        viewGroupBoardField.mortgageMesh = undefined;
+                    }
+                    if (field.asset.mortgage) {
+                        that.drawingService.setBoardFieldMortgage(viewGroupBoardField, field.asset, this.scene);
+                    }
+                });
+            });
+
+        }
+
         private commitHouses(data: any) {
             this.gameService.commitHouseOrHotel(this.gameService.getCurrentPlayer(), this.focusedAssetGroupIndex);
             this.actionButtonsVisible = false;
@@ -911,7 +974,8 @@ module MonopolyApp.controllers {
             var that = this;
             this.gameService.players.forEach(p => {
                 var viewPlayer = that.playerModels.filter(model => model.name === p.playerName)[0];
-                viewPlayer.money = p.money;
+                viewPlayer.active = p.active;
+                that.animateAndSetPlayerMoney(viewPlayer, p.money);                
             });
         }
 
@@ -924,7 +988,7 @@ module MonopolyApp.controllers {
                 card = this.gameService.getNextEventCard();
             }
             var that = this;
-            $.when(this.showCard(card, position.type === Model.BoardFieldType.Treasure ? "COMMUNITY CHEST" : "EVENT")).done(() => {
+            $.when(this.showCard(card, position.type === Model.BoardFieldType.Treasure ? this.theme.communityChestTitle : this.theme.eventTitle)).done(() => {
                 that.gameService.processCard(card);
                 that.showMessage(that.getMessageForCard(card, position));
                 var addAction = $.Deferred();
@@ -970,7 +1034,7 @@ module MonopolyApp.controllers {
             var d = $.Deferred();
             var paid = this.gameService.processTax(boardFieldType);
             this.updatePlayersForView();
-            this.showMessage(this.currentPlayer + " paid M" + paid + " of income tax.");
+            this.showMessage(this.currentPlayer + " paid " + this.theme.moneySymbol + paid + " of " +  (boardFieldType === Model.BoardFieldType.TaxIncome ? "ecology tax." : "energy tax."));
             if (this.gameService.isComputerMove) {
                 // give time to other players to catch up with computer's actions
                 this.timeoutService(() => {
@@ -989,7 +1053,7 @@ module MonopolyApp.controllers {
             var moveToPrison = this.drawingService.animatePlayerPrisonMove(newPosition, playerModel, this.scene, this.gameCamera);
             var that = this;
             $.when(moveToPrison).done(() => {
-                that.showMessage(that.currentPlayer + " landed in prison.");
+                that.showMessage(that.currentPlayer + " landed in " + this.theme.prison + ".");
                 that.gameService.processPrison(true);
                 if (that.gameService.isComputerMove) {
                     // give time to other players to catch up with computer's actions
@@ -1005,7 +1069,7 @@ module MonopolyApp.controllers {
 
         private processPrisonField() {
             if (this.gameService.processPrison(false)) {
-                this.showMessage(this.currentPlayer + " remains in prison.");
+                this.showMessage(this.currentPlayer + " remains in " + this.theme.prison + ".");
             }
         }
 
@@ -1013,9 +1077,9 @@ module MonopolyApp.controllers {
             var d = $.Deferred();
             this.currentCard.title = title;
             this.currentCard.message = card.message;
-            $("#card").show("fold", { size: "30%" }, 800, () => {
+            $("#card").show("clip", { }, 500, () => {
                 this.timeoutService(4000).then(() => {
-                    $("#card").hide("fold", { size: "30%" }, 800, () => {
+                    $("#card").hide("clip", { }, 500, () => {
                         d.resolve();                        
                     });
                 });
@@ -1024,30 +1088,30 @@ module MonopolyApp.controllers {
         }
 
         private getMessageForCard(card: Model.Card, position: Model.BoardField) {
-            var type = position.type === Model.BoardFieldType.Treasure ? "community chest" : "event";
+            var type = position.type === Model.BoardFieldType.Treasure ? this.theme.communityChestTitle : this.theme.eventTitle;
             if (card.cardType === Model.CardType.ReceiveMoney) {
-                return this.gameService.getCurrentPlayer() + " received M" + card.money + " from " + type + ".";
+                return this.gameService.getCurrentPlayer() + " received " + this.theme.moneySymbol + card.money + " from " + type + ".";
             } else if (card.cardType === Model.CardType.PayMoney) {
-                return this.gameService.getCurrentPlayer() + " paid M" + card.money + (position.type === Model.BoardFieldType.Treasure ? " to " : " for ") + type + ".";
+                return this.gameService.getCurrentPlayer() + " paid " + this.theme.moneySymbol + card.money + ".";
             } else if (card.cardType === Model.CardType.AdvanceToField) {
                 return this.gameService.getCurrentPlayer() + " is advancing to " + this.getBoardFieldName(card.boardFieldIndex) + ".";
             } else if (card.cardType === Model.CardType.RetractNumFields) {
                 return this.gameService.getCurrentPlayer() + " is moving back " + card.boardFieldCount + " fields.";
             } else if (card.cardType === Model.CardType.ReceiveMoneyFromPlayers) {
-                return this.gameService.getCurrentPlayer() + " received M" + card.money + " from each player.";
+                return this.gameService.getCurrentPlayer() + " received " + this.theme.moneySymbol + card.money + " from each player.";
             } else if (card.cardType === Model.CardType.PayMoneyToPlayers) {
-                return this.gameService.getCurrentPlayer() + " paid M" + card.money + " to each player.";
+                return this.gameService.getCurrentPlayer() + " paid " + this.theme.moneySymbol + card.money + " to each player.";
             } else if (card.cardType === Model.CardType.Maintenance || card.cardType === Model.CardType.OwnMaintenance) {
-                return this.gameService.getCurrentPlayer() + " paid M" + card.money + " for maintenance.";
+                return this.gameService.getCurrentPlayer() + " paid " + this.theme.moneySymbol + card.money + " for maintenance.";
             } else if (card.cardType === Model.CardType.AdvanceToRailway) {
-                return this.gameService.getCurrentPlayer() + " is advancing to the next railway station.";
+                return this.gameService.getCurrentPlayer() + " is advancing to the next " + this.theme.railroad + ".";
             }
             return this.gameService.getCurrentPlayer() + " landed on " + type + ".";
         }
 
         private getBoardFieldName(boardFieldIndex: number) {
             if (boardFieldIndex === 0) {
-                return "GO";
+                return "START";
             }
 
             var group = this.gameService.getBoardFieldGroup(boardFieldIndex);
@@ -1084,14 +1148,20 @@ module MonopolyApp.controllers {
 
         private bindInputEvents() {
             //$(window).on("click", null, this, this.handleClickEvent);
-            if (window.navigator && window.navigator.pointerEnabled) {
-                //$("#renderCanvas").bind("MSPointerDown", this, this.handleClickEvent);
-                //$("#renderCanvas").bind("pointerdown", this, this.handleClickEvent);
-                $("#renderCanvas").bind("touchend", this, this.handleClickEvent);
-                $("#tutorialMessage").bind("touchend", this, this.handleClickEvent);
+            var isTouch = (("ontouchstart" in window) || (navigator.msMaxTouchPoints > 0));
+            if (!isTouch) {
+                $("#renderCanvas").on("click", null, this, this.handleClickEvent);
+                $("#tutorialMessage").on("click", null, this, this.handleClickEvent);
             } else {
-                $("#renderCanvas").bind("touchend", this, this.handleClickEvent);
-                $("#tutorialMessage").bind("touchend", this, this.handleClickEvent);
+                if (window.navigator && window.navigator.pointerEnabled) {
+                    //$("#renderCanvas").bind("MSPointerDown", this, this.handleClickEvent);
+                    //$("#renderCanvas").bind("pointerdown", this, this.handleClickEvent);
+                    $("#renderCanvas").bind("touchend", this, this.handleClickEvent);
+                    $("#tutorialMessage").bind("touchend", this, this.handleClickEvent);
+                } else {
+                    $("#renderCanvas").bind("touchend", this, this.handleClickEvent);
+                    $("#tutorialMessage").bind("touchend", this, this.handleClickEvent);
+                }
             }
             this.swipeService.bind($("#renderCanvas"), {
                 'move': (coords) => { this.swipeMove(coords); },
@@ -1214,7 +1284,7 @@ module MonopolyApp.controllers {
         private initTutorial(loadGame: boolean) {
             this.tutorialData = new Model.TutorialData();
             if (!loadGame) {
-                this.tutorial = this.settingsService.settings.tutorial;
+                this.tutorial = this.settingsService.options.tutorial;
                 var that = this;
                 this.timeoutService(() => {
                     $("#loadingBar").hide();
@@ -1226,10 +1296,174 @@ module MonopolyApp.controllers {
                     }
                 }, 3000);
             } else {
+                this.tutorial = false;
                 this.timeoutService(() => {
                     $("#loadingBar").hide();
                 }, 3000);                
             }            
+        }
+
+        animateAndSetPlayerMoney(viewPlayer: MonopolyApp.Viewmodels.Player, money: number) {
+            var that = this;
+            if (viewPlayer.money !== money) {
+                $("#player" + (viewPlayer.index + 1) + "Properties").animate({
+                    width: "115px",
+                    height: "60px"
+                }, 500);
+                $("#player" + (viewPlayer.index + 1) + "Money").animate({
+                    color: money >= viewPlayer.money ? "#20C020" : "#ff1463",
+                    fontSize: "22px"
+                }, 500, function () {
+                    $({ countNum: viewPlayer.money }).animate({ countNum: money }, {
+                        duration: 2000,
+                        easing: 'linear',
+                        step: function () {
+                            var count = this.countNum;
+                            that.timeoutService(() => {
+                                that.scope.$apply(() => {
+                                    viewPlayer.money = Math.floor(count);
+                                });
+                                that.playTickSound();
+                            });
+                        },
+                        complete: function () {
+                            var count = this.countNum;
+                            that.timeoutService(() => {
+                                that.scope.$apply(() => {
+                                    viewPlayer.money = count;
+                                });
+                                $("#player" + (viewPlayer.index + 1) + "Properties").animate({
+                                    width: "100px",
+                                    height: "40px"
+                                }, 500);
+                                $("#player" + (viewPlayer.index + 1) + "Money").animate({
+                                    color: "#DDDDDD",
+                                    fontSize: "14px"
+                                }, 500);
+                            });
+                        }
+                    });
+                });
+            }
+        }
+
+        private playTickSound() {
+            //var audio: any = document.getElementById("audio_tick");
+            //audio.play();
+            if (this.settingsService.options.sound) {
+                // find first one available
+                var availableAudio = $(".audio_tick.stopped");
+                if (availableAudio.length === 0) {
+                    availableAudio = $(".audio_tick").first();
+                } else {
+                    availableAudio = availableAudio.first();
+                }
+                availableAudio.removeClass("stopped").addClass("playing");
+                var selectedAudio: any = availableAudio[0];
+                selectedAudio.play();
+            }
+        }
+
+        private playBounceSound() {
+            if (this.settingsService.options.sound) {
+                // find first one available
+                var availableAudio = $(".audio_bounce.stopped");
+                if (availableAudio.length === 0) {
+                    availableAudio = $(".audio_bounce").first();
+                } else {
+                    availableAudio = availableAudio.first();
+                }
+                availableAudio.removeClass("stopped").addClass("playing");
+                var selectedAudio: any = availableAudio[0];
+                selectedAudio.play();
+            }
+        }
+
+        private playRocketSound(fadeOut?: boolean) {
+            if (this.settingsService.options.sound) {
+                var rocketAudio: any = $(".audio_rocket")[0];
+                if (!fadeOut) {
+                    rocketAudio.volume = 1;
+                    rocketAudio.play();
+                }
+                if (fadeOut && rocketAudio.volume > 0) {
+                    $({ volume: 100 }).animate({ volume: 0 }, {
+                        duration: 4000,
+                        easing: 'linear',
+                        step: function() {
+                            var vol = this.volume;
+                            rocketAudio.volume = vol/100;
+                        },
+                        complete: function() {
+                        }
+                    });
+                }
+            }
+        }
+
+        private initAudio() {
+            $(".audio_tick").each((i, el) => {
+                var elem: any = el;
+                elem.preload = "auto";
+                elem.volume = 0.7;
+            });
+            $(".audio_tick").off("ended");
+            $(".audio_tick").on("ended", e => {
+                $(e.currentTarget).removeClass("playing").addClass("stopped");
+            });
+            $(".audio_bounce").off("ended");
+            $(".audio_bounce").on("ended", e => {
+                $(e.currentTarget).removeClass("playing").addClass("stopped");
+            });
+            $(".audio_bounce").each((i, el) => {
+                var elem: any = el;
+                elem.preload = "auto";
+            });
+            var that = this;
+            $(".audio_rocket").off("ended");
+            $(".audio_rocket").on("ended", e => {
+                if (that.playerMoving) {
+                    that.playRocketSound();
+                }
+            });
+            $(".audio_rocket").each((i, el) => {
+                var elem: any = el;
+                elem.preload = "auto";
+            });
+            $(".backgroundMusic").off("ended");
+        }
+
+        private stopMusic() {
+            if (this.settingsService.options.music) {
+                var musicToStop = $(".backgroundMusic.playing");
+                if (musicToStop.length > 0) {
+                    musicToStop.removeClass("playing").addClass("stopped");
+                    var musicElement: any = musicToStop.first()[0];
+                    musicElement.pause();
+                    musicElement.currentTime = 0;
+                }
+            }
+        }
+
+        private clearCurrentPlayerFromBoard() {
+            var assetGroups = [Model.AssetGroup.First, Model.AssetGroup.Second, Model.AssetGroup.Third, Model.AssetGroup.Fourth, Model.AssetGroup.Fifth, Model.AssetGroup.Sixth, Model.AssetGroup.Seventh, Model.AssetGroup.Eighth, Model.AssetGroup.Railway, Model.AssetGroup.Utility];
+            var player = this.players.filter(p => p.name === this.currentPlayer)[0];
+            this.scene.removeMesh(player.mesh);
+            player.mesh.dispose();
+            player.mesh = undefined;
+            player.color = "#808080";
+            var that = this;
+            assetGroups.forEach(assetGroup => {
+                var boardFields = that.gameService.getGroupBoardFields(assetGroup);
+                boardFields.forEach(boardField => {
+                    if (!boardField.asset.unowned && boardField.asset.owner === that.currentPlayer) {
+                        var viewBoardField = that.boardFields.filter(f => f.index === boardField.index);
+                        if (viewBoardField.length > 0) {
+                            that.drawingService.clearBoardField(viewBoardField[0], that.scene);
+                        }
+                    }
+                });
+            });
         }
     }
 
