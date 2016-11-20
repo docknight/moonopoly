@@ -4,20 +4,23 @@
 /// <reference path="../../../scripts/game/model/game.ts" />
 module MonopolyApp.controllers {
     declare var sweetAlert: any;
+    declare var noUiSlider: any;
 
     export class GameController {
         scope: angular.IScope;
         stateService: angular.ui.IStateService;
         stateParamsService: angular.ui.IStateParamsService;
         timeoutService: angular.ITimeoutService;
+        compileService: angular.ICompileService;
         gameService: Interfaces.IGameService;
         drawingService: Interfaces.IDrawingService;
         aiService: Interfaces.IAIService;
         themeService: Interfaces.IThemeService;
         settingsService: Interfaces.ISettingsService;
         tutorialService: Interfaces.ITutorialService;
+        tradeService: Interfaces.ITradeService;
         swipeService: any;
-        static $inject = ["$state", "$stateParams", "$swipe", "$scope", "$timeout", "gameService", "drawingService", "aiService", "themeService", "settingsService", "tutorialService"];
+        static $inject = ["$state", "$stateParams", "$swipe", "$scope", "$timeout", "$compile", "gameService", "drawingService", "aiService", "themeService", "settingsService", "tutorialService", "tradeService"];
 
         private players: Array<Viewmodels.Player>;
         private boardFields: Array<Viewmodels.BoardField>;
@@ -42,6 +45,7 @@ module MonopolyApp.controllers {
         actionButtonsVisible: boolean;
         tutorial: boolean;
         tutorialData: Model.TutorialData;
+        tradeMode: boolean;
 
         get currentPlayer(): string {
             return this.gameService.getCurrentPlayer();
@@ -55,11 +59,12 @@ module MonopolyApp.controllers {
             return this.themeService.theme;
         }
 
-        constructor(stateService: angular.ui.IStateService, stateParamsService: angular.ui.IStateParamsService, swipeService: any, scope: angular.IScope, timeoutService: angular.ITimeoutService, gameService: Interfaces.IGameService, drawingService: Interfaces.IDrawingService, aiService: Interfaces.IAIService, themeService: Interfaces.IThemeService, settingsService: Interfaces.ISettingsService, tutorialService: Interfaces.ITutorialService) {
+        constructor(stateService: angular.ui.IStateService, stateParamsService: angular.ui.IStateParamsService, swipeService: any, scope: angular.IScope, timeoutService: angular.ITimeoutService, compileService: angular.ICompileService, gameService: Interfaces.IGameService, drawingService: Interfaces.IDrawingService, aiService: Interfaces.IAIService, themeService: Interfaces.IThemeService, settingsService: Interfaces.ISettingsService, tutorialService: Interfaces.ITutorialService, tradeService: Interfaces.ITradeService) {
             this.scope = scope;
             this.stateService = stateService;
             this.stateParamsService = stateParamsService;
             this.timeoutService = timeoutService;
+            this.compileService = compileService;
             this.gameService = gameService;
             this.drawingService = drawingService;
             this.aiService = aiService;
@@ -67,6 +72,7 @@ module MonopolyApp.controllers {
             this.swipeService = swipeService;
             this.settingsService = settingsService;
             this.tutorialService = tutorialService;
+            this.tradeService = tradeService;
             var spService: any = this.stateParamsService;
             var loadGame:boolean = eval(spService.loadGame);
             this.initGame(loadGame);
@@ -106,6 +112,7 @@ module MonopolyApp.controllers {
         }
 
         initGame(loadGame?: boolean) {
+            this.tradeMode = false;
             this.gameService.initGame(loadGame);
             if (loadGame) {
                 this.assetToBuy = this.gameService.getCurrentPlayerPosition().asset;
@@ -219,7 +226,13 @@ module MonopolyApp.controllers {
         private processComputerActions(allActionsProcessed: JQueryDeferred<{}>, skipBuyingHouses?: boolean) {
             var actions = this.aiService.afterMoveProcessing(skipBuyingHouses);
             var computerActions = $.Deferred();
+            var tradeActions = $.Deferred();
+            if (actions.length === 0 || actions.filter(a => a.actionType === Model.AIActionType.Trade).length === 0) {
+                tradeActions.resolve();
+            }
             if (actions.length > 0) {
+                var tradingAlreadyProcessed = false; // allow at most one trading action per processing sequence
+                var tradeSkipped = false;
                 actions.forEach(action => {
                     if (action.actionType === Model.AIActionType.Buy) {
                         this.buy();
@@ -257,11 +270,76 @@ module MonopolyApp.controllers {
                     if (action.actionType === Model.AIActionType.GetOutOfJail) {
                         this.getOutOfJail();
                     }
+                    if (action.actionType === Model.AIActionType.Trade && !tradingAlreadyProcessed) {
+                        tradingAlreadyProcessed = true;
+                        if (!action.tradeState.secondPlayer.human) {
+                            this.tradeService.executeTrade(action.tradeState);
+                            // redraw board field owner boxes
+                            this.redrawTradeBoardFields(action.tradeState);
+                            this.updatePlayersForView();
+                            this.showTradeMessage(action.tradeState);
+                            tradeActions.resolve();
+                        } else {
+                            //var that = this;
+                            //var player1MoneyMsg = action.tradeState.firstPlayerMoney ? (" and " + that.themeService.theme.moneySymbol + action.tradeState.firstPlayerMoney) : "";
+                            //var player2MoneyMsg = action.tradeState.secondPlayerMoney ? (" and " + that.themeService.theme.moneySymbol + action.tradeState.secondPlayerMoney) : "";
+                            //sweetAlert({
+                            //    title: "Trade message for " + action.tradeState.secondPlayer.playerName,
+                            //    text: action.tradeState.firstPlayer.playerName + " wants to trade " + (action.tradeState.firstPlayerSelectedAssets.length > 0 ? action.tradeState.firstPlayerSelectedAssets[0].name : "no assets") + player1MoneyMsg + " for " + (action.tradeState.secondPlayerSelectedAssets.length > 0 ? action.tradeState.secondPlayerSelectedAssets[0].name : "no assets") + player2MoneyMsg + ". Do you wish to accept the trade offer?",
+                            //    type: "info",
+                            //    showCancelButton: true,
+                            //    confirmButtonText: "Yes",
+                            //    cancelButtonText: "No"
+                            //},
+                            //    isConfirm => {
+                            //        if (isConfirm) {
+                            //            that.tradeService.executeTrade(action.tradeState);
+                            //            // redraw board field owner boxes
+                            //            this.redrawTradeBoardFields(action.tradeState);
+                            //            this.updatePlayersForView();
+                            //            this.showTradeMessage(action.tradeState);
+                            //        }
+                            //        tradeActions.resolve();
+                            //    });
+                            var viewPlayer = this.players.filter(p => p.name === action.tradeState.secondPlayer.playerName)[0];
+                            if (!viewPlayer.numTurnsToWaitBeforeTrade || viewPlayer.numTurnsToWaitBeforeTrade === 0) {
+                                var that = this;
+                                sweetAlert({
+                                        title: "Trade message for " + action.tradeState.secondPlayer.playerName,
+                                        text: action.tradeState.secondPlayer.playerName + ", " + action.tradeState.firstPlayer.playerName + " has a trade offer for you.",
+                                        type: "info",
+                                        showCancelButton: true,
+                                        confirmButtonText: "Let me see",
+                                        cancelButtonText: "Not now"
+                                    },
+                                    isConfirm => {
+                                        if (isConfirm) {
+                                            $("#commandPanel").hide();
+                                            that.tradeWith(action.tradeState.secondPlayer.playerName, tradeActions);
+                                            var tradeState = that.tradeService.getTradeState();
+                                            tradeState.initializeFrom(action.tradeState);
+                                            var range: any = document.getElementById("player1TradeMoney");
+                                            range.noUiSlider.set(tradeState.firstPlayerMoney);
+                                            range = document.getElementById("player2TradeMoney");
+                                            range.noUiSlider.set(tradeState.secondPlayerMoney);
+                                            that.makeTradeOffer();
+                                        } else {
+                                            // trade, initiated by the computer, has been rejected by the human player - set the counter to avoid the player being flooded by trade offers
+                                            viewPlayer.numTurnsToWaitBeforeTrade = 5;
+                                            tradeActions.resolve();
+                                        }
+                                    });
+                            } else {
+                                tradeSkipped = true;
+                                tradeActions.resolve();
+                            }
+                        }
+                    }
                 });
                 // give other players time to catch up with computer's actions
                 this.timeoutService(() => {
                     computerActions.resolve();
-                }, 3000);
+                }, !tradeSkipped || actions.length > 1 ? 3000 : 0);
             } else {
                 if (this.gameService.anyFlyByEvents) {
                     // give other players time to catch up with computer's actions
@@ -273,7 +351,7 @@ module MonopolyApp.controllers {
                 }
             }
             var that = this;
-            $.when(computerActions).done(() => {
+            $.when.apply($, [computerActions, tradeActions]).done(() => {
                 if (actions.length > 0 && actions.every(a => a.actionType !== Model.AIActionType.GetOutOfJail && a.actionType !== Model.AIActionType.Surrender)) {
                     // if any action, beside getting out of jail or surrendering, has been processed, repeat until there are no more actions for the computer to perform
                     that.processComputerActions(allActionsProcessed);
@@ -328,7 +406,7 @@ module MonopolyApp.controllers {
             var bought = this.gameService.buy();
             if (bought) {
                 var boardField = this.gameService.getCurrentPlayerPosition();
-                this.drawingService.setBoardFieldOwner(this.boardFields.filter(f => f.index === boardField.index)[0], boardField.asset, this.scene);
+                this.drawingService.setBoardFieldOwner(this.boardFields.filter(f => f.index === boardField.index)[0], boardField.asset, this.scene, true);
                 this.showMessage(this.currentPlayer + " bought " + boardField.asset.name + " for " + this.theme.moneySymbol + boardField.asset.price + ".");
                 this.updatePlayersForView();
             }
@@ -384,8 +462,180 @@ module MonopolyApp.controllers {
             });           
         }
 
+        trade() {
+            if (this.gameService.canTrade) {
+                $("#commandPanel").hide();
+                var players = this.gameService.getPlayersForTrade();
+                var that = this;
+                if (players.length === 2) {
+                    var secondPlayer = this.gameService.players.filter(p => p.playerName !== this.currentPlayer)[0];
+                    this.tradeWith(secondPlayer.playerName, undefined);
+                } else {
+                    $("[name|='tradeButtonPlayer']").hide();
+                    this.gameService.players.forEach((p, i) => {
+                        if (p.playerName !== that.currentPlayer && players.filter(playerForTrade => playerForTrade.playerName === p.playerName).length > 0) {
+                            $("[name='tradeButtonPlayer-" + (i + 1) + "']").show();
+                        }
+                    });
+                    var theHtml = $("#playersForTrade").html();
+                    // compile the HTML that will be inserted into the modal dialog so that the angular events will fire
+                    var compiledHtml = this.compileService(theHtml)(this.scope);
+                    sweetAlert({
+                        title: "Choose player to trade with",
+                        text: theHtml,
+                        html: true,
+                        showCancelButton: false,
+                        confirmButtonText: "Cancel"
+                    },
+                        isConfirm => {
+                            $("#commandPanel").show();
+                        });
+                    // finally, inject the compiled elements into the DOM
+                    $(".sweet-alert [name='playersForTradeTable']").replaceWith(compiledHtml);
+                }
+            }
+        }
+
+        tradeWith(playerToTradeWith: string, tradeActions: JQueryDeferred<{}>) {
+            sweetAlert.close();
+            var firstPlayer = this.gameService.players.filter(p => p.playerName === this.currentPlayer)[0];
+            var secondPlayer = this.gameService.players.filter(p => p.playerName === playerToTradeWith)[0];
+            if (!firstPlayer || !secondPlayer) {
+                return;
+            }
+            this.gameService.trade();
+            this.tradeMode = true;
+            var treeContainer: any = $("#leftTree");
+            // fix the height so that it does not increase after additional data is added into container
+            $("#leftTree").css("max-height", $("#leftTree").height() + "px");
+            $("#leftTree").css("height", $("#leftTree").height() + "px");            
+            this.tradeService.start(firstPlayer, secondPlayer, this.scope, tradeActions);
+            var data = this.tradeService.buildAssetTree(this.tradeService.buildPlayerAssetList(firstPlayer));
+            treeContainer.jstree({
+                'core': {
+                    'data': data,
+                    worker: false,
+                    "themes": { "stripes": true, dots: false, variant: "large", responsive: true, icons: false }
+                }
+            });
+            treeContainer.on("activate_node.jstree", this, this.onActivateTradeNode);
+            treeContainer = $("#rightTree");
+            // fix the height so that it does not increase after additional data is added into container
+            $("#rightTree").css("max-height", $("#rightTree").height() + "px");
+            $("#rightTree").css("height", $("#rightTree").height() + "px");            
+            data = this.tradeService.buildAssetTree(this.tradeService.buildPlayerAssetList(secondPlayer));
+            treeContainer.jstree({
+                'core': {
+                    'data': data,
+                    worker: false,
+                    "themes": { "stripes": true, dots: false, variant: "large", responsive: true, icons: false }
+                }
+            });
+            treeContainer.on("activate_node.jstree", this, this.onActivateTradeNode);
+            var that = this;
+            //$("#player1TradeMoney").slider({
+            //    value: this.tradeService.getTradeState().firstPlayerMoney,
+            //    min: 0,
+            //    max: this.tradeService.getTradeState().firstPlayer.money,
+            //    step: 1,
+            //    slide(event, ui) {
+            //        that.scope.$apply(() => {
+            //            that.tradeService.getTradeState().firstPlayerMoney = ui.value;
+            //        });
+            //    }
+            //});
+            //$("#player2TradeMoney").slider({
+            //    value: this.tradeService.getTradeState().secondPlayerMoney,
+            //    min: 0,
+            //    max: this.tradeService.getTradeState().secondPlayer.money,
+            //    step: 1,
+            //    slide(event, ui) {
+            //        that.scope.$apply(() => {
+            //            that.tradeService.getTradeState().secondPlayerMoney = ui.value;
+            //        });
+            //    }
+            //});                     
+            var range: any = document.getElementById('player1TradeMoney');
+            noUiSlider.create(range, {
+                start: [0], 
+                step: 10, 
+                connect: 'lower',
+                orientation: 'horizontal', 
+                behaviour: 'tap', 
+                range: {
+                    'min': 0,
+                    'max': this.tradeService.getTradeState().firstPlayer.money
+                }
+            });
+            range.noUiSlider.on('slide', function (values, handle) {
+                that.scope.$apply(() => {
+                    that.tradeService.getTradeState().firstPlayerMoney = parseInt(values[handle]);
+                    that.tradeService.setCounterOffer();
+                });
+            });
+            range = document.getElementById('player2TradeMoney');
+            noUiSlider.create(range, {
+                start: [0],
+                step: 10, 
+                connect: 'lower',
+                orientation: 'horizontal', 
+                behaviour: 'tap', 
+                range: {
+                    'min': 0,
+                    'max': this.tradeService.getTradeState().secondPlayer.money
+                }
+            });
+            range.noUiSlider.on('slide', function (values, handle) {
+                that.scope.$apply(() => {
+                    that.tradeService.getTradeState().secondPlayerMoney = parseInt(values[handle]);
+                    that.tradeService.setCounterOffer();
+                });
+            });
+            // fix the height so that it does not increase after additional data is added into container
+            //$("#firstPlayerSelectedAssets").css("max-height", $("#firstPlayerSelectedAssets").height() + "px");
+            //$("#firstPlayerSelectedAssets").css("height", $("#firstPlayerSelectedAssets").height() + "px");            
+            //$("#secondPlayerSelectedAssets").css("max-height", $("#secondPlayerSelectedAssets").height() + "px");
+            //$("#secondPlayerSelectedAssets").css("height", $("#secondPlayerSelectedAssets").height() + "px");            
+        }
+
+        returnFromTrade(execute: boolean) {
+            if (this.tradeMode) {
+                this.gameService.returnFromTrade();
+                this.tradeMode = false;
+                var treeContainer: any = $("#leftTree");
+                treeContainer.jstree("destroy");
+                treeContainer = $("#rightTree");
+                treeContainer.jstree("destroy");
+                //$("#player1TradeMoney").slider("destroy");
+                //$("#player2TradeMoney").slider("destroy");
+                var range: any = document.getElementById('player1TradeMoney');
+                range.noUiSlider.destroy();
+                range = document.getElementById('player2TradeMoney');
+                range.noUiSlider.destroy();
+                var that = this;
+                // show command panel in the next event loop iteration to avoid its mouse event handler to process this event by highlighting one of its buttons
+                this.timeoutService(() => {
+                    $("#commandPanel").show();
+                    var tradeState = this.tradeService.getTradeState();
+                    if (execute) {
+                        // redraw board field owner boxes
+                        that.redrawTradeBoardFields(tradeState);
+                        that.updatePlayersForView();
+                        that.showTradeMessage(tradeState);
+                    }
+                    if (tradeState.tradeActions) {
+                        tradeState.tradeActions.resolve();
+                    }
+                });           
+            }
+        }
+
         endTurn() {
             if (this.gameService.canEndTurn) {
+                var viewPlayer = this.players.filter(p => p.name === this.currentPlayer)[0];
+                if (viewPlayer.numTurnsToWaitBeforeTrade && viewPlayer.numTurnsToWaitBeforeTrade > 0) {
+                    viewPlayer.numTurnsToWaitBeforeTrade--;
+                }
                 this.gameService.endTurn();
                 this.gameService.saveGame();
                 var that = this;
@@ -440,6 +690,31 @@ module MonopolyApp.controllers {
             }
         }
 
+        makeTradeOffer() {
+            this.timeoutService(() => {
+                this.unhighlightTradeButton($(".highlightedTradeButton"));
+            });
+            if (this.tradeService.makeTradeOffer()) {
+                var that = this;
+                sweetAlert({
+                    title: "Trade confirmation",
+                    text: "Your trade offer has been accepted!",
+                    type: "info",
+                    showCancelButton: false,
+                    confirmButtonText: "Ok"
+                },
+                    isConfirm => {
+                        that.returnFromTrade(true);
+                    });
+            }
+        }
+
+        acceptTradeOffer() {
+            this.tradeService.acceptTradeOffer();
+            this.returnFromTrade(true);
+            //this.unhighlightTradeButton($(".highlightedTradeButton"));
+        }
+
         toggleMortgageConfirm() {
             if (this.gameService.canMortgage(this.assetToManage)) {
                 var that = this;
@@ -474,7 +749,7 @@ module MonopolyApp.controllers {
             var success = this.gameService.toggleMortgageAsset(asset);
             if (success) {
                 var viewBoardField = this.boardFields.filter(boardField => boardField.assetName && boardField.assetName === asset.name)[0];
-                this.drawingService.setBoardFieldMortgage(viewBoardField, asset, this.scene);
+                this.drawingService.setBoardFieldMortgage(viewBoardField, asset, this.scene, true);
                 if (asset.mortgage) {
                     this.showMessage(this.currentPlayer + " mortgaged " + asset.name + ".");
                 } else {
@@ -533,6 +808,19 @@ module MonopolyApp.controllers {
                     that.endTurn();
                 }, () => {});
             }
+        }
+
+        private redrawTradeBoardFields(tradeState: Model.TradeState) {
+            // redraw board field owner boxes
+            var that = this;
+            tradeState.firstPlayerSelectedAssets.forEach(firstPlayerAsset => {
+                var boardField = that.boardFields.filter(f => f.assetName === firstPlayerAsset.name)[0];
+                that.drawingService.setBoardFieldOwner(boardField, firstPlayerAsset, that.scene, true);
+            });
+            tradeState.secondPlayerSelectedAssets.forEach(secondPlayerAsset => {
+                var boardField = that.boardFields.filter(f => f.assetName === secondPlayerAsset.name)[0];
+                that.drawingService.setBoardFieldOwner(boardField, secondPlayerAsset, that.scene, true);
+            });
         }
 
         private doSurrender() {
@@ -668,7 +956,7 @@ module MonopolyApp.controllers {
                     var viewBoardField = this.boardFields.filter(f => f.index === groupBoardField.index)[0];
                     viewBoardField.assetName = groupBoardField.asset.name;
                     if (!groupBoardField.asset.unowned) {
-                        this.drawingService.setBoardFieldOwner(viewBoardField, groupBoardField.asset, this.scene);
+                        this.drawingService.setBoardFieldOwner(viewBoardField, groupBoardField.asset, this.scene, false);
                     }
                 });
             }
@@ -687,6 +975,7 @@ module MonopolyApp.controllers {
             this.availableActions.throwDice = !this.gameService.isComputerMove && this.gameService.canThrowDice;
             this.availableActions.buy = !this.gameService.isComputerMove && this.gameService.canBuy;
             this.availableActions.manage = !this.gameService.isComputerMove && this.gameService.canManage;
+            this.availableActions.trade = !this.gameService.isComputerMove && this.gameService.canTrade;
             this.availableActions.getOutOfJail = !this.gameService.isComputerMove && this.gameService.canGetOutOfJail;
             this.availableActions.surrender = !this.gameService.isComputerMove && this.gameService.canSurrender;
             this.availableActions.pause = (!this.gameService.isComputerMove || this.gameService.players.filter(p => p.active && p.human).length === 0) && this.gameService.canPause;
@@ -947,7 +1236,7 @@ module MonopolyApp.controllers {
                         viewGroupBoardField.mortgageMesh = undefined;
                     }
                     if (field.asset.mortgage) {
-                        that.drawingService.setBoardFieldMortgage(viewGroupBoardField, field.asset, this.scene);
+                        that.drawingService.setBoardFieldMortgage(viewGroupBoardField, field.asset, this.scene, false);
                     }
                 });
             });
@@ -1011,8 +1300,9 @@ module MonopolyApp.controllers {
                     });
                 } else if (card.cardType === Model.CardType.JumpToField) {
                     if (card.boardFieldIndex === 10) {
-                        this.processGoToPrisonField();
-                        addAction.resolve();
+                        $.when(this.processGoToPrisonField()).done(() => {
+                            addAction.resolve();
+                        });
                     }
                 } else {
                     addAction.resolve();
@@ -1146,6 +1436,25 @@ module MonopolyApp.controllers {
             button.parent().children().children(".commandButtonOverlayText").hide();
         }
 
+        private highlightTradeButtons(coords) {
+            var elem = $(document.elementFromPoint(coords.x, coords.y));
+            this.unhighlightTradeButton($(".highlightedTradeButton"));
+            if (elem.hasClass("tradeButton")) {
+                this.highlightTradeButton(elem);
+            }
+        }
+
+        private highlightTradeButton(button: JQuery) {
+            button.addClass("highlightedTradeButton").removeClass("unhighlightedTradeButton");
+            button.parent().children().children(".tradeButtonOverlayText").show();
+        }
+
+        private unhighlightTradeButton(button: JQuery) {
+            button.addClass("unhighlightedTradeButton").removeClass("highlightedTradeButton");
+            button.parent().children().children(".tradeButtonOverlayText").hide();
+        }
+
+
         private bindInputEvents() {
             //$(window).on("click", null, this, this.handleClickEvent);
             var isTouch = (("ontouchstart" in window) || (navigator.msMaxTouchPoints > 0));
@@ -1172,11 +1481,14 @@ module MonopolyApp.controllers {
             $("#commandPanel").mousedown(e => {
                 this.highlightCommandButtons({ x: e.clientX, y: e.clientY });
             });
-            $("#commandPanel").bind("touchstart", this, e => {
+            $("#tradeCommandPanel").mousedown(e => {
+                this.highlightTradeButtons({ x: e.clientX, y: e.clientY });
+            });
+            $("#tradeCommandPanel").bind("touchstart", this, e => {
                 var mouseEventObject: TouchEvent = <TouchEvent>e.originalEvent;
                 if (mouseEventObject.changedTouches && mouseEventObject.changedTouches.length > 0) {
                     var thisInstance = <GameController>e.data;
-                    thisInstance.highlightCommandButtons({ x: mouseEventObject.changedTouches[0].clientX, y: mouseEventObject.changedTouches[0].clientY });
+                    thisInstance.highlightTradeButtons({ x: mouseEventObject.changedTouches[0].clientX, y: mouseEventObject.changedTouches[0].clientY });
                 }
             });
             $("#manageCommandPanel").mousedown(e => {
@@ -1199,12 +1511,21 @@ module MonopolyApp.controllers {
                     this.unhighlightCommandButton($("#buttonReturnFromManage"));
                 }
             });
+            $("#tradeCommandPanel").mouseup(e => {
+                if (!this.swipeInProgress) {
+                    this.unhighlightTradeButton($("#buttonReturnFromTrade"));
+                }
+            });
 
-            this.swipeService.bind($("#commandPanel"), {
+            this.swipeService.bind($("#commandPanel, #tradeCommandPanel"), {
                 'move': (coords) => {
                     if (!this.manageMode) {
                         this.swipeInProgress = true;
-                        this.highlightCommandButtons(coords);
+                        if (this.tradeMode) {
+                            this.highlightTradeButtons(coords);
+                        } else {
+                            this.highlightCommandButtons(coords);
+                        }
                     }
                 },
                 'end': (coords, event) => {
@@ -1215,7 +1536,10 @@ module MonopolyApp.controllers {
                         var elem = $(document.elementFromPoint(coords.x, coords.y));
                         if (elem.hasClass("commandButton")) {
                             this.unhighlightCommandButton(elem);
-                            //elem.addClass("unhighlightedButton").removeClass("highlightedButton");
+                            elem.click();
+                        }
+                        if (elem.hasClass("tradeButton")) {
+                            this.unhighlightTradeButton(elem);
                             elem.click();
                         }
                         this.timeoutService(() => this.swipeInProgress = false, 100, false);
@@ -1464,6 +1788,29 @@ module MonopolyApp.controllers {
                     }
                 });
             });
+        }
+
+        private onActivateTradeNode(e: JQueryEventObject, data: any) {
+            var thisInstance = <GameController>e.data;
+            if (data && data.node && data.node.children && data.node.children.length === 0) {
+                // leaf node
+                thisInstance.scope.$apply(() => {
+                    thisInstance.tradeService.switchSelection(data.node.text);
+                });                
+            }
+            if (!data.instance.is_leaf(data.node)) {
+                data.instance.toggle_node(data.node);
+            }
+        }
+
+        private showTradeMessage(tradeState: Model.TradeState) {
+            var player1MoneyMsg = tradeState.firstPlayerMoney ? (" and " + this.themeService.theme.moneySymbol + tradeState.firstPlayerMoney) : "";
+            var player2MoneyMsg = tradeState.secondPlayerMoney ? (" and " + this.themeService.theme.moneySymbol + tradeState.secondPlayerMoney) : "";
+            if (tradeState.firstPlayerSelectedAssets.length === 1 && tradeState.secondPlayerSelectedAssets.length === 1) {
+                this.showMessage(tradeState.firstPlayer.playerName + " traded " + tradeState.firstPlayerSelectedAssets[0].name + player1MoneyMsg + " for " + tradeState.secondPlayerSelectedAssets[0].name + player2MoneyMsg + " with " + tradeState.secondPlayer.playerName + ".");
+            } else {
+                this.showMessage(tradeState.firstPlayer.playerName + " traded " + tradeState.firstPlayerSelectedAssets.length + " assets" + player1MoneyMsg + " for " + tradeState.secondPlayerSelectedAssets.length + player2MoneyMsg + " with " + tradeState.secondPlayer.playerName + ".");
+            }            
         }
     }
 

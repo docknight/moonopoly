@@ -6,6 +6,7 @@ module Services {
         private httpService: ng.IHttpService;
         private gameService: Interfaces.IGameService;
         private themeService: Interfaces.IThemeService;
+        private timeoutService: angular.ITimeoutService;
 
         private boardFieldsInQuadrant: number = 11;
         private quadrantStartingCoordinate: MonopolyApp.Viewmodels.Coordinate[]; // top left corners of the individual board quadrants
@@ -32,12 +33,13 @@ module Services {
         private dicePosition: BABYLON.Vector3; // position of the dice at the beginning of a throw
         private diceColliding: boolean;
 
-        static $inject = ["$http", "gameService", "themeService"];
+        static $inject = ["$http", "gameService", "themeService", "$timeout"];
 
-        constructor($http: ng.IHttpService, gameService: Interfaces.IGameService, themeService: Interfaces.IThemeService) {
+        constructor($http: ng.IHttpService, gameService: Interfaces.IGameService, themeService: Interfaces.IThemeService, timeoutService: angular.ITimeoutService) {
             this.httpService = $http;
             this.gameService = gameService;
             this.themeService = themeService;
+            this.timeoutService = timeoutService;
             this.boardFieldWidth = this.boardSize / (this.boardFieldsInQuadrant + 2); // assuming the corner fields are double the width of the rest of the fields
             this.boardFieldHeight = this.boardFieldWidth * 2;
             this.boardFieldEdgeWidth = this.boardFieldWidth * 2;
@@ -529,7 +531,7 @@ module Services {
             wall4.isPickable = false;
         }
 
-        setBoardFieldOwner(boardField: MonopolyApp.Viewmodels.BoardField, asset: Model.Asset, scene: BABYLON.Scene) {
+        setBoardFieldOwner(boardField: MonopolyApp.Viewmodels.BoardField, asset: Model.Asset, scene: BABYLON.Scene, shootParticles: boolean) {
             if (boardField.ownerMesh) {
                 scene.removeMesh(boardField.ownerMesh);
                 boardField.ownerMesh.dispose();
@@ -560,6 +562,10 @@ module Services {
                 boardField.ownerMesh.rotation.y = Math.PI;
             } else if (fieldQuadrant === 3) {
                 boardField.ownerMesh.rotation.y = Math.PI * 3 / 2;
+            }
+            if (shootParticles) {
+                var ownerBoxParticle = this.addOwnerBoxParticle(boardField.ownerMesh, scene);
+                ownerBoxParticle.start();
             }
         }
 
@@ -622,10 +628,20 @@ module Services {
             }
         }
 
-        public setBoardFieldMortgage(boardField: MonopolyApp.Viewmodels.BoardField, asset: Model.Asset, scene: BABYLON.Scene) {
+        public setBoardFieldMortgage(boardField: MonopolyApp.Viewmodels.BoardField, asset: Model.Asset, scene: BABYLON.Scene, particles: boolean) {
+            var mortgageParticles: BABYLON.ParticleSystem;
             if (boardField.mortgageMesh) {
-                scene.removeMesh(boardField.mortgageMesh);
-                boardField.mortgageMesh.dispose();
+                mortgageParticles = this.addOwnerBoxParticle(boardField.mortgageMesh, scene);
+                mortgageParticles.start();
+                if (particles) {
+                    this.timeoutService(() => {
+                        scene.removeMesh(boardField.mortgageMesh);
+                        boardField.mortgageMesh.dispose();
+                    }, 3000);
+                } else {
+                    scene.removeMesh(boardField.mortgageMesh);
+                    boardField.mortgageMesh.dispose();                    
+                }
             }
             if (asset.mortgage) {
                 var fieldQuadrant = Math.floor(boardField.index / (this.boardFieldsInQuadrant - 1));
@@ -646,6 +662,10 @@ module Services {
                     boardField.mortgageMesh.rotation.y = Math.PI;
                 } else if (fieldQuadrant === 3) {
                     boardField.mortgageMesh.rotation.y = Math.PI * 3 / 2;
+                }
+                if (particles) {
+                    mortgageParticles = this.addOwnerBoxParticle(boardField.mortgageMesh, scene);
+                    mortgageParticles.start();
                 }
             }
         }
@@ -918,6 +938,35 @@ module Services {
             particleSystem.disposeOnStop = true;
             particleSystem.minEmitBox = new BABYLON.Vector3(0, -2.2, -0.4); // Starting all From
             particleSystem.maxEmitBox = new BABYLON.Vector3(0, -2.7, -0);
+            return particleSystem;
+        }
+
+        private addOwnerBoxParticle(abstractMesh: BABYLON.AbstractMesh, scene: BABYLON.Scene, offset?: BABYLON.Vector3): BABYLON.ParticleSystem {
+            var particleSystem = new BABYLON.ParticleSystem("particles", 200, scene);
+            particleSystem.particleTexture = new BABYLON.Texture("images/Moonopoly/Flare.png", scene);
+            particleSystem.emitter = abstractMesh;
+            particleSystem.color1 = new BABYLON.Color4(0.7, 0.8, 1.0, 1.0);
+            particleSystem.color2 = new BABYLON.Color4(0.2, 0.5, 1.0, 1.0);
+            particleSystem.colorDead = new BABYLON.Color4(0, 0, 0.2, 0.0);
+            particleSystem.minSize = 0.1;
+            particleSystem.maxSize = 0.2;
+            particleSystem.minLifeTime = 0.3;
+            particleSystem.maxLifeTime = 2;
+            particleSystem.emitRate = 150;
+            particleSystem.direction1 = new BABYLON.Vector3(-0.2, 1, 0);
+            particleSystem.direction2 = new BABYLON.Vector3(0.2, 1, 0);
+            particleSystem.minAngularSpeed = 0;
+            particleSystem.maxAngularSpeed = Math.PI;
+            particleSystem.minEmitPower = 3;
+            particleSystem.maxEmitPower = 6;
+            particleSystem.updateSpeed = 0.005;
+            particleSystem.targetStopDuration = 0.7;
+            particleSystem.gravity = new BABYLON.Vector3(0, 9.81, 0);
+            particleSystem.disposeOnStop = true;
+            if (offset) {
+                //particleSystem.minEmitBox = new BABYLON.Vector3(offset.x, offset.y, offset.z); // Starting all From
+                //particleSystem.maxEmitBox = new BABYLON.Vector3(offset.x, offset.y, offset.z);
+            }
             return particleSystem;
         }
 

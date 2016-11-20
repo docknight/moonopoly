@@ -30,11 +30,35 @@ html, body {
     height: 50px;        
 }
 
+.highlightedTradeButton {
+    width: 80px;
+    height: 80px;        
+}
+
+.unhighlightedTradeButton {
+    width: 50px;
+    height: 50px;        
+}
+
 .no-close .ui-dialog-titlebar-close {
   display: none;
 }
 
 .commandButtonOverlayText {
+    display: table; 
+    margin-left: auto; 
+    margin-right: auto; 
+    width: auto; 
+    background-color: white; 
+    color: black; 
+    font-size: 12px; 
+    border-radius: 3px; 
+    border: 1px solid black; 
+    padding-left: 5px; 
+    padding-right: 5px    
+}
+
+.tradeButtonOverlayText {
     display: table; 
     margin-left: auto; 
     margin-right: auto; 
@@ -353,4 +377,10 @@ img.background {
 .resumeGameButton:hover {
     background: url('../images/ResumeGameButtonHovered.png') no-repeat;
     background-size: 100%;
+}
+
+.playerShadow {
+    -webkit-box-shadow: 0px 0px 5px 3px rgba(198,204,34,1);
+    -moz-box-shadow: 0px 0px 5px 3px rgba(198,204,34,1);
+    box-shadow: 0px 0px 5px 3px rgba(198,204,34,1);
 }

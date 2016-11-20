@@ -115,7 +115,7 @@
                 this.data.messagePaddingTop = 50;
             } else if (this.currentStep === 3) {
                 this.data.messageDialogVisible = true;
-                this.data.messageDialogText = "In a turn based game you have a choice of THROWING the dice, MANAGING your assets and ENDING current turn.";
+                this.data.messageDialogText = "In a turn based game you have a choice of THROWING the dice, MANAGING or TRADING your assets and ENDING current turn.";
                 this.data.messagePaddingTop = 35;
             } else if (this.currentStep === 4) {
                 this.data.messageDialogVisible = true;

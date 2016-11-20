@@ -34,45 +34,43 @@ module Services {
                 this.game.gameParams.rules.loadDataFrom(settings.rules);
 
                 // TEST DATA
-                //this.players[0].money = 67;
-                //this.players[1].money = 57;
-                //this.players[2].money = 64;
-                //this.players[3].money = 2387;
-                //this.game.currentPlayer = this.game.players[3].playerName;
-                //this.game.board.fields[1].asset.setOwner(this.players[2].playerName);
-                //this.game.board.fields[3].asset.setOwner(this.players[0].playerName);
-                //this.game.board.fields[3].asset.putUnderMortgage();
-                //this.game.board.fields[5].asset.setOwner(this.players[3].playerName);
-                //this.game.board.fields[6].asset.setOwner(this.players[0].playerName);
-                //this.game.board.fields[6].asset.putUnderMortgage();
-                //this.game.board.fields[8].asset.setOwner(this.players[1].playerName);
-                //this.game.board.fields[8].asset.putUnderMortgage();
-                //this.game.board.fields[9].asset.setOwner(this.players[0].playerName);
-                //this.game.board.fields[9].asset.putUnderMortgage();
-                //this.game.board.fields[11].asset.setOwner(this.players[2].playerName);
-                //this.game.board.fields[12].asset.setOwner(this.players[1].playerName);
-                //this.game.board.fields[12].asset.putUnderMortgage();
-                //this.game.board.fields[13].asset.setOwner(this.players[1].playerName);
-                //this.game.board.fields[13].asset.putUnderMortgage();
-                //this.game.board.fields[14].asset.setOwner(this.players[0].playerName);
-                //this.game.board.fields[14].asset.putUnderMortgage();
-                //this.game.board.fields[15].asset.setOwner(this.players[3].playerName);
-                //this.game.board.fields[16].asset.setOwner(this.players[1].playerName);
-                //this.game.board.fields[16].asset.putUnderMortgage();
-                //this.game.board.fields[19].asset.setOwner(this.players[0].playerName);
-                //this.game.board.fields[21].asset.setOwner(this.players[3].playerName);
-                //this.game.board.fields[24].asset.setOwner(this.players[2].playerName);
-                //this.game.board.fields[25].asset.setOwner(this.players[3].playerName);
-                //this.game.board.fields[27].asset.setOwner(this.players[3].playerName);
-                //this.game.board.fields[28].asset.setOwner(this.players[3].playerName);
-                //this.game.board.fields[29].asset.setOwner(this.players[2].playerName);
-                //this.game.board.fields[31].asset.setOwner(this.players[0].playerName);
-                //this.game.board.fields[31].asset.putUnderMortgage();
-                //this.game.board.fields[32].asset.setOwner(this.players[0].playerName);
-                //this.game.board.fields[34].asset.setOwner(this.players[2].playerName);
-                //this.game.board.fields[35].asset.setOwner(this.players[3].playerName);
-                //this.game.board.fields[37].asset.setOwner(this.players[0].playerName);
-                //this.game.board.fields[39].asset.setOwner(this.players[3].playerName);
+                this.players[0].money = 1367;
+                this.players[1].money = 1457;
+                this.game.currentPlayer = this.game.players[0].playerName;
+                this.game.board.fields[1].asset.setOwner(this.players[0].playerName);
+                this.game.board.fields[3].asset.setOwner(this.players[1].playerName);
+                this.game.board.fields[3].asset.putUnderMortgage();
+                this.game.board.fields[5].asset.setOwner(this.players[1].playerName);
+                this.game.board.fields[6].asset.setOwner(this.players[0].playerName);
+                this.game.board.fields[6].asset.putUnderMortgage();
+                this.game.board.fields[8].asset.setOwner(this.players[1].playerName);
+                this.game.board.fields[8].asset.putUnderMortgage();
+                this.game.board.fields[9].asset.setOwner(this.players[0].playerName);
+                this.game.board.fields[9].asset.putUnderMortgage();
+                this.game.board.fields[11].asset.setOwner(this.players[0].playerName);
+                this.game.board.fields[12].asset.setOwner(this.players[1].playerName);
+                this.game.board.fields[12].asset.putUnderMortgage();
+                this.game.board.fields[13].asset.setOwner(this.players[1].playerName);
+                this.game.board.fields[13].asset.putUnderMortgage();
+                this.game.board.fields[14].asset.setOwner(this.players[0].playerName);
+                this.game.board.fields[14].asset.putUnderMortgage();
+                this.game.board.fields[15].asset.setOwner(this.players[1].playerName);
+                this.game.board.fields[16].asset.setOwner(this.players[1].playerName);
+                this.game.board.fields[16].asset.putUnderMortgage();
+                this.game.board.fields[19].asset.setOwner(this.players[0].playerName);
+                this.game.board.fields[21].asset.setOwner(this.players[1].playerName);
+                this.game.board.fields[24].asset.setOwner(this.players[1].playerName);
+                this.game.board.fields[25].asset.setOwner(this.players[1].playerName);
+                this.game.board.fields[27].asset.setOwner(this.players[1].playerName);
+                this.game.board.fields[28].asset.setOwner(this.players[1].playerName);
+                this.game.board.fields[29].asset.setOwner(this.players[1].playerName);
+                this.game.board.fields[31].asset.setOwner(this.players[0].playerName);
+                this.game.board.fields[31].asset.putUnderMortgage();
+                this.game.board.fields[32].asset.setOwner(this.players[0].playerName);
+                this.game.board.fields[34].asset.setOwner(this.players[1].playerName);
+                this.game.board.fields[35].asset.setOwner(this.players[1].playerName);
+                this.game.board.fields[37].asset.setOwner(this.players[0].playerName);
+                this.game.board.fields[39].asset.setOwner(this.players[1].playerName);
             }
             this.initManageGroups();
             if (!loadGame) {
@@ -95,6 +93,14 @@ module Services {
                 var savedGame: Model.Game = JSON.parse(gameString);
                 this.game.loadDataFrom(savedGame, this.themeService.theme);
             }
+        }
+
+        public cloneGame(): Model.Game {
+            var gameString = JSON.stringify(this.game);
+            var clonedGame = new Model.Game(this.themeService.theme);
+            var savedGame: Model.Game = JSON.parse(gameString);
+            clonedGame.loadDataFrom(savedGame, this.themeService.theme);
+            return clonedGame;
         }
 
         public endTurn() {
@@ -170,6 +176,14 @@ module Services {
         }
 
         get canManage(): boolean {
+            if (this.game.getState() === Model.GameState.Move || this.game.getState() === Model.GameState.Process || this.game.getState() === Model.GameState.ThrowDice) {
+                return false;
+            }
+
+            return true;
+        }
+
+        get canTrade(): boolean {
             if (this.game.getState() === Model.GameState.Move || this.game.getState() === Model.GameState.Process || this.game.getState() === Model.GameState.ThrowDice) {
                 return false;
             }
@@ -293,6 +307,18 @@ module Services {
 
         public returnFromManage() {
             if (this.game.getState() === Model.GameState.Manage) {
+                this.game.setPreviousState();
+            }
+        }
+
+        public trade() {
+            if (this.canTrade) {
+                this.game.setState(Model.GameState.Trade);
+            }
+        }
+
+        public returnFromTrade() {
+            if (this.game.getState() === Model.GameState.Trade) {
                 this.game.setPreviousState();
             }
         }
@@ -791,6 +817,40 @@ module Services {
             return canMortgage;
         }
 
+        public getPlayersForTrade(): Array<Model.Player> {
+            return this.players.filter(p => p.active);
+        }
+
+        public canSellAsset(asset: Model.Asset): boolean {
+            if (asset.unowned) {
+                return false;
+            }
+            if (this.hasMonopoly(asset.owner, 0, asset.group)) {
+                // if any houses or hotels on group, the asset can not be sold
+                var fields = this.getGroupBoardFields(asset.group);
+                var hasUpgrades = false;
+                fields.forEach(f => {
+                    if (f.asset.hotel || (f.asset.houses && f.asset.houses > 0)) {
+                        hasUpgrades = true;
+                    }
+                });
+                if (hasUpgrades) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        public getAssetByName(assetName: string): Model.Asset {
+            var fields = this.game.board.fields.filter(f => f.asset && f.asset.name === assetName);
+            if (fields && fields.length > 0) {
+                return fields[0].asset;
+            }
+
+            return undefined;
+        }
+
         private setupTestData() {
             var player = this.game.players[1];
             this.game.board.fields[1].asset.setOwner(player.playerName);
@@ -932,8 +992,8 @@ module Services {
             var eventCard = new Model.EventCard();
             eventCard.index = eventCardIndex++;
             eventCard.cardType = Model.CardType.PayMoney;
-            eventCard.message = `You need a new spacesuit. Pay ${this.themeService.theme.moneySymbol}15.`;
-            eventCard.money = 15;
+            eventCard.message = `You need a new spacesuit. Pay ${this.themeService.theme.moneySymbol}35.`;
+            eventCard.money = 35;
             this.game.eventCards.push(eventCard);
 
             eventCard = new Model.EventCard();
@@ -1031,9 +1091,9 @@ module Services {
                 // And swap it with the current element.
                 temporaryValue = array[currentIndex];
                 array[currentIndex] = array[randomIndex];
-                array[currentIndex].index = randomIndex;
+                array[currentIndex].index = currentIndex;
                 array[randomIndex] = temporaryValue;
-                array[randomIndex].index = currentIndex;
+                array[randomIndex].index = randomIndex;
             }
 
             return array;

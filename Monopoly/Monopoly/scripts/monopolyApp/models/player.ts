@@ -6,5 +6,6 @@
         index: number;
         color: string;
         active: boolean;
+        numTurnsToWaitBeforeTrade: number; // number of turns to wait before another trade offer (in one exists) may be presented to the player
     }
 }

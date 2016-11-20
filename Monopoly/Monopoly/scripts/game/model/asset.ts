@@ -184,10 +184,8 @@
         }
 
         setOwner(ownerName: string) {
-            if (this._unowned) {
-                this._owner = ownerName;
-                this._unowned = false;
-            }
+            this._owner = ownerName;
+            this._unowned = false;
         }
 
         public loadDataFrom(savedAsset: Asset) {

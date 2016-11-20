@@ -16,6 +16,7 @@
         canEndTurn: boolean;
         canBuy: boolean;
         canManage: boolean;
+        canTrade: boolean;
         canGetOutOfJail: boolean;
         canSurrender: boolean;
         canPause: boolean;
@@ -25,6 +26,7 @@
         initGame(loadGame?: boolean);
         saveGame();
         loadGame();
+        cloneGame(): Model.Game;
         getCurrentPlayer(): string;
         endTurn();
         throwDice();
@@ -63,6 +65,11 @@
         getOutOfJail();
         moveProcessingDone();
         getAssetGroup(position: number): Model.AssetGroup;
+        getPlayersForTrade(): Array<Model.Player>;
+        trade();
+        returnFromTrade();
+        canSellAsset(asset: Model.Asset): boolean;
+        getAssetByName(assetName: string): Model.Asset;
     }
     export interface IDrawingService {
         boardSize: number;
@@ -76,9 +83,9 @@
         returnFromManage(scene: BABYLON.Scene);
         pickBoardElement(scene: BABYLON.Scene, coords?: any): MonopolyApp.Viewmodels.PickedObject;
         createBoard(scene: BABYLON.Scene);
-        setBoardFieldOwner(boardField: MonopolyApp.Viewmodels.BoardField, asset: Model.Asset, scene: BABYLON.Scene);
+        setBoardFieldOwner(boardField: MonopolyApp.Viewmodels.BoardField, asset: Model.Asset, scene: BABYLON.Scene, shootParticles: boolean);
         setBoardFieldHouses(viewBoardField: MonopolyApp.Viewmodels.BoardField, houses: number, hotel: boolean, uncommittedHouses: number, uncommittedHotel: boolean, scene: BABYLON.Scene);
-        setBoardFieldMortgage(boardField: MonopolyApp.Viewmodels.BoardField, asset: Model.Asset, scene: BABYLON.Scene);
+        setBoardFieldMortgage(boardField: MonopolyApp.Viewmodels.BoardField, asset: Model.Asset, scene: BABYLON.Scene, particles: boolean);
         loadMeshes(players: MonopolyApp.Viewmodels.Player[], scene: BABYLON.Scene, gameController: MonopolyApp.controllers.GameController): JQueryDeferred<{}>[];
         showHouseButtons(focusedAssetGroupIndex: number, scene: BABYLON.Scene, focusedAssetGroup?: Model.AssetGroup);
         onSwipeMove(scene: BABYLON.Scene, coords: any);
@@ -102,8 +109,10 @@
     }
 
     export interface IAIService {
+        ownedGroupTradeMultiplier: number;
         afterMoveProcessing(skipBuyingHouses?: boolean): Array<Model.AIAction>;
         shouldBuy(asset: Model.Asset): boolean;
+        acceptTradeOffer(player: Model.Player, tradeState: Model.TradeState): boolean; // returns TRUE if the player is accepting trade offer specified in tradeState
     }
 
     export interface IThemeService {
@@ -123,4 +132,17 @@
         initManageModeTutorial(scope: angular.IScope);
         endCurrentSection();
     }
+
+    export interface ITradeService {
+        start(firstPlayer: Model.Player, secondPlayer: Model.Player, scope: angular.IScope, tradeActions: JQueryDeferred<{}>);
+        getTradeState(): Model.TradeState;
+        buildPlayerAssetList(player: Model.Player): Model.TradeGroup[];
+        buildAssetTree(playerAssets: Array<Model.TradeGroup>): any;
+        switchSelection(assetName: string);
+        makeTradeOffer(): boolean;
+        acceptTradeOffer();
+        executeTrade(tradeState: Model.TradeState);
+        setCounterOffer();
+    }
+
 }

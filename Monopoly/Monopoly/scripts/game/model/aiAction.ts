@@ -1,5 +1,5 @@
 ﻿module Model {
-    export enum AIActionType { Buy, Mortgage, Unmortgage, SellHotel, SellHouse, BuyHotel, BuyHouse, Surrender, GetOutOfJail };
+    export enum AIActionType { Buy, Mortgage, Unmortgage, SellHotel, SellHouse, BuyHotel, BuyHouse, Surrender, GetOutOfJail, Trade };
 
     export class AIAction {
         actionType: AIActionType;
@@ -7,5 +7,6 @@
         position: number;
         numHousesOrHotels: number;
         assetGroup: Model.AssetGroup; // group where houses or hotels are being bought
+        tradeState: Model.TradeState;
     }
 }

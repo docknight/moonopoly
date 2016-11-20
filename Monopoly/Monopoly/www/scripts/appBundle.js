@@ -42,6 +42,7 @@ var Model;
         AIActionType[AIActionType["BuyHouse"] = 6] = "BuyHouse";
         AIActionType[AIActionType["Surrender"] = 7] = "Surrender";
         AIActionType[AIActionType["GetOutOfJail"] = 8] = "GetOutOfJail";
+        AIActionType[AIActionType["Trade"] = 9] = "Trade";
     })(Model.AIActionType || (Model.AIActionType = {}));
     var AIActionType = Model.AIActionType;
     ;
@@ -250,10 +251,8 @@ var Model;
             this._mortgage = false;
         };
         Asset.prototype.setOwner = function (ownerName) {
-            if (this._unowned) {
-                this._owner = ownerName;
-                this._unowned = false;
-            }
+            this._owner = ownerName;
+            this._unowned = false;
         };
         Asset.prototype.loadDataFrom = function (savedAsset) {
             this._unowned = savedAsset._unowned;
@@ -716,7 +715,8 @@ var Model;
         GameState[GameState["Process"] = 3] = "Process";
         GameState[GameState["ProcessingDone"] = 4] = "ProcessingDone";
         GameState[GameState["Manage"] = 5] = "Manage";
-        GameState[GameState["EndOfGame"] = 6] = "EndOfGame"; // the game has ended and we have a winner
+        GameState[GameState["EndOfGame"] = 6] = "EndOfGame";
+        GameState[GameState["Trade"] = 7] = "Trade"; // the game is paused and the player has initiated a trade
     })(Model.GameState || (Model.GameState = {}));
     var GameState = Model.GameState;
     ;
@@ -836,6 +836,17 @@ var Model;
                 var player = new Model.Player(savedPlayer.playerName, savedPlayer.human);
                 player.loadDataFrom(savedPlayer, _this.board);
                 _this.players.push(player);
+            });
+        };
+        Game.prototype.performTrade = function (tradeState) {
+            var _this = this;
+            tradeState.firstPlayerSelectedAssets.forEach(function (firstPlayerAsset) {
+                var asset = _this.board.fields.filter(function (f) { return f.type === Model.BoardFieldType.Asset && f.asset.name === firstPlayerAsset.name; })[0].asset;
+                asset.setOwner(tradeState.secondPlayer.playerName);
+            });
+            tradeState.secondPlayerSelectedAssets.forEach(function (secondPlayerAsset) {
+                var asset = _this.board.fields.filter(function (f) { return f.type === Model.BoardFieldType.Asset && f.asset.name === secondPlayerAsset.name; })[0].asset;
+                asset.setOwner(tradeState.firstPlayer.playerName);
             });
         };
         Game.version = "game_v0_01";
@@ -969,6 +980,40 @@ var Model;
         return Settings;
     })();
     Model.Settings = Settings;
+})(Model || (Model = {}));
+var Model;
+(function (Model) {
+    var TradeGroup = (function () {
+        function TradeGroup() {
+            this.assets = [];
+        }
+        return TradeGroup;
+    })();
+    Model.TradeGroup = TradeGroup;
+})(Model || (Model = {}));
+var Model;
+(function (Model) {
+    var TradeState = (function () {
+        function TradeState() {
+            this.canMakeTradeOffer = false;
+            this.canAcceptTradeOffer = false;
+            this.firstPlayerSelectedAssets = [];
+            this.secondPlayerSelectedAssets = [];
+            this.firstPlayerMoney = 0;
+            this.secondPlayerMoney = 0;
+        }
+        TradeState.prototype.initializeFrom = function (tradeState) {
+            this.firstPlayer = tradeState.firstPlayer;
+            this.secondPlayer = tradeState.secondPlayer;
+            this.firstPlayerSelectedAssets = tradeState.firstPlayerSelectedAssets;
+            this.secondPlayerSelectedAssets = tradeState.secondPlayerSelectedAssets;
+            this.firstPlayerMoney = tradeState.firstPlayerMoney;
+            this.secondPlayerMoney = tradeState.secondPlayerMoney;
+            this.canMakeTradeOffer = tradeState.firstPlayerSelectedAssets.length > 0 || tradeState.secondPlayerSelectedAssets.length > 0;
+        };
+        return TradeState;
+    })();
+    Model.TradeState = TradeState;
 })(Model || (Model = {}));
 var Model;
 (function (Model) {
@@ -1583,9 +1628,16 @@ var Services;
 var Services;
 (function (Services) {
     var AIService = (function () {
-        function AIService(gameService) {
+        function AIService(gameService, themeService) {
             this.gameService = gameService;
         }
+        Object.defineProperty(AIService.prototype, "ownedGroupTradeMultiplier", {
+            get: function () {
+                return 4;
+            },
+            enumerable: true,
+            configurable: true
+        });
         // process computer managing his properties or trading
         AIService.prototype.afterMoveProcessing = function (skipBuyingHouses) {
             var _this = this;
@@ -1628,13 +1680,15 @@ var Services;
                 }
             }
             this.unmortgageAssets(player.money, player.playerName, actions);
+            this.tradeAssets(player, actions);
             return actions;
         };
         // determine whether the computer should buy current property he has landed on
         AIService.prototype.shouldBuy = function (asset) {
             var _this = this;
             var player = this.gameService.players.filter(function (p) { return p.playerName === _this.gameService.getCurrentPlayer(); })[0];
-            if (player.money < 2000 && this.severalOwners(asset.group)) {
+            var severalOwners = this.severalOwners(asset.group);
+            if (player.money < 1800 && severalOwners) {
                 return false;
             }
             var assetGroupsToGain = this.numAssetGroupsToGain(player.playerName);
@@ -1646,11 +1700,102 @@ var Services;
                     return true;
                 }
             }
-            if (player.money > asset.price + 150 && asset.price >= 300 && this.canOwnGroup(asset, player)) {
+            var canOwnGroup = this.canOwnGroup(asset, player);
+            if (player.money > asset.price + 150 && asset.price >= 300 && canOwnGroup) {
                 // for higher valued properties AI is prepared to risk a bit more
                 return true;
             }
+            if (player.money > asset.price && !severalOwners && !canOwnGroup) {
+                var groupAssets = this.gameService.getGroupBoardFields(asset.group);
+                var numOwned = groupAssets.filter(function (b) { return !b.asset.unowned; }).length;
+                var numUnowned = groupAssets.filter(function (b) { return b.asset.unowned; }).length;
+                if (numOwned > 0) {
+                    // another player has a chance to own entire group; try to thwart him from that
+                    if (numUnowned === 1 && player.money > asset.price + 100) {
+                        return true;
+                    }
+                    if (numUnowned > 1 && player.money > asset.price + 300) {
+                        return true;
+                    }
+                }
+            }
             return false;
+        };
+        AIService.prototype.acceptTradeOffer = function (player, tradeState) {
+            var myMoney = tradeState.firstPlayer.playerName === player.playerName ? tradeState.firstPlayerMoney : tradeState.secondPlayerMoney;
+            var otherMoney = tradeState.firstPlayer.playerName === player.playerName ? tradeState.secondPlayerMoney : tradeState.firstPlayerMoney;
+            var moneyBalance = otherMoney - myMoney; // how much money am I getting (if +) or losing (if -)
+            var gameBeforeTrade = this.gameService.cloneGame();
+            var scoreBeforeTrade = this.evaluate(player, gameBeforeTrade);
+            gameBeforeTrade.performTrade(tradeState);
+            var scoreAfterTrade = this.evaluate(player, gameBeforeTrade);
+            var accept = scoreAfterTrade - scoreBeforeTrade + moneyBalance >= 0;
+            return accept;
+        };
+        // evaluate board from the player's view; score is expressed in money units
+        AIService.prototype.evaluate = function (player, game) {
+            var _this = this;
+            var myValue = this.evaluatePlayerWorth(player, game);
+            game.players.forEach(function (p) {
+                if (p.playerName !== player.playerName && p.active) {
+                    myValue = myValue - _this.evaluatePlayerWorth(p, game);
+                }
+            });
+            return myValue;
+        };
+        // used by trading to decide whether the player's position improves after trade
+        AIService.prototype.evaluatePlayerWorth = function (player, game) {
+            var _this = this;
+            var score = 0;
+            var groups = [Model.AssetGroup.First, Model.AssetGroup.Second, Model.AssetGroup.Third, Model.AssetGroup.Fourth, Model.AssetGroup.Fifth, Model.AssetGroup.Sixth, Model.AssetGroup.Seventh, Model.AssetGroup.Eighth];
+            var ownedGroups = this.getPlayerAssetGroups(player.playerName, game);
+            groups.forEach(function (group) {
+                var fieldsInGroup = _this.getGroupBoardFields(group, game);
+                if (ownedGroups.filter(function (gr) { return gr === group; }).length > 0) {
+                    score += fieldsInGroup[0].asset.price * _this.ownedGroupTradeMultiplier * fieldsInGroup.length;
+                }
+                else {
+                    // group not entirely owned by player...
+                    if (_this.canOwnGroup(fieldsInGroup[0].asset, player, game)) {
+                        // ..but it could be, so it is still worth something
+                        score += fieldsInGroup[0].asset.price * 3 * fieldsInGroup.filter(function (f) { return !f.asset.unowned && f.asset.owner === player.playerName; }).length;
+                    }
+                    else {
+                        score += fieldsInGroup[0].asset.price * 2 * fieldsInGroup.filter(function (f) { return !f.asset.unowned && f.asset.owner === player.playerName; }).length;
+                    }
+                }
+                // deduct mortgaged assets
+                fieldsInGroup.forEach(function (field) {
+                    if (!field.asset.unowned && field.asset.owner === player.playerName && field.asset.mortgage) {
+                        score -= Math.floor(field.asset.valueMortgage * 1.1);
+                    }
+                });
+            });
+            // count the railways and utilities
+            var railways = this.getGroupBoardFields(Model.AssetGroup.Railway, game);
+            var railwaysOwned = railways.filter(function (r) { return !r.asset.unowned && r.asset.owner === player.playerName; }).length;
+            if (railwaysOwned > 0) {
+                score += railways[0].asset.priceRent[railwaysOwned - 1] * 15;
+            }
+            var utilities = this.getGroupBoardFields(Model.AssetGroup.Utility, game);
+            var utilitiesOwned = utilities.filter(function (r) { return !r.asset.unowned && r.asset.owner === player.playerName; }).length;
+            if (utilitiesOwned > 0) {
+                score += utilities[0].asset.priceMultiplierUtility[utilitiesOwned - 1] * 30;
+            }
+            return score;
+        };
+        // get asset groups entirely owned by given player
+        AIService.prototype.getPlayerAssetGroups = function (playerName, game) {
+            var _this = this;
+            var playerGroups = [];
+            var groups = [Model.AssetGroup.First, Model.AssetGroup.Second, Model.AssetGroup.Third, Model.AssetGroup.Fourth, Model.AssetGroup.Fifth, Model.AssetGroup.Sixth, Model.AssetGroup.Seventh, Model.AssetGroup.Eighth];
+            groups.forEach(function (group) {
+                var groupFields = _this.getGroupBoardFields(group, game);
+                if (groupFields.every(function (field) { return !field.asset.unowned && field.asset.owner === playerName; })) {
+                    playerGroups.push(group);
+                }
+            });
+            return playerGroups;
         };
         // mortgage assets to gain required money
         AIService.prototype.mortgageAssets = function (moneyToGain, player, actions) {
@@ -1775,6 +1920,9 @@ var Services;
                 }
             }
             return moneyToGain;
+        };
+        AIService.prototype.getGroupBoardFields = function (assetGroup, game) {
+            return game.board.fields.filter(function (f) { return f.type === Model.BoardFieldType.Asset && f.asset.group === assetGroup; });
         };
         // buy houses or hotels if available
         AIService.prototype.buyHouses = function (moneyAvailable, player, actions) {
@@ -1943,13 +2091,13 @@ var Services;
             return groupsToGain;
         };
         // whether the group that the asset belongs to is still available
-        AIService.prototype.canOwnGroup = function (asset, player) {
+        AIService.prototype.canOwnGroup = function (asset, player, game) {
             var groups = [Model.AssetGroup.First, Model.AssetGroup.Second, Model.AssetGroup.Third, Model.AssetGroup.Fourth, Model.AssetGroup.Fifth, Model.AssetGroup.Sixth, Model.AssetGroup.Seventh, Model.AssetGroup.Eighth];
             if (groups.filter(function (g) { return g === asset.group; }).length === 0) {
                 // not applicable to railroads and utilities
                 return true;
             }
-            var groupFields = this.gameService.getGroupBoardFields(asset.group);
+            var groupFields = game ? this.getGroupBoardFields(asset.group, game) : this.gameService.getGroupBoardFields(asset.group);
             var ownedByAnotherPlayer = false;
             groupFields.forEach(function (f) {
                 ownedByAnotherPlayer = ownedByAnotherPlayer || (!f.asset.unowned && f.asset.owner !== player.playerName);
@@ -1973,6 +2121,92 @@ var Services;
             });
             return owners.length > 1;
         };
+        AIService.prototype.tradeAssets = function (player, actions) {
+            if (actions.length > 0) {
+                // let's investigate trading opportunities only if there are no pending actions already selected which might change the state of the game
+                return;
+            }
+            var groups = [Model.AssetGroup.First, Model.AssetGroup.Second, Model.AssetGroup.Third, Model.AssetGroup.Fourth, Model.AssetGroup.Fifth, Model.AssetGroup.Sixth, Model.AssetGroup.Seventh, Model.AssetGroup.Eighth];
+            var that = this;
+            groups.forEach(function (group) {
+                if (actions.length === 0) {
+                    var groupFields = that.gameService.getGroupBoardFields(group);
+                    var numOtherPlayer = 0;
+                    var otherPlayerName = "";
+                    var numMyAssets = 0;
+                    var secondPlayerAsset;
+                    groupFields.forEach(function (f) {
+                        if (!f.asset.unowned && f.asset.owner !== player.playerName) {
+                            numOtherPlayer += 1;
+                            otherPlayerName = f.asset.owner;
+                            secondPlayerAsset = f.asset;
+                        }
+                        if (!f.asset.unowned && f.asset.owner === player.playerName) {
+                            numMyAssets += 1;
+                        }
+                    });
+                    if (numOtherPlayer === 1 && numMyAssets + numOtherPlayer === groupFields.length) {
+                        // I only have one asset missing; let's check if I've got anything to offer to the other player in exchange
+                        groups.forEach(function (otherGroup) {
+                            if (otherGroup !== group) {
+                                var otherGroupFields = that.gameService.getGroupBoardFields(otherGroup);
+                                numOtherPlayer = 0;
+                                numMyAssets = 0;
+                                var firstPlayerAsset;
+                                otherGroupFields.forEach(function (f) {
+                                    if (!f.asset.unowned && f.asset.owner === player.playerName) {
+                                        numOtherPlayer += 1;
+                                        firstPlayerAsset = f.asset;
+                                    }
+                                    if (!f.asset.unowned && f.asset.owner === otherPlayerName) {
+                                        numMyAssets += 1;
+                                    }
+                                });
+                                if (numOtherPlayer === 1 && numMyAssets + numOtherPlayer === otherGroupFields.length && actions.length === 0) {
+                                    // found a candidate; let's check if both players have enough money to compensate for the asset different values
+                                    var priceDiff = (groupFields[0].asset.price - otherGroupFields[0].asset.price) * that.ownedGroupTradeMultiplier * Math.max(groupFields.length, otherGroupFields.length);
+                                    // deduct mortgaged assets
+                                    groupFields.forEach(function (field) {
+                                        if (!field.asset.unowned && field.asset.owner !== player.playerName && field.asset.mortgage) {
+                                            priceDiff -= Math.floor(field.asset.valueMortgage * 1.1);
+                                        }
+                                    });
+                                    otherGroupFields.forEach(function (field) {
+                                        if (!field.asset.unowned && field.asset.owner === player.playerName && field.asset.mortgage) {
+                                            priceDiff += Math.floor(field.asset.valueMortgage * 1.1);
+                                        }
+                                    });
+                                    var otherPlayer = that.gameService.players.filter(function (p) { return p.playerName === otherPlayerName; })[0];
+                                    if ((priceDiff > 0 && player.money >= priceDiff + 50) || (priceDiff < 0 && otherPlayer.money > -priceDiff + 50) || priceDiff === 0) {
+                                        // a valid trade option has been found
+                                        // if the other player is a computer, add it immediately, otherwise let's randomize the offer
+                                        if (Math.floor(Math.random() * 4) === 0) {
+                                            var tradeState = new Model.TradeState();
+                                            tradeState.firstPlayer = player;
+                                            tradeState.secondPlayer = otherPlayer;
+                                            tradeState.firstPlayerSelectedAssets.push(firstPlayerAsset);
+                                            tradeState.secondPlayerSelectedAssets.push(secondPlayerAsset);
+                                            if (priceDiff >= 0) {
+                                                tradeState.firstPlayerMoney = priceDiff;
+                                                tradeState.secondPlayerMoney = 0;
+                                            }
+                                            else {
+                                                tradeState.firstPlayerMoney = 0;
+                                                tradeState.secondPlayerMoney = -priceDiff;
+                                            }
+                                            var action = new Model.AIAction();
+                                            action.actionType = Model.AIActionType.Trade;
+                                            action.tradeState = tradeState;
+                                            actions.push(action);
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    }
+                }
+            });
+        };
         AIService.$inject = ["gameService"];
         return AIService;
     })();
@@ -1985,12 +2219,13 @@ var Services;
 var Services;
 (function (Services) {
     var DrawingService = (function () {
-        function DrawingService($http, gameService, themeService) {
+        function DrawingService($http, gameService, themeService, timeoutService) {
             this.boardFieldsInQuadrant = 11;
             this.groundMeshName = "board";
             this.httpService = $http;
             this.gameService = gameService;
             this.themeService = themeService;
+            this.timeoutService = timeoutService;
             this.boardFieldWidth = this.boardSize / (this.boardFieldsInQuadrant + 2); // assuming the corner fields are double the width of the rest of the fields
             this.boardFieldHeight = this.boardFieldWidth * 2;
             this.boardFieldEdgeWidth = this.boardFieldWidth * 2;
@@ -2025,8 +2260,6 @@ var Services;
             if (playerModel.mesh) {
                 var player = this.gameService.players.filter(function (player, index) { return player.playerName === playerModel.name; })[0];
                 var playerCoordinate = this.getPlayerPositionOnBoardField(playerModel, player.position.index);
-                var playerQuadrant = Math.floor(player.position.index / (this.boardFieldsInQuadrant - 1));
-                var playerQuadrantOffset = player.position.index % (this.boardFieldsInQuadrant - 1);
                 playerModel.mesh.position.x = playerCoordinate.x;
                 playerModel.mesh.position.z = playerCoordinate.z;
                 playerModel.mesh.rotationQuaternion = this.getPlayerRotationOnBoardField(playerModel, player.position.index);
@@ -2478,7 +2711,7 @@ var Services;
             wall4.checkCollisions = true;
             wall4.isPickable = false;
         };
-        DrawingService.prototype.setBoardFieldOwner = function (boardField, asset, scene) {
+        DrawingService.prototype.setBoardFieldOwner = function (boardField, asset, scene, shootParticles) {
             if (boardField.ownerMesh) {
                 scene.removeMesh(boardField.ownerMesh);
                 boardField.ownerMesh.dispose();
@@ -2509,6 +2742,10 @@ var Services;
             }
             else if (fieldQuadrant === 3) {
                 boardField.ownerMesh.rotation.y = Math.PI * 3 / 2;
+            }
+            if (shootParticles) {
+                var ownerBoxParticle = this.addOwnerBoxParticle(boardField.ownerMesh, scene);
+                ownerBoxParticle.start();
             }
         };
         DrawingService.prototype.setBoardFieldHouses = function (viewBoardField, houses, hotel, uncommittedHouses, uncommittedHotel, scene) {
@@ -2569,10 +2806,21 @@ var Services;
                 }
             }
         };
-        DrawingService.prototype.setBoardFieldMortgage = function (boardField, asset, scene) {
+        DrawingService.prototype.setBoardFieldMortgage = function (boardField, asset, scene, particles) {
+            var mortgageParticles;
             if (boardField.mortgageMesh) {
-                scene.removeMesh(boardField.mortgageMesh);
-                boardField.mortgageMesh.dispose();
+                mortgageParticles = this.addOwnerBoxParticle(boardField.mortgageMesh, scene);
+                mortgageParticles.start();
+                if (particles) {
+                    this.timeoutService(function () {
+                        scene.removeMesh(boardField.mortgageMesh);
+                        boardField.mortgageMesh.dispose();
+                    }, 3000);
+                }
+                else {
+                    scene.removeMesh(boardField.mortgageMesh);
+                    boardField.mortgageMesh.dispose();
+                }
             }
             if (asset.mortgage) {
                 var fieldQuadrant = Math.floor(boardField.index / (this.boardFieldsInQuadrant - 1));
@@ -2594,6 +2842,10 @@ var Services;
                 }
                 else if (fieldQuadrant === 3) {
                     boardField.mortgageMesh.rotation.y = Math.PI * 3 / 2;
+                }
+                if (particles) {
+                    mortgageParticles = this.addOwnerBoxParticle(boardField.mortgageMesh, scene);
+                    mortgageParticles.start();
                 }
             }
         };
@@ -2860,6 +3112,32 @@ var Services;
             particleSystem.disposeOnStop = true;
             particleSystem.minEmitBox = new BABYLON.Vector3(0, -2.2, -0.4); // Starting all From
             particleSystem.maxEmitBox = new BABYLON.Vector3(0, -2.7, -0);
+            return particleSystem;
+        };
+        DrawingService.prototype.addOwnerBoxParticle = function (abstractMesh, scene, offset) {
+            var particleSystem = new BABYLON.ParticleSystem("particles", 200, scene);
+            particleSystem.particleTexture = new BABYLON.Texture("images/Moonopoly/Flare.png", scene);
+            particleSystem.emitter = abstractMesh;
+            particleSystem.color1 = new BABYLON.Color4(0.7, 0.8, 1.0, 1.0);
+            particleSystem.color2 = new BABYLON.Color4(0.2, 0.5, 1.0, 1.0);
+            particleSystem.colorDead = new BABYLON.Color4(0, 0, 0.2, 0.0);
+            particleSystem.minSize = 0.1;
+            particleSystem.maxSize = 0.2;
+            particleSystem.minLifeTime = 0.3;
+            particleSystem.maxLifeTime = 2;
+            particleSystem.emitRate = 150;
+            particleSystem.direction1 = new BABYLON.Vector3(-0.2, 1, 0);
+            particleSystem.direction2 = new BABYLON.Vector3(0.2, 1, 0);
+            particleSystem.minAngularSpeed = 0;
+            particleSystem.maxAngularSpeed = Math.PI;
+            particleSystem.minEmitPower = 3;
+            particleSystem.maxEmitPower = 6;
+            particleSystem.updateSpeed = 0.005;
+            particleSystem.targetStopDuration = 0.7;
+            particleSystem.gravity = new BABYLON.Vector3(0, 9.81, 0);
+            particleSystem.disposeOnStop = true;
+            if (offset) {
+            }
             return particleSystem;
         };
         DrawingService.prototype.initQuadrantStartingCoordinates = function () {
@@ -3164,7 +3442,7 @@ var Services;
             position[runningCoordinate] = center ? 0 : this.getPositionCoordinate(currentPlayerPositionIndex)[runningCoordinate];
             return position;
         };
-        DrawingService.$inject = ["$http", "gameService", "themeService"];
+        DrawingService.$inject = ["$http", "gameService", "themeService", "$timeout"];
         return DrawingService;
     })();
     Services.DrawingService = DrawingService;
@@ -3192,6 +3470,44 @@ var Services;
                 this.initPlayers(settings);
                 this.initCards(settings);
                 this.game.gameParams.rules.loadDataFrom(settings.rules);
+                // TEST DATA
+                this.players[0].money = 1367;
+                this.players[1].money = 1457;
+                this.game.currentPlayer = this.game.players[0].playerName;
+                this.game.board.fields[1].asset.setOwner(this.players[0].playerName);
+                this.game.board.fields[3].asset.setOwner(this.players[1].playerName);
+                this.game.board.fields[3].asset.putUnderMortgage();
+                this.game.board.fields[5].asset.setOwner(this.players[1].playerName);
+                this.game.board.fields[6].asset.setOwner(this.players[0].playerName);
+                this.game.board.fields[6].asset.putUnderMortgage();
+                this.game.board.fields[8].asset.setOwner(this.players[1].playerName);
+                this.game.board.fields[8].asset.putUnderMortgage();
+                this.game.board.fields[9].asset.setOwner(this.players[0].playerName);
+                this.game.board.fields[9].asset.putUnderMortgage();
+                this.game.board.fields[11].asset.setOwner(this.players[0].playerName);
+                this.game.board.fields[12].asset.setOwner(this.players[1].playerName);
+                this.game.board.fields[12].asset.putUnderMortgage();
+                this.game.board.fields[13].asset.setOwner(this.players[1].playerName);
+                this.game.board.fields[13].asset.putUnderMortgage();
+                this.game.board.fields[14].asset.setOwner(this.players[0].playerName);
+                this.game.board.fields[14].asset.putUnderMortgage();
+                this.game.board.fields[15].asset.setOwner(this.players[1].playerName);
+                this.game.board.fields[16].asset.setOwner(this.players[1].playerName);
+                this.game.board.fields[16].asset.putUnderMortgage();
+                this.game.board.fields[19].asset.setOwner(this.players[0].playerName);
+                this.game.board.fields[21].asset.setOwner(this.players[1].playerName);
+                this.game.board.fields[24].asset.setOwner(this.players[1].playerName);
+                this.game.board.fields[25].asset.setOwner(this.players[1].playerName);
+                this.game.board.fields[27].asset.setOwner(this.players[1].playerName);
+                this.game.board.fields[28].asset.setOwner(this.players[1].playerName);
+                this.game.board.fields[29].asset.setOwner(this.players[1].playerName);
+                this.game.board.fields[31].asset.setOwner(this.players[0].playerName);
+                this.game.board.fields[31].asset.putUnderMortgage();
+                this.game.board.fields[32].asset.setOwner(this.players[0].playerName);
+                this.game.board.fields[34].asset.setOwner(this.players[1].playerName);
+                this.game.board.fields[35].asset.setOwner(this.players[1].playerName);
+                this.game.board.fields[37].asset.setOwner(this.players[0].playerName);
+                this.game.board.fields[39].asset.setOwner(this.players[1].playerName);
             }
             this.initManageGroups();
             if (!loadGame) {
@@ -3212,6 +3528,13 @@ var Services;
                 var savedGame = JSON.parse(gameString);
                 this.game.loadDataFrom(savedGame, this.themeService.theme);
             }
+        };
+        GameService.prototype.cloneGame = function () {
+            var gameString = JSON.stringify(this.game);
+            var clonedGame = new Model.Game(this.themeService.theme);
+            var savedGame = JSON.parse(gameString);
+            clonedGame.loadDataFrom(savedGame, this.themeService.theme);
+            return clonedGame;
         };
         GameService.prototype.endTurn = function () {
             if (this.canEndTurn) {
@@ -3308,6 +3631,16 @@ var Services;
             configurable: true
         });
         Object.defineProperty(GameService.prototype, "canManage", {
+            get: function () {
+                if (this.game.getState() === Model.GameState.Move || this.game.getState() === Model.GameState.Process || this.game.getState() === Model.GameState.ThrowDice) {
+                    return false;
+                }
+                return true;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(GameService.prototype, "canTrade", {
             get: function () {
                 if (this.game.getState() === Model.GameState.Move || this.game.getState() === Model.GameState.Process || this.game.getState() === Model.GameState.ThrowDice) {
                     return false;
@@ -3447,6 +3780,16 @@ var Services;
         };
         GameService.prototype.returnFromManage = function () {
             if (this.game.getState() === Model.GameState.Manage) {
+                this.game.setPreviousState();
+            }
+        };
+        GameService.prototype.trade = function () {
+            if (this.canTrade) {
+                this.game.setState(Model.GameState.Trade);
+            }
+        };
+        GameService.prototype.returnFromTrade = function () {
+            if (this.game.getState() === Model.GameState.Trade) {
                 this.game.setPreviousState();
             }
         };
@@ -3929,6 +4272,35 @@ var Services;
             }
             return canMortgage;
         };
+        GameService.prototype.getPlayersForTrade = function () {
+            return this.players.filter(function (p) { return p.active; });
+        };
+        GameService.prototype.canSellAsset = function (asset) {
+            if (asset.unowned) {
+                return false;
+            }
+            if (this.hasMonopoly(asset.owner, 0, asset.group)) {
+                // if any houses or hotels on group, the asset can not be sold
+                var fields = this.getGroupBoardFields(asset.group);
+                var hasUpgrades = false;
+                fields.forEach(function (f) {
+                    if (f.asset.hotel || (f.asset.houses && f.asset.houses > 0)) {
+                        hasUpgrades = true;
+                    }
+                });
+                if (hasUpgrades) {
+                    return false;
+                }
+            }
+            return true;
+        };
+        GameService.prototype.getAssetByName = function (assetName) {
+            var fields = this.game.board.fields.filter(function (f) { return f.asset && f.asset.name === assetName; });
+            if (fields && fields.length > 0) {
+                return fields[0].asset;
+            }
+            return undefined;
+        };
         GameService.prototype.setupTestData = function () {
             var player = this.game.players[1];
             this.game.board.fields[1].asset.setOwner(player.playerName);
@@ -4052,8 +4424,8 @@ var Services;
             var eventCard = new Model.EventCard();
             eventCard.index = eventCardIndex++;
             eventCard.cardType = Model.CardType.PayMoney;
-            eventCard.message = "You need a new spacesuit. Pay " + this.themeService.theme.moneySymbol + "15.";
-            eventCard.money = 15;
+            eventCard.message = "You need a new spacesuit. Pay " + this.themeService.theme.moneySymbol + "35.";
+            eventCard.money = 35;
             this.game.eventCards.push(eventCard);
             eventCard = new Model.EventCard();
             eventCard.index = eventCardIndex++;
@@ -4135,9 +4507,9 @@ var Services;
                 // And swap it with the current element.
                 temporaryValue = array[currentIndex];
                 array[currentIndex] = array[randomIndex];
-                array[currentIndex].index = randomIndex;
+                array[currentIndex].index = currentIndex;
                 array[randomIndex] = temporaryValue;
-                array[randomIndex].index = currentIndex;
+                array[randomIndex].index = randomIndex;
             }
             return array;
         };
@@ -4214,6 +4586,219 @@ var Services;
     Services.ThemeService = ThemeService;
 })(Services || (Services = {}));
 monopolyApp.service("themeService", Services.ThemeService);
+var Services;
+(function (Services) {
+    var TradeService = (function () {
+        function TradeService(gameService, aiService, timeoutService) {
+            this.gameService = gameService;
+            this.aiService = aiService;
+            this.timeoutService = timeoutService;
+        }
+        TradeService.prototype.start = function (firstPlayer, secondPlayer, scope, tradeActions) {
+            this.scope = scope;
+            this.currentPlayer = firstPlayer;
+            this.isCounterOffer = false;
+            this.tradeState = new Model.TradeState();
+            this.tradeState.firstPlayer = firstPlayer;
+            this.tradeState.secondPlayer = secondPlayer;
+            this.tradeState.tradeActions = tradeActions;
+            this.player1Assets = this.buildPlayerAssetList(firstPlayer);
+            this.player2Assets = this.buildPlayerAssetList(secondPlayer);
+        };
+        TradeService.prototype.getTradeState = function () {
+            return this.tradeState;
+        };
+        TradeService.prototype.buildPlayerAssetList = function (player) {
+            var _this = this;
+            var assetGroups = [];
+            var groups = [Model.AssetGroup.First, Model.AssetGroup.Second, Model.AssetGroup.Third, Model.AssetGroup.Fourth, Model.AssetGroup.Fifth, Model.AssetGroup.Sixth, Model.AssetGroup.Seventh, Model.AssetGroup.Eighth, Model.AssetGroup.Railway, Model.AssetGroup.Utility];
+            groups.forEach(function (group) {
+                var groupFields = _this.gameService.getGroupBoardFields(group);
+                var assetsToSell = [];
+                groupFields.forEach(function (f) {
+                    if (!f.asset.unowned && f.asset.owner === player.playerName && _this.gameService.canSellAsset(f.asset)) {
+                        assetsToSell.push(f.asset);
+                    }
+                });
+                if (assetsToSell.length > 0) {
+                    var groupToSell = new Model.TradeGroup();
+                    groupToSell.assets = assetsToSell;
+                    groupToSell.assetGroup = group;
+                    groupToSell.name = _this.mapGroupName(group);
+                    assetGroups.push(groupToSell);
+                }
+            });
+            return assetGroups;
+        };
+        TradeService.prototype.buildAssetTree = function (playerAssets) {
+            var _this = this;
+            var data = [];
+            playerAssets.forEach(function (tradeGroup) {
+                data.push({
+                    'text': tradeGroup.name,
+                    'state': {
+                        'opened': false,
+                        'selected': false
+                    },
+                    children: _this.buildAssetGroupChildren(tradeGroup.assets)
+                });
+            });
+            return data;
+        };
+        TradeService.prototype.switchSelection = function (assetName) {
+            var selectedAsset = this.gameService.getAssetByName(assetName);
+            if (selectedAsset) {
+                var playerSelectedAssets = selectedAsset.owner === this.tradeState.firstPlayer.playerName ? this.tradeState.firstPlayerSelectedAssets : this.tradeState.secondPlayerSelectedAssets;
+                var currentlySelectedAsset = playerSelectedAssets.filter(function (a) { return a.name === assetName; });
+                if (currentlySelectedAsset.length > 0) {
+                    var index = playerSelectedAssets.indexOf(selectedAsset);
+                    if (index >= 0) {
+                        playerSelectedAssets.splice(index, 1);
+                    }
+                }
+                else {
+                    playerSelectedAssets.push(selectedAsset);
+                }
+                this.setCounterOffer();
+            }
+        };
+        TradeService.prototype.setCounterOffer = function () {
+            this.isCounterOffer = true; // any selection is starting a new offer and the previous one doesn't need a confirmation
+            this.setAllowedActions();
+        };
+        TradeService.prototype.makeTradeOffer = function () {
+            if (!this.tradeState.canMakeTradeOffer) {
+                return false;
+            }
+            if (this.tradeState.firstPlayerMoney && this.tradeState.firstPlayerMoney > this.tradeState.firstPlayer.money) {
+                return false;
+            }
+            if (this.tradeState.secondPlayerMoney && this.tradeState.secondPlayerMoney > this.tradeState.secondPlayer.money) {
+                return false;
+            }
+            var offerAccepted = false;
+            var otherPlayer = this.tradeState.firstPlayer.playerName === this.currentPlayer.playerName ? this.tradeState.secondPlayer : this.tradeState.firstPlayer;
+            if (!otherPlayer.human) {
+                offerAccepted = this.aiService.acceptTradeOffer(otherPlayer, this.tradeState);
+                if (offerAccepted) {
+                    this.executeTrade(this.tradeState);
+                }
+                else {
+                    sweetAlert({
+                        title: "Trade message",
+                        text: otherPlayer.playerName + " rejected your trade offer.",
+                        type: "info",
+                        showCancelButton: false,
+                        confirmButtonText: "Ok"
+                    }, function (isConfirm) {
+                    });
+                }
+            }
+            else {
+                var that = this;
+                if (this.gameService.players.filter(function (p) { return p.human; }).length > 1) {
+                    sweetAlert.close();
+                    this.timeoutService(function () {
+                        sweetAlert({
+                            title: "Trade message",
+                            text: "Please hand the device to " + otherPlayer.playerName + ".",
+                            type: "info",
+                            showCancelButton: false,
+                            confirmButtonText: "Ok"
+                        }, function (isConfirm) {
+                            that.scope.$apply(function () {
+                                that.switchToPlayer(otherPlayer);
+                            });
+                        });
+                    }, 100);
+                }
+                else {
+                    that.scope.$apply(function () {
+                        that.switchToPlayer(otherPlayer);
+                    });
+                }
+            }
+            return offerAccepted;
+        };
+        TradeService.prototype.acceptTradeOffer = function () {
+            this.executeTrade(this.tradeState);
+        };
+        TradeService.prototype.executeTrade = function (tradeState) {
+            var firstPlayerMoney = tradeState.firstPlayerMoney;
+            var secondPlayerMoney = tradeState.secondPlayerMoney;
+            firstPlayerMoney = parseInt(firstPlayerMoney);
+            secondPlayerMoney = parseInt(secondPlayerMoney);
+            tradeState.firstPlayer.money -= firstPlayerMoney;
+            tradeState.firstPlayer.money += secondPlayerMoney;
+            tradeState.secondPlayer.money -= secondPlayerMoney;
+            tradeState.secondPlayer.money += firstPlayerMoney;
+            var that = this;
+            tradeState.firstPlayerSelectedAssets.forEach(function (firstPlayerAsset) {
+                firstPlayerAsset.setOwner(tradeState.secondPlayer.playerName);
+            });
+            tradeState.secondPlayerSelectedAssets.forEach(function (secondPlayerAsset) {
+                secondPlayerAsset.setOwner(tradeState.firstPlayer.playerName);
+            });
+        };
+        TradeService.prototype.buildAssetGroupChildren = function (assets) {
+            var data = [];
+            assets.forEach(function (a) { return data.push({ text: a.name, "icon": "jstree-file" }); });
+            return data;
+        };
+        TradeService.prototype.setAllowedActions = function () {
+            if (this.tradeState.firstPlayerSelectedAssets.length > 0 || this.tradeState.secondPlayerSelectedAssets.length > 0) {
+                this.tradeState.canMakeTradeOffer = this.isCounterOffer;
+                this.tradeState.canAcceptTradeOffer = this.isCounterOffer === false;
+            }
+            else {
+                this.tradeState.canMakeTradeOffer = false;
+                this.tradeState.canAcceptTradeOffer = false;
+            }
+        };
+        TradeService.prototype.switchToPlayer = function (player) {
+            this.currentPlayer = player;
+            this.isCounterOffer = false;
+            this.setAllowedActions();
+        };
+        TradeService.prototype.mapGroupName = function (assetGroup) {
+            if (assetGroup === Model.AssetGroup.First) {
+                return "Rimas";
+            }
+            else if (assetGroup === Model.AssetGroup.Second) {
+                return "Mountains";
+            }
+            else if (assetGroup === Model.AssetGroup.Third) {
+                return "Valleys";
+            }
+            else if (assetGroup === Model.AssetGroup.Fourth) {
+                return "Cliffs";
+            }
+            else if (assetGroup === Model.AssetGroup.Fifth) {
+                return "Terras";
+            }
+            else if (assetGroup === Model.AssetGroup.Sixth) {
+                return "Seas";
+            }
+            else if (assetGroup === Model.AssetGroup.Seventh) {
+                return "Oceans";
+            }
+            else if (assetGroup === Model.AssetGroup.Eighth) {
+                return "Craters";
+            }
+            else if (assetGroup === Model.AssetGroup.Railway) {
+                return "Iron mines";
+            }
+            else if (assetGroup === Model.AssetGroup.Utility) {
+                return "Oil rigs";
+            }
+            return "";
+        };
+        TradeService.$inject = ["gameService", "aiService", "$timeout"];
+        return TradeService;
+    })();
+    Services.TradeService = TradeService;
+})(Services || (Services = {}));
+monopolyApp.service("tradeService", Services.TradeService);
 var Services;
 (function (Services) {
     var TutorialService = (function () {
@@ -4326,7 +4911,7 @@ var Services;
             }
             else if (this.currentStep === 3) {
                 this.data.messageDialogVisible = true;
-                this.data.messageDialogText = "In a turn based game you have a choice of THROWING the dice, MANAGING your assets and ENDING current turn.";
+                this.data.messageDialogText = "In a turn based game you have a choice of THROWING the dice, MANAGING or TRADING your assets and ENDING current turn.";
                 this.data.messagePaddingTop = 35;
             }
             else if (this.currentStep === 4) {
@@ -4442,12 +5027,13 @@ var MonopolyApp;
     var controllers;
     (function (controllers) {
         var GameController = (function () {
-            function GameController(stateService, stateParamsService, swipeService, scope, timeoutService, gameService, drawingService, aiService, themeService, settingsService, tutorialService) {
+            function GameController(stateService, stateParamsService, swipeService, scope, timeoutService, compileService, gameService, drawingService, aiService, themeService, settingsService, tutorialService, tradeService) {
                 var _this = this;
                 this.scope = scope;
                 this.stateService = stateService;
                 this.stateParamsService = stateParamsService;
                 this.timeoutService = timeoutService;
+                this.compileService = compileService;
                 this.gameService = gameService;
                 this.drawingService = drawingService;
                 this.aiService = aiService;
@@ -4455,6 +5041,7 @@ var MonopolyApp;
                 this.swipeService = swipeService;
                 this.settingsService = settingsService;
                 this.tutorialService = tutorialService;
+                this.tradeService = tradeService;
                 var spService = this.stateParamsService;
                 var loadGame = eval(spService.loadGame);
                 this.initGame(loadGame);
@@ -4514,6 +5101,7 @@ var MonopolyApp;
                 configurable: true
             });
             GameController.prototype.initGame = function (loadGame) {
+                this.tradeMode = false;
                 this.gameService.initGame(loadGame);
                 if (loadGame) {
                     this.assetToBuy = this.gameService.getCurrentPlayerPosition().asset;
@@ -4627,7 +5215,13 @@ var MonopolyApp;
                 var _this = this;
                 var actions = this.aiService.afterMoveProcessing(skipBuyingHouses);
                 var computerActions = $.Deferred();
+                var tradeActions = $.Deferred();
+                if (actions.length === 0 || actions.filter(function (a) { return a.actionType === Model.AIActionType.Trade; }).length === 0) {
+                    tradeActions.resolve();
+                }
                 if (actions.length > 0) {
+                    var tradingAlreadyProcessed = false; // allow at most one trading action per processing sequence
+                    var tradeSkipped = false;
                     actions.forEach(function (action) {
                         if (action.actionType === Model.AIActionType.Buy) {
                             _this.buy();
@@ -4662,11 +5256,78 @@ var MonopolyApp;
                         if (action.actionType === Model.AIActionType.GetOutOfJail) {
                             _this.getOutOfJail();
                         }
+                        if (action.actionType === Model.AIActionType.Trade && !tradingAlreadyProcessed) {
+                            tradingAlreadyProcessed = true;
+                            if (!action.tradeState.secondPlayer.human) {
+                                _this.tradeService.executeTrade(action.tradeState);
+                                // redraw board field owner boxes
+                                _this.redrawTradeBoardFields(action.tradeState);
+                                _this.updatePlayersForView();
+                                _this.showTradeMessage(action.tradeState);
+                                tradeActions.resolve();
+                            }
+                            else {
+                                //var that = this;
+                                //var player1MoneyMsg = action.tradeState.firstPlayerMoney ? (" and " + that.themeService.theme.moneySymbol + action.tradeState.firstPlayerMoney) : "";
+                                //var player2MoneyMsg = action.tradeState.secondPlayerMoney ? (" and " + that.themeService.theme.moneySymbol + action.tradeState.secondPlayerMoney) : "";
+                                //sweetAlert({
+                                //    title: "Trade message for " + action.tradeState.secondPlayer.playerName,
+                                //    text: action.tradeState.firstPlayer.playerName + " wants to trade " + (action.tradeState.firstPlayerSelectedAssets.length > 0 ? action.tradeState.firstPlayerSelectedAssets[0].name : "no assets") + player1MoneyMsg + " for " + (action.tradeState.secondPlayerSelectedAssets.length > 0 ? action.tradeState.secondPlayerSelectedAssets[0].name : "no assets") + player2MoneyMsg + ". Do you wish to accept the trade offer?",
+                                //    type: "info",
+                                //    showCancelButton: true,
+                                //    confirmButtonText: "Yes",
+                                //    cancelButtonText: "No"
+                                //},
+                                //    isConfirm => {
+                                //        if (isConfirm) {
+                                //            that.tradeService.executeTrade(action.tradeState);
+                                //            // redraw board field owner boxes
+                                //            this.redrawTradeBoardFields(action.tradeState);
+                                //            this.updatePlayersForView();
+                                //            this.showTradeMessage(action.tradeState);
+                                //        }
+                                //        tradeActions.resolve();
+                                //    });
+                                var viewPlayer = _this.players.filter(function (p) { return p.name === action.tradeState.secondPlayer.playerName; })[0];
+                                if (!viewPlayer.numTurnsToWaitBeforeTrade || viewPlayer.numTurnsToWaitBeforeTrade === 0) {
+                                    var that = _this;
+                                    sweetAlert({
+                                        title: "Trade message for " + action.tradeState.secondPlayer.playerName,
+                                        text: action.tradeState.secondPlayer.playerName + ", " + action.tradeState.firstPlayer.playerName + " has a trade offer for you.",
+                                        type: "info",
+                                        showCancelButton: true,
+                                        confirmButtonText: "Let me see",
+                                        cancelButtonText: "Not now"
+                                    }, function (isConfirm) {
+                                        if (isConfirm) {
+                                            $("#commandPanel").hide();
+                                            that.tradeWith(action.tradeState.secondPlayer.playerName, tradeActions);
+                                            var tradeState = that.tradeService.getTradeState();
+                                            tradeState.initializeFrom(action.tradeState);
+                                            var range = document.getElementById("player1TradeMoney");
+                                            range.noUiSlider.set(tradeState.firstPlayerMoney);
+                                            range = document.getElementById("player2TradeMoney");
+                                            range.noUiSlider.set(tradeState.secondPlayerMoney);
+                                            that.makeTradeOffer();
+                                        }
+                                        else {
+                                            // trade, initiated by the computer, has been rejected by the human player - set the counter to avoid the player being flooded by trade offers
+                                            viewPlayer.numTurnsToWaitBeforeTrade = 5;
+                                            tradeActions.resolve();
+                                        }
+                                    });
+                                }
+                                else {
+                                    tradeSkipped = true;
+                                    tradeActions.resolve();
+                                }
+                            }
+                        }
                     });
                     // give other players time to catch up with computer's actions
                     this.timeoutService(function () {
                         computerActions.resolve();
-                    }, 3000);
+                    }, !tradeSkipped || actions.length > 1 ? 3000 : 0);
                 }
                 else {
                     if (this.gameService.anyFlyByEvents) {
@@ -4680,7 +5341,7 @@ var MonopolyApp;
                     }
                 }
                 var that = this;
-                $.when(computerActions).done(function () {
+                $.when.apply($, [computerActions, tradeActions]).done(function () {
                     if (actions.length > 0 && actions.every(function (a) { return a.actionType !== Model.AIActionType.GetOutOfJail && a.actionType !== Model.AIActionType.Surrender; })) {
                         // if any action, beside getting out of jail or surrendering, has been processed, repeat until there are no more actions for the computer to perform
                         that.processComputerActions(allActionsProcessed);
@@ -4734,7 +5395,7 @@ var MonopolyApp;
                 var bought = this.gameService.buy();
                 if (bought) {
                     var boardField = this.gameService.getCurrentPlayerPosition();
-                    this.drawingService.setBoardFieldOwner(this.boardFields.filter(function (f) { return f.index === boardField.index; })[0], boardField.asset, this.scene);
+                    this.drawingService.setBoardFieldOwner(this.boardFields.filter(function (f) { return f.index === boardField.index; })[0], boardField.asset, this.scene, true);
                     this.showMessage(this.currentPlayer + " bought " + boardField.asset.name + " for " + this.theme.moneySymbol + boardField.asset.price + ".");
                     this.updatePlayersForView();
                 }
@@ -4780,8 +5441,181 @@ var MonopolyApp;
                     $("#commandPanel").show();
                 });
             };
+            GameController.prototype.trade = function () {
+                var _this = this;
+                if (this.gameService.canTrade) {
+                    $("#commandPanel").hide();
+                    var players = this.gameService.getPlayersForTrade();
+                    var that = this;
+                    if (players.length === 2) {
+                        var secondPlayer = this.gameService.players.filter(function (p) { return p.playerName !== _this.currentPlayer; })[0];
+                        this.tradeWith(secondPlayer.playerName, undefined);
+                    }
+                    else {
+                        $("[name|='tradeButtonPlayer']").hide();
+                        this.gameService.players.forEach(function (p, i) {
+                            if (p.playerName !== that.currentPlayer && players.filter(function (playerForTrade) { return playerForTrade.playerName === p.playerName; }).length > 0) {
+                                $("[name='tradeButtonPlayer-" + (i + 1) + "']").show();
+                            }
+                        });
+                        var theHtml = $("#playersForTrade").html();
+                        // compile the HTML that will be inserted into the modal dialog so that the angular events will fire
+                        var compiledHtml = this.compileService(theHtml)(this.scope);
+                        sweetAlert({
+                            title: "Choose player to trade with",
+                            text: theHtml,
+                            html: true,
+                            showCancelButton: false,
+                            confirmButtonText: "Cancel"
+                        }, function (isConfirm) {
+                            $("#commandPanel").show();
+                        });
+                        // finally, inject the compiled elements into the DOM
+                        $(".sweet-alert [name='playersForTradeTable']").replaceWith(compiledHtml);
+                    }
+                }
+            };
+            GameController.prototype.tradeWith = function (playerToTradeWith, tradeActions) {
+                var _this = this;
+                sweetAlert.close();
+                var firstPlayer = this.gameService.players.filter(function (p) { return p.playerName === _this.currentPlayer; })[0];
+                var secondPlayer = this.gameService.players.filter(function (p) { return p.playerName === playerToTradeWith; })[0];
+                if (!firstPlayer || !secondPlayer) {
+                    return;
+                }
+                this.gameService.trade();
+                this.tradeMode = true;
+                var treeContainer = $("#leftTree");
+                // fix the height so that it does not increase after additional data is added into container
+                $("#leftTree").css("max-height", $("#leftTree").height() + "px");
+                $("#leftTree").css("height", $("#leftTree").height() + "px");
+                this.tradeService.start(firstPlayer, secondPlayer, this.scope, tradeActions);
+                var data = this.tradeService.buildAssetTree(this.tradeService.buildPlayerAssetList(firstPlayer));
+                treeContainer.jstree({
+                    'core': {
+                        'data': data,
+                        worker: false,
+                        "themes": { "stripes": true, dots: false, variant: "large", responsive: true, icons: false }
+                    }
+                });
+                treeContainer.on("activate_node.jstree", this, this.onActivateTradeNode);
+                treeContainer = $("#rightTree");
+                // fix the height so that it does not increase after additional data is added into container
+                $("#rightTree").css("max-height", $("#rightTree").height() + "px");
+                $("#rightTree").css("height", $("#rightTree").height() + "px");
+                data = this.tradeService.buildAssetTree(this.tradeService.buildPlayerAssetList(secondPlayer));
+                treeContainer.jstree({
+                    'core': {
+                        'data': data,
+                        worker: false,
+                        "themes": { "stripes": true, dots: false, variant: "large", responsive: true, icons: false }
+                    }
+                });
+                treeContainer.on("activate_node.jstree", this, this.onActivateTradeNode);
+                var that = this;
+                //$("#player1TradeMoney").slider({
+                //    value: this.tradeService.getTradeState().firstPlayerMoney,
+                //    min: 0,
+                //    max: this.tradeService.getTradeState().firstPlayer.money,
+                //    step: 1,
+                //    slide(event, ui) {
+                //        that.scope.$apply(() => {
+                //            that.tradeService.getTradeState().firstPlayerMoney = ui.value;
+                //        });
+                //    }
+                //});
+                //$("#player2TradeMoney").slider({
+                //    value: this.tradeService.getTradeState().secondPlayerMoney,
+                //    min: 0,
+                //    max: this.tradeService.getTradeState().secondPlayer.money,
+                //    step: 1,
+                //    slide(event, ui) {
+                //        that.scope.$apply(() => {
+                //            that.tradeService.getTradeState().secondPlayerMoney = ui.value;
+                //        });
+                //    }
+                //});                     
+                var range = document.getElementById('player1TradeMoney');
+                noUiSlider.create(range, {
+                    start: [0],
+                    step: 10,
+                    connect: 'lower',
+                    orientation: 'horizontal',
+                    behaviour: 'tap',
+                    range: {
+                        'min': 0,
+                        'max': this.tradeService.getTradeState().firstPlayer.money
+                    }
+                });
+                range.noUiSlider.on('slide', function (values, handle) {
+                    that.scope.$apply(function () {
+                        that.tradeService.getTradeState().firstPlayerMoney = parseInt(values[handle]);
+                        that.tradeService.setCounterOffer();
+                    });
+                });
+                range = document.getElementById('player2TradeMoney');
+                noUiSlider.create(range, {
+                    start: [0],
+                    step: 10,
+                    connect: 'lower',
+                    orientation: 'horizontal',
+                    behaviour: 'tap',
+                    range: {
+                        'min': 0,
+                        'max': this.tradeService.getTradeState().secondPlayer.money
+                    }
+                });
+                range.noUiSlider.on('slide', function (values, handle) {
+                    that.scope.$apply(function () {
+                        that.tradeService.getTradeState().secondPlayerMoney = parseInt(values[handle]);
+                        that.tradeService.setCounterOffer();
+                    });
+                });
+                // fix the height so that it does not increase after additional data is added into container
+                //$("#firstPlayerSelectedAssets").css("max-height", $("#firstPlayerSelectedAssets").height() + "px");
+                //$("#firstPlayerSelectedAssets").css("height", $("#firstPlayerSelectedAssets").height() + "px");            
+                //$("#secondPlayerSelectedAssets").css("max-height", $("#secondPlayerSelectedAssets").height() + "px");
+                //$("#secondPlayerSelectedAssets").css("height", $("#secondPlayerSelectedAssets").height() + "px");            
+            };
+            GameController.prototype.returnFromTrade = function (execute) {
+                var _this = this;
+                if (this.tradeMode) {
+                    this.gameService.returnFromTrade();
+                    this.tradeMode = false;
+                    var treeContainer = $("#leftTree");
+                    treeContainer.jstree("destroy");
+                    treeContainer = $("#rightTree");
+                    treeContainer.jstree("destroy");
+                    //$("#player1TradeMoney").slider("destroy");
+                    //$("#player2TradeMoney").slider("destroy");
+                    var range = document.getElementById('player1TradeMoney');
+                    range.noUiSlider.destroy();
+                    range = document.getElementById('player2TradeMoney');
+                    range.noUiSlider.destroy();
+                    var that = this;
+                    // show command panel in the next event loop iteration to avoid its mouse event handler to process this event by highlighting one of its buttons
+                    this.timeoutService(function () {
+                        $("#commandPanel").show();
+                        var tradeState = _this.tradeService.getTradeState();
+                        if (execute) {
+                            // redraw board field owner boxes
+                            that.redrawTradeBoardFields(tradeState);
+                            that.updatePlayersForView();
+                            that.showTradeMessage(tradeState);
+                        }
+                        if (tradeState.tradeActions) {
+                            tradeState.tradeActions.resolve();
+                        }
+                    });
+                }
+            };
             GameController.prototype.endTurn = function () {
+                var _this = this;
                 if (this.gameService.canEndTurn) {
+                    var viewPlayer = this.players.filter(function (p) { return p.name === _this.currentPlayer; })[0];
+                    if (viewPlayer.numTurnsToWaitBeforeTrade && viewPlayer.numTurnsToWaitBeforeTrade > 0) {
+                        viewPlayer.numTurnsToWaitBeforeTrade--;
+                    }
                     this.gameService.endTurn();
                     this.gameService.saveGame();
                     var that = this;
@@ -4831,6 +5665,29 @@ var MonopolyApp;
                     this.showMessage(this.gameService.getCurrentPlayer() + " passed START and received " + this.themeService.theme.moneySymbol + this.settingsService.settings.rules.passStartAward + ".");
                 }
             };
+            GameController.prototype.makeTradeOffer = function () {
+                var _this = this;
+                this.timeoutService(function () {
+                    _this.unhighlightTradeButton($(".highlightedTradeButton"));
+                });
+                if (this.tradeService.makeTradeOffer()) {
+                    var that = this;
+                    sweetAlert({
+                        title: "Trade confirmation",
+                        text: "Your trade offer has been accepted!",
+                        type: "info",
+                        showCancelButton: false,
+                        confirmButtonText: "Ok"
+                    }, function (isConfirm) {
+                        that.returnFromTrade(true);
+                    });
+                }
+            };
+            GameController.prototype.acceptTradeOffer = function () {
+                this.tradeService.acceptTradeOffer();
+                this.returnFromTrade(true);
+                //this.unhighlightTradeButton($(".highlightedTradeButton"));
+            };
             GameController.prototype.toggleMortgageConfirm = function () {
                 var _this = this;
                 if (this.gameService.canMortgage(this.assetToManage)) {
@@ -4865,7 +5722,7 @@ var MonopolyApp;
                 var success = this.gameService.toggleMortgageAsset(asset);
                 if (success) {
                     var viewBoardField = this.boardFields.filter(function (boardField) { return boardField.assetName && boardField.assetName === asset.name; })[0];
-                    this.drawingService.setBoardFieldMortgage(viewBoardField, asset, this.scene);
+                    this.drawingService.setBoardFieldMortgage(viewBoardField, asset, this.scene, true);
                     if (asset.mortgage) {
                         this.showMessage(this.currentPlayer + " mortgaged " + asset.name + ".");
                     }
@@ -4920,6 +5777,18 @@ var MonopolyApp;
                         that.endTurn();
                     }, function () { });
                 }
+            };
+            GameController.prototype.redrawTradeBoardFields = function (tradeState) {
+                // redraw board field owner boxes
+                var that = this;
+                tradeState.firstPlayerSelectedAssets.forEach(function (firstPlayerAsset) {
+                    var boardField = that.boardFields.filter(function (f) { return f.assetName === firstPlayerAsset.name; })[0];
+                    that.drawingService.setBoardFieldOwner(boardField, firstPlayerAsset, that.scene, true);
+                });
+                tradeState.secondPlayerSelectedAssets.forEach(function (secondPlayerAsset) {
+                    var boardField = that.boardFields.filter(function (f) { return f.assetName === secondPlayerAsset.name; })[0];
+                    that.drawingService.setBoardFieldOwner(boardField, secondPlayerAsset, that.scene, true);
+                });
             };
             GameController.prototype.doSurrender = function () {
                 if (this.gameService.canSurrender) {
@@ -5047,7 +5916,7 @@ var MonopolyApp;
                         var viewBoardField = _this.boardFields.filter(function (f) { return f.index === groupBoardField.index; })[0];
                         viewBoardField.assetName = groupBoardField.asset.name;
                         if (!groupBoardField.asset.unowned) {
-                            _this.drawingService.setBoardFieldOwner(viewBoardField, groupBoardField.asset, _this.scene);
+                            _this.drawingService.setBoardFieldOwner(viewBoardField, groupBoardField.asset, _this.scene, false);
                         }
                     });
                 }
@@ -5064,6 +5933,7 @@ var MonopolyApp;
                 this.availableActions.throwDice = !this.gameService.isComputerMove && this.gameService.canThrowDice;
                 this.availableActions.buy = !this.gameService.isComputerMove && this.gameService.canBuy;
                 this.availableActions.manage = !this.gameService.isComputerMove && this.gameService.canManage;
+                this.availableActions.trade = !this.gameService.isComputerMove && this.gameService.canTrade;
                 this.availableActions.getOutOfJail = !this.gameService.isComputerMove && this.gameService.canGetOutOfJail;
                 this.availableActions.surrender = !this.gameService.isComputerMove && this.gameService.canSurrender;
                 this.availableActions.pause = (!this.gameService.isComputerMove || this.gameService.players.filter(function (p) { return p.active && p.human; }).length === 0) && this.gameService.canPause;
@@ -5320,7 +6190,7 @@ var MonopolyApp;
                             viewGroupBoardField.mortgageMesh = undefined;
                         }
                         if (field.asset.mortgage) {
-                            that.drawingService.setBoardFieldMortgage(viewGroupBoardField, field.asset, _this.scene);
+                            that.drawingService.setBoardFieldMortgage(viewGroupBoardField, field.asset, _this.scene, false);
                         }
                     });
                 });
@@ -5384,8 +6254,9 @@ var MonopolyApp;
                     }
                     else if (card.cardType === Model.CardType.JumpToField) {
                         if (card.boardFieldIndex === 10) {
-                            _this.processGoToPrisonField();
-                            addAction.resolve();
+                            $.when(_this.processGoToPrisonField()).done(function () {
+                                addAction.resolve();
+                            });
                         }
                     }
                     else {
@@ -5517,6 +6388,21 @@ var MonopolyApp;
                 button.addClass("unhighlightedButton").removeClass("highlightedButton");
                 button.parent().children().children(".commandButtonOverlayText").hide();
             };
+            GameController.prototype.highlightTradeButtons = function (coords) {
+                var elem = $(document.elementFromPoint(coords.x, coords.y));
+                this.unhighlightTradeButton($(".highlightedTradeButton"));
+                if (elem.hasClass("tradeButton")) {
+                    this.highlightTradeButton(elem);
+                }
+            };
+            GameController.prototype.highlightTradeButton = function (button) {
+                button.addClass("highlightedTradeButton").removeClass("unhighlightedTradeButton");
+                button.parent().children().children(".tradeButtonOverlayText").show();
+            };
+            GameController.prototype.unhighlightTradeButton = function (button) {
+                button.addClass("unhighlightedTradeButton").removeClass("highlightedTradeButton");
+                button.parent().children().children(".tradeButtonOverlayText").hide();
+            };
             GameController.prototype.bindInputEvents = function () {
                 var _this = this;
                 //$(window).on("click", null, this, this.handleClickEvent);
@@ -5545,11 +6431,14 @@ var MonopolyApp;
                 $("#commandPanel").mousedown(function (e) {
                     _this.highlightCommandButtons({ x: e.clientX, y: e.clientY });
                 });
-                $("#commandPanel").bind("touchstart", this, function (e) {
+                $("#tradeCommandPanel").mousedown(function (e) {
+                    _this.highlightTradeButtons({ x: e.clientX, y: e.clientY });
+                });
+                $("#tradeCommandPanel").bind("touchstart", this, function (e) {
                     var mouseEventObject = e.originalEvent;
                     if (mouseEventObject.changedTouches && mouseEventObject.changedTouches.length > 0) {
                         var thisInstance = e.data;
-                        thisInstance.highlightCommandButtons({ x: mouseEventObject.changedTouches[0].clientX, y: mouseEventObject.changedTouches[0].clientY });
+                        thisInstance.highlightTradeButtons({ x: mouseEventObject.changedTouches[0].clientX, y: mouseEventObject.changedTouches[0].clientY });
                     }
                 });
                 $("#manageCommandPanel").mousedown(function (e) {
@@ -5572,11 +6461,21 @@ var MonopolyApp;
                         _this.unhighlightCommandButton($("#buttonReturnFromManage"));
                     }
                 });
-                this.swipeService.bind($("#commandPanel"), {
+                $("#tradeCommandPanel").mouseup(function (e) {
+                    if (!_this.swipeInProgress) {
+                        _this.unhighlightTradeButton($("#buttonReturnFromTrade"));
+                    }
+                });
+                this.swipeService.bind($("#commandPanel, #tradeCommandPanel"), {
                     'move': function (coords) {
                         if (!_this.manageMode) {
                             _this.swipeInProgress = true;
-                            _this.highlightCommandButtons(coords);
+                            if (_this.tradeMode) {
+                                _this.highlightTradeButtons(coords);
+                            }
+                            else {
+                                _this.highlightCommandButtons(coords);
+                            }
                         }
                     },
                     'end': function (coords, event) {
@@ -5587,7 +6486,10 @@ var MonopolyApp;
                             var elem = $(document.elementFromPoint(coords.x, coords.y));
                             if (elem.hasClass("commandButton")) {
                                 _this.unhighlightCommandButton(elem);
-                                //elem.addClass("unhighlightedButton").removeClass("highlightedButton");
+                                elem.click();
+                            }
+                            if (elem.hasClass("tradeButton")) {
+                                _this.unhighlightTradeButton(elem);
                                 elem.click();
                             }
                             _this.timeoutService(function () { return _this.swipeInProgress = false; }, 100, false);
@@ -5829,7 +6731,29 @@ var MonopolyApp;
                     });
                 });
             };
-            GameController.$inject = ["$state", "$stateParams", "$swipe", "$scope", "$timeout", "gameService", "drawingService", "aiService", "themeService", "settingsService", "tutorialService"];
+            GameController.prototype.onActivateTradeNode = function (e, data) {
+                var thisInstance = e.data;
+                if (data && data.node && data.node.children && data.node.children.length === 0) {
+                    // leaf node
+                    thisInstance.scope.$apply(function () {
+                        thisInstance.tradeService.switchSelection(data.node.text);
+                    });
+                }
+                if (!data.instance.is_leaf(data.node)) {
+                    data.instance.toggle_node(data.node);
+                }
+            };
+            GameController.prototype.showTradeMessage = function (tradeState) {
+                var player1MoneyMsg = tradeState.firstPlayerMoney ? (" and " + this.themeService.theme.moneySymbol + tradeState.firstPlayerMoney) : "";
+                var player2MoneyMsg = tradeState.secondPlayerMoney ? (" and " + this.themeService.theme.moneySymbol + tradeState.secondPlayerMoney) : "";
+                if (tradeState.firstPlayerSelectedAssets.length === 1 && tradeState.secondPlayerSelectedAssets.length === 1) {
+                    this.showMessage(tradeState.firstPlayer.playerName + " traded " + tradeState.firstPlayerSelectedAssets[0].name + player1MoneyMsg + " for " + tradeState.secondPlayerSelectedAssets[0].name + player2MoneyMsg + " with " + tradeState.secondPlayer.playerName + ".");
+                }
+                else {
+                    this.showMessage(tradeState.firstPlayer.playerName + " traded " + tradeState.firstPlayerSelectedAssets.length + " assets" + player1MoneyMsg + " for " + tradeState.secondPlayerSelectedAssets.length + player2MoneyMsg + " with " + tradeState.secondPlayer.playerName + ".");
+                }
+            };
+            GameController.$inject = ["$state", "$stateParams", "$swipe", "$scope", "$timeout", "$compile", "gameService", "drawingService", "aiService", "themeService", "settingsService", "tutorialService", "tradeService"];
             return GameController;
         })();
         controllers.GameController = GameController;
@@ -5872,6 +6796,7 @@ var MonopolyApp;
         var MainMenuController = (function () {
             function MainMenuController(stateService, scope, timeoutService, themeService, drawingService, settingsService) {
                 var _this = this;
+                this.ratingCounterTrigger = 3;
                 this.startNewGame = function () {
                     //var x: any = navigator;
                     //x.app.exitApp();
@@ -5948,6 +6873,7 @@ var MonopolyApp;
                 $("#buttonContainer").css("width", "575px");
             };
             MainMenuController.prototype.exit = function () {
+                var _this = this;
                 sweetAlert({
                     title: "Leaving MOONopoly",
                     text: "Are you sure you wish to exit?",
@@ -5957,7 +6883,7 @@ var MonopolyApp;
                     cancelButtonText: "No"
                 }, function (isConfirm) {
                     if (isConfirm) {
-                        window.close();
+                        _this.notifyRatingAndClose();
                     }
                 });
             };
@@ -6157,20 +7083,51 @@ var MonopolyApp;
             };
             MainMenuController.prototype.rotateAnimation = function (el, speed, degrees) {
                 var elem = document.getElementById(el);
-                var elemStyle = elem.style;
-                elemStyle.WebkitTransform = "rotate(" + degrees + "deg)";
-                elemStyle.MozTransform = "rotate(" + degrees + "deg)";
-                elemStyle.msTransform = "rotate(" + degrees + "deg)";
-                elemStyle.OTransform = "rotate(" + degrees + "deg)";
-                elemStyle.transform = "rotate(" + degrees + "deg)";
-                degrees++;
-                if (degrees > 360) {
-                    degrees = 1;
+                if (elem) {
+                    var elemStyle = elem.style;
+                    elemStyle.WebkitTransform = "rotate(" + degrees + "deg)";
+                    elemStyle.MozTransform = "rotate(" + degrees + "deg)";
+                    elemStyle.msTransform = "rotate(" + degrees + "deg)";
+                    elemStyle.OTransform = "rotate(" + degrees + "deg)";
+                    elemStyle.transform = "rotate(" + degrees + "deg)";
+                    degrees++;
+                    if (degrees > 360) {
+                        degrees = 1;
+                    }
+                    var that = this;
+                    this.timeoutService(function (elName, sp, deg) {
+                        that.rotateAnimation(elName, sp, deg);
+                    }, speed, false, el, speed, degrees);
                 }
-                var that = this;
-                this.timeoutService(function (elName, sp, deg) {
-                    that.rotateAnimation(elName, sp, deg);
-                }, speed, false, el, speed, degrees);
+            };
+            MainMenuController.prototype.notifyRatingAndClose = function () {
+                var localStorageAny = localStorage;
+                var ratingNotificationCounter = this.ratingCounterTrigger;
+                if (localStorage.getItem("ratingNotificationCounter")) {
+                    ratingNotificationCounter = JSON.parse(localStorageAny.ratingNotificationCounter) + 1;
+                }
+                if (ratingNotificationCounter >= this.ratingCounterTrigger) {
+                    ratingNotificationCounter = 0;
+                    sweetAlert.close();
+                    this.timeoutService(function () {
+                        sweetAlert({
+                            title: "Leaving MOONopoly",
+                            text: "Please rate this game to help improve it in the future. Thanks!",
+                            type: "info",
+                            showCancelButton: false,
+                            confirmButtonText: "Ok"
+                        }, function (isConfirm) {
+                            if (isConfirm) {
+                                localStorageAny.ratingNotificationCounter = ratingNotificationCounter;
+                                window.close();
+                            }
+                        });
+                    }, 100);
+                }
+                else {
+                    localStorageAny.ratingNotificationCounter = ratingNotificationCounter;
+                    window.close();
+                }
             };
             MainMenuController.$inject = ["$state", "$scope", "$timeout", "themeService", "drawingService", "settingsService"];
             return MainMenuController;

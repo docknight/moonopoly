@@ -132,7 +132,7 @@ exports['default'] = sweetAlert = swal = function () {
   /*
    * Make sure all modal buttons respond to all events
    */
-  var $buttons = modal.querySelectorAll('button');
+  var $buttons = modal.querySelectorAll('button:not(.customSweetAlertButton)');
   var buttonEvents = ['onclick', 'onmouseover', 'onmouseout', 'onmousedown', 'onmouseup', 'onfocus'];
   var onButtonEvent = function onButtonEvent(e) {
     return _handleButton$handleConfirm$handleCancel.handleButton(e, params, modal);

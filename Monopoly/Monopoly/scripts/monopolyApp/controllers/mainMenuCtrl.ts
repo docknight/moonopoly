@@ -51,6 +51,7 @@ module MonopolyApp.controllers {
         private scene: BABYLON.Scene;
         private menuCamera: BABYLON.FreeCamera;
         private menuEngine: BABYLON.Engine;
+        private ratingCounterTrigger: number = 3;
 
         title: string;
         chooseGameInitialization: boolean;
@@ -107,7 +108,7 @@ module MonopolyApp.controllers {
             },
                 isConfirm => {
                     if (isConfirm) {
-                        window.close();
+                        this.notifyRatingAndClose();
                     }
                 });            
         }
@@ -202,73 +203,61 @@ module MonopolyApp.controllers {
                     newMeshes[3].material = mat2;
                     newMeshes[7].material = mat2;
                     newMeshes[8].material = mat2;
-
-                    rocketMesh.position = new BABYLON.Vector3(3, 0.6, 0);
-                    var animationplayerPosition = new BABYLON.Animation("menuplayerPositionAnimation", "position", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
-                    var animationplayerRotation = new BABYLON.Animation("menuplayerRotationAnimation", "rotationQuaternion", 30, BABYLON.Animation.ANIMATIONTYPE_QUATERNION, BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
-                    var keysPosition = [];
-                    var keysRotation = [];
-                    for (var i = 0; i <= 40; i++) {
-                        var frame = Math.floor((i / 40) * 620);
-                        //var x = Math.cos((i / 40) * 360 * (3.14 / 180)) * 3;
-                        //var z = Math.sin((i / 40) * 360 * (3.14 / 180)) * 3;
-                        var x = Math.cos((-90 + (i / 40) * 360) * (3.14 / 180)) * 3;
-                        var z = Math.sin((-90 + (i / 40) * 360) * (3.14 / 180)) * 3;
-                        keysPosition.push({
-                            frame: frame,
-                            value: new BABYLON.Vector3(x, 0.6, z)
+                    rocketMesh.visibility = 0;
+                    mat2.alpha = 0;
+                    mat.alpha = 0;
+                    rocketMesh.position = new BABYLON.Vector3(0, 0.6, 1);
+                    that.timeoutService(() => {
+                        rocketMesh.position = new BABYLON.Vector3(3, 0.6, 0);
+                        mat2.alpha = 1;
+                        mat.alpha = 1;
+                        rocketMesh.visibility = 1;
+                        var animationplayerPosition = new BABYLON.Animation("menuplayerPositionAnimation", "position", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+                        var animationplayerRotation = new BABYLON.Animation("menuplayerRotationAnimation", "rotationQuaternion", 30, BABYLON.Animation.ANIMATIONTYPE_QUATERNION, BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+                        var keysPosition = [];
+                        var keysRotation = [];
+                        for (var i = 0; i <= 40; i++) {
+                            var frame = Math.floor((i / 40) * 620);
+                            //var x = Math.cos((i / 40) * 360 * (3.14 / 180)) * 3;
+                            //var z = Math.sin((i / 40) * 360 * (3.14 / 180)) * 3;
+                            var x = Math.cos((-90 + (i / 40) * 360) * (3.14 / 180)) * 3;
+                            var z = Math.sin((-90 + (i / 40) * 360) * (3.14 / 180)) * 3;
+                            keysPosition.push({
+                                frame: frame,
+                                value: new BABYLON.Vector3(x, 0.6, z)
+                            });
+                        }
+                        var theme = that.themeService.theme;
+                        keysRotation.push({
+                            frame: 0,
+                            value: new BABYLON.Quaternion(theme.playerMeshRotationQuaternion[2][0], theme.playerMeshRotationQuaternion[2][1], theme.playerMeshRotationQuaternion[2][2], theme.playerMeshRotationQuaternion[2][3])
                         });
-                    }
-                    var theme = that.themeService.theme;
-                    //keysRotation.push({
-                    //    frame: 0,
-                    //    value: new BABYLON.Quaternion(theme.playerMeshRotationQuaternion[1][0], theme.playerMeshRotationQuaternion[1][1], theme.playerMeshRotationQuaternion[1][2], theme.playerMeshRotationQuaternion[1][3])
-                    //});
-                    //keysRotation.push({
-                    //    frame: 150,
-                    //    value: new BABYLON.Quaternion(theme.playerMeshRotationQuaternion[0][0], theme.playerMeshRotationQuaternion[0][1], theme.playerMeshRotationQuaternion[0][2], theme.playerMeshRotationQuaternion[0][3])
-                    //});
-                    //keysRotation.push({
-                    //    frame: 300,
-                    //    value: new BABYLON.Quaternion(theme.playerMeshRotationQuaternion[3][0], theme.playerMeshRotationQuaternion[3][1], theme.playerMeshRotationQuaternion[3][2], theme.playerMeshRotationQuaternion[3][3])
-                    //});
-                    //keysRotation.push({
-                    //    frame: 450,
-                    //    value: new BABYLON.Quaternion(theme.playerMeshRotationQuaternion[2][0], theme.playerMeshRotationQuaternion[2][1], theme.playerMeshRotationQuaternion[2][2], theme.playerMeshRotationQuaternion[2][3])
-                    //});
-                    //keysRotation.push({
-                    //    frame: 620,
-                    //    value: new BABYLON.Quaternion(theme.playerMeshRotationQuaternion[1][0], theme.playerMeshRotationQuaternion[1][1], theme.playerMeshRotationQuaternion[1][2], theme.playerMeshRotationQuaternion[1][3])
-                    //});
-                    keysRotation.push({
-                        frame: 0,
-                        value: new BABYLON.Quaternion(theme.playerMeshRotationQuaternion[2][0], theme.playerMeshRotationQuaternion[2][1], theme.playerMeshRotationQuaternion[2][2], theme.playerMeshRotationQuaternion[2][3])
-                    });
-                    keysRotation.push({
-                        frame: 150,
-                        value: new BABYLON.Quaternion(theme.playerMeshRotationQuaternion[1][0], theme.playerMeshRotationQuaternion[1][1], theme.playerMeshRotationQuaternion[1][2], theme.playerMeshRotationQuaternion[1][3])
-                    });
-                    keysRotation.push({
-                        frame: 300,
-                        value: new BABYLON.Quaternion(theme.playerMeshRotationQuaternion[0][0], theme.playerMeshRotationQuaternion[0][1], theme.playerMeshRotationQuaternion[0][2], theme.playerMeshRotationQuaternion[0][3])
-                    });
-                    keysRotation.push({
-                        frame: 450,
-                        value: new BABYLON.Quaternion(theme.playerMeshRotationQuaternion[3][0], theme.playerMeshRotationQuaternion[3][1], theme.playerMeshRotationQuaternion[3][2], theme.playerMeshRotationQuaternion[3][3])
-                    });
-                    keysRotation.push({
-                        frame: 620,
-                        value: new BABYLON.Quaternion(theme.playerMeshRotationQuaternion[2][0], theme.playerMeshRotationQuaternion[2][1], theme.playerMeshRotationQuaternion[2][2], theme.playerMeshRotationQuaternion[2][3])
-                    });
-                    animationplayerPosition.setKeys(keysPosition);
-                    animationplayerRotation.setKeys(keysRotation);
-                    rocketMesh.animations = [];
-                    rocketMesh.animations.push(animationplayerPosition);
-                    rocketMesh.animations.push(animationplayerRotation);
-                    var particleSystem = that.drawingService.addParticle(rocketMesh, that.scene);
-                    particleSystem.targetStopDuration = undefined;
-                    that.scene.beginAnimation(rocketMesh, 0, 620, true, undefined, () => { });
-                    particleSystem.start();
+                        keysRotation.push({
+                            frame: 150,
+                            value: new BABYLON.Quaternion(theme.playerMeshRotationQuaternion[1][0], theme.playerMeshRotationQuaternion[1][1], theme.playerMeshRotationQuaternion[1][2], theme.playerMeshRotationQuaternion[1][3])
+                        });
+                        keysRotation.push({
+                            frame: 300,
+                            value: new BABYLON.Quaternion(theme.playerMeshRotationQuaternion[0][0], theme.playerMeshRotationQuaternion[0][1], theme.playerMeshRotationQuaternion[0][2], theme.playerMeshRotationQuaternion[0][3])
+                        });
+                        keysRotation.push({
+                            frame: 450,
+                            value: new BABYLON.Quaternion(theme.playerMeshRotationQuaternion[3][0], theme.playerMeshRotationQuaternion[3][1], theme.playerMeshRotationQuaternion[3][2], theme.playerMeshRotationQuaternion[3][3])
+                        });
+                        keysRotation.push({
+                            frame: 620,
+                            value: new BABYLON.Quaternion(theme.playerMeshRotationQuaternion[2][0], theme.playerMeshRotationQuaternion[2][1], theme.playerMeshRotationQuaternion[2][2], theme.playerMeshRotationQuaternion[2][3])
+                        });
+                        animationplayerPosition.setKeys(keysPosition);
+                        animationplayerRotation.setKeys(keysRotation);
+                        rocketMesh.animations = [];
+                        rocketMesh.animations.push(animationplayerPosition);
+                        rocketMesh.animations.push(animationplayerRotation);
+                        var particleSystem = that.drawingService.addParticle(rocketMesh, that.scene);
+                        particleSystem.targetStopDuration = undefined;
+                        that.scene.beginAnimation(rocketMesh, 0, 620, true, undefined, () => { });
+                        particleSystem.start();
+                    }, 4000);
                 }
             });            
         }
@@ -314,20 +303,52 @@ module MonopolyApp.controllers {
 
         private rotateAnimation(el, speed, degrees) {
             var elem = document.getElementById(el);
-            var elemStyle: any = elem.style;
-            elemStyle.WebkitTransform = "rotate(" + degrees + "deg)";
-            elemStyle.MozTransform = "rotate(" + degrees + "deg)";
-            elemStyle.msTransform = "rotate(" + degrees + "deg)";
-            elemStyle.OTransform = "rotate(" + degrees + "deg)";
-            elemStyle.transform = "rotate(" + degrees + "deg)";
-            degrees++;
-            if (degrees > 360) {
-                degrees = 1;
+            if (elem) {
+                var elemStyle: any = elem.style;
+                elemStyle.WebkitTransform = "rotate(" + degrees + "deg)";
+                elemStyle.MozTransform = "rotate(" + degrees + "deg)";
+                elemStyle.msTransform = "rotate(" + degrees + "deg)";
+                elemStyle.OTransform = "rotate(" + degrees + "deg)";
+                elemStyle.transform = "rotate(" + degrees + "deg)";
+                degrees++;
+                if (degrees > 360) {
+                    degrees = 1;
+                }
+                var that = this;
+                this.timeoutService((elName, sp, deg) => {
+                    that.rotateAnimation(elName, sp, deg);
+                }, speed, false, el, speed, degrees);
             }
-            var that = this;
-            this.timeoutService((elName, sp, deg) => {
-                that.rotateAnimation(elName, sp, deg);
-            }, speed, false, el, speed, degrees);
+        }
+
+        private notifyRatingAndClose() {
+            var localStorageAny: any = localStorage;
+            var ratingNotificationCounter = this.ratingCounterTrigger;
+            if (localStorage.getItem("ratingNotificationCounter")) {
+                ratingNotificationCounter = JSON.parse(localStorageAny.ratingNotificationCounter) + 1;
+            }
+            if (ratingNotificationCounter >= this.ratingCounterTrigger) {
+                ratingNotificationCounter = 0;
+                sweetAlert.close();
+                this.timeoutService(() => {
+                    sweetAlert({
+                            title: "Leaving MOONopoly",
+                            text: "Please rate this game to help improve it in the future. Thanks!",
+                            type: "info",
+                            showCancelButton: false,
+                            confirmButtonText: "Ok"
+                        },
+                        isConfirm => {
+                            if (isConfirm) {
+                                localStorageAny.ratingNotificationCounter = ratingNotificationCounter;
+                                window.close();
+                            }
+                        });
+                }, 100);
+            } else {
+                localStorageAny.ratingNotificationCounter = ratingNotificationCounter;
+                window.close();
+            }
         }
     }
 

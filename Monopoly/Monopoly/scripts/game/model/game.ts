@@ -6,7 +6,8 @@
         Process, // destination field processing
         ProcessingDone, // destination field has been processed
         Manage, // the game is paused and the player is managing his assets
-        EndOfGame // the game has ended and we have a winner
+        EndOfGame, // the game has ended and we have a winner
+        Trade // the game is paused and the player has initiated a trade
     };
 
     export class Game {
@@ -124,6 +125,17 @@
                 var player = new Player(savedPlayer.playerName, savedPlayer.human);
                 player.loadDataFrom(savedPlayer, this.board);
                 this.players.push(player);
+            });
+        }
+
+        public performTrade(tradeState: TradeState) {
+            tradeState.firstPlayerSelectedAssets.forEach(firstPlayerAsset => {
+                var asset = this.board.fields.filter(f => f.type === BoardFieldType.Asset && f.asset.name === firstPlayerAsset.name)[0].asset;
+                asset.setOwner(tradeState.secondPlayer.playerName);
+            });
+            tradeState.secondPlayerSelectedAssets.forEach(secondPlayerAsset => {
+                var asset = this.board.fields.filter(f => f.type === BoardFieldType.Asset && f.asset.name === secondPlayerAsset.name)[0].asset;
+                asset.setOwner(tradeState.firstPlayer.playerName);
             });
         }
     }
