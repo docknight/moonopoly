@@ -4,10 +4,10 @@
 /// <reference path="../../../scripts/game/model/game.ts" />
 module MonopolyApp.controllers {
     declare var sweetAlert: any;
-    declare var noUiSlider: any;
 
     export class GameController {
         scope: angular.IScope;
+        rootScope: angular.IRootScopeService;
         stateService: angular.ui.IStateService;
         stateParamsService: angular.ui.IStateParamsService;
         timeoutService: angular.ITimeoutService;
@@ -20,7 +20,7 @@ module MonopolyApp.controllers {
         tutorialService: Interfaces.ITutorialService;
         tradeService: Interfaces.ITradeService;
         swipeService: any;
-        static $inject = ["$state", "$stateParams", "$swipe", "$scope", "$timeout", "$compile", "gameService", "drawingService", "aiService", "themeService", "settingsService", "tutorialService", "tradeService"];
+        static $inject = ["$state", "$stateParams", "$swipe", "$scope", "$rootScope", "$timeout", "$compile", "gameService", "drawingService", "aiService", "themeService", "settingsService", "tutorialService", "tradeService"];
 
         private players: Array<Viewmodels.Player>;
         private boardFields: Array<Viewmodels.BoardField>;
@@ -37,6 +37,8 @@ module MonopolyApp.controllers {
         private cancelButtonCallback: (data: any) => void;
         private diceThrowCompleted: JQueryDeferred<{}>;
         private playerMoving: boolean; // true while the player is moving on the board
+        private player1MoneySlider: any;
+        private player2MoneySlider: any;
 
         availableActions: Viewmodels.AvailableActions;
         assetToBuy: Model.Asset; // asset currently available for purchase
@@ -59,8 +61,9 @@ module MonopolyApp.controllers {
             return this.themeService.theme;
         }
 
-        constructor(stateService: angular.ui.IStateService, stateParamsService: angular.ui.IStateParamsService, swipeService: any, scope: angular.IScope, timeoutService: angular.ITimeoutService, compileService: angular.ICompileService, gameService: Interfaces.IGameService, drawingService: Interfaces.IDrawingService, aiService: Interfaces.IAIService, themeService: Interfaces.IThemeService, settingsService: Interfaces.ISettingsService, tutorialService: Interfaces.ITutorialService, tradeService: Interfaces.ITradeService) {
+        constructor(stateService: angular.ui.IStateService, stateParamsService: angular.ui.IStateParamsService, swipeService: any, scope: angular.IScope, rootScope: angular.IRootScopeService, timeoutService: angular.ITimeoutService, compileService: angular.ICompileService, gameService: Interfaces.IGameService, drawingService: Interfaces.IDrawingService, aiService: Interfaces.IAIService, themeService: Interfaces.IThemeService, settingsService: Interfaces.ISettingsService, tutorialService: Interfaces.ITutorialService, tradeService: Interfaces.ITradeService) {
             this.scope = scope;
+            this.rootScope = rootScope;
             this.stateService = stateService;
             this.stateParamsService = stateParamsService;
             this.timeoutService = timeoutService;
@@ -318,10 +321,6 @@ module MonopolyApp.controllers {
                                             that.tradeWith(action.tradeState.secondPlayer.playerName, tradeActions);
                                             var tradeState = that.tradeService.getTradeState();
                                             tradeState.initializeFrom(action.tradeState);
-                                            var range: any = document.getElementById("player1TradeMoney");
-                                            range.noUiSlider.set(tradeState.firstPlayerMoney);
-                                            range = document.getElementById("player2TradeMoney");
-                                            range.noUiSlider.set(tradeState.secondPlayerMoney);
                                             that.makeTradeOffer();
                                         } else {
                                             // trade, initiated by the computer, has been rejected by the human player - set the counter to avoid the player being flooded by trade offers
@@ -533,64 +532,37 @@ module MonopolyApp.controllers {
             });
             treeContainer.on("activate_node.jstree", this, this.onActivateTradeNode);
             var that = this;
-            //$("#player1TradeMoney").slider({
-            //    value: this.tradeService.getTradeState().firstPlayerMoney,
-            //    min: 0,
-            //    max: this.tradeService.getTradeState().firstPlayer.money,
-            //    step: 1,
-            //    slide(event, ui) {
-            //        that.scope.$apply(() => {
-            //            that.tradeService.getTradeState().firstPlayerMoney = ui.value;
-            //        });
-            //    }
-            //});
-            //$("#player2TradeMoney").slider({
-            //    value: this.tradeService.getTradeState().secondPlayerMoney,
-            //    min: 0,
-            //    max: this.tradeService.getTradeState().secondPlayer.money,
-            //    step: 1,
-            //    slide(event, ui) {
-            //        that.scope.$apply(() => {
-            //            that.tradeService.getTradeState().secondPlayerMoney = ui.value;
-            //        });
-            //    }
-            //});                     
-            var range: any = document.getElementById('player1TradeMoney');
-            noUiSlider.create(range, {
-                start: [0], 
-                step: 10, 
-                connect: 'lower',
-                orientation: 'horizontal', 
-                behaviour: 'tap', 
-                range: {
-                    'min': 0,
-                    'max': this.tradeService.getTradeState().firstPlayer.money
+
+            this.player1MoneySlider = {
+                value: this.tradeService.getTradeState().firstPlayerMoney,
+                options: {
+                    floor: 0,
+                    ceil: this.tradeService.getTradeState().firstPlayer.money,
+                    showSelectionBar: true,
+                    hidePointerLabels: true,
+                    hideLimitLabels: true,
+                    onChange: function (id) {
+                        that.tradeService.getTradeState().firstPlayerMoney = that.player1MoneySlider.value;
+                        that.tradeService.setCounterOffer();
+                    }
                 }
-            });
-            range.noUiSlider.on('slide', function (values, handle) {
-                that.scope.$apply(() => {
-                    that.tradeService.getTradeState().firstPlayerMoney = parseInt(values[handle]);
-                    that.tradeService.setCounterOffer();
-                });
-            });
-            range = document.getElementById('player2TradeMoney');
-            noUiSlider.create(range, {
-                start: [0],
-                step: 10, 
-                connect: 'lower',
-                orientation: 'horizontal', 
-                behaviour: 'tap', 
-                range: {
-                    'min': 0,
-                    'max': this.tradeService.getTradeState().secondPlayer.money
+            };
+            this.player2MoneySlider = {
+                value: this.tradeService.getTradeState().secondPlayerMoney,
+                options: {
+                    floor: 0,
+                    ceil: this.tradeService.getTradeState().secondPlayer.money,
+                    showSelectionBar: true,
+                    hidePointerLabels: true,
+                    hideLimitLabels: true,
+                    onChange: function (id) {
+                        that.tradeService.getTradeState().secondPlayerMoney = that.player2MoneySlider.value;
+                        that.tradeService.setCounterOffer();
+                    }
                 }
-            });
-            range.noUiSlider.on('slide', function (values, handle) {
-                that.scope.$apply(() => {
-                    that.tradeService.getTradeState().secondPlayerMoney = parseInt(values[handle]);
-                    that.tradeService.setCounterOffer();
-                });
-            });
+            };
+            this.rootScope.$broadcast('rzSliderForceRender');
+
             // fix the height so that it does not increase after additional data is added into container
             //$("#firstPlayerSelectedAssets").css("max-height", $("#firstPlayerSelectedAssets").height() + "px");
             //$("#firstPlayerSelectedAssets").css("height", $("#firstPlayerSelectedAssets").height() + "px");            
@@ -608,10 +580,6 @@ module MonopolyApp.controllers {
                 treeContainer.jstree("destroy");
                 //$("#player1TradeMoney").slider("destroy");
                 //$("#player2TradeMoney").slider("destroy");
-                var range: any = document.getElementById('player1TradeMoney');
-                range.noUiSlider.destroy();
-                range = document.getElementById('player2TradeMoney');
-                range.noUiSlider.destroy();
                 var that = this;
                 // show command panel in the next event loop iteration to avoid its mouse event handler to process this event by highlighting one of its buttons
                 this.timeoutService(() => {

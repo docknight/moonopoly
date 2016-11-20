@@ -475,11 +475,14 @@
             <td style="width: 48%; border-radius: 5px; box-shadow: inset 0 0 12px #E00010; padding: 4px; background: -webkit-gradient(linear, left top, left bottom, from(rgba(230, 0, 0, 0.15)), to(rgba(160, 0, 0, 0.15)));">
                 <table style="width: 100%">
                     <tr>
-                        <td style="padding-left: 10px; padding-top: 4px; color: #c0c0c0; width:65px"><label for="player1TradeMoney">Dims</label></td>
-                        <td style="width: auto">
-                            <div class="sliders" id="player1TradeMoney" style="width: 100%"></div>
+                        <td style="padding-left: 10px; padding-top: 4px; color: #c0c0c0; width:55px"><label for="player1TradeMoney">Dims</label></td>
+                        <td style="width: auto; vertical-align: top">
+                            <!--<div class="sliders" id="player1TradeMoney" style="width: 100%"></div>-->
+                            <div style="width: 100%">
+                                <rzslider rz-slider-model="gameController.player1MoneySlider.value" rz-slider-options="gameController.player1MoneySlider.options" style="width:100%"></rzslider>
+                            </div>                            
                         </td>
-                        <td style="width: 80px; padding-left: 20px; padding-top: 3px; color: #c0c0c0;"><label style="font-size: 18px;">{{gameController.theme.moneySymbol}}{{gameController.tradeService.tradeState.firstPlayerMoney}}</label></td>
+                        <td style="width: 70px; padding-left: 10px; padding-top: 3px; color: #c0c0c0;"><label style="font-size: 18px;">{{gameController.theme.moneySymbol}}{{gameController.tradeService.tradeState.firstPlayerMoney}}</label></td>
                     </tr>
                 </table>
             </td>
@@ -490,11 +493,12 @@
             <td style="width: 48%; border-radius: 5px; box-shadow: inset 0 0 12px #E00010; padding: 4px; background: -webkit-gradient(linear, left top, left bottom, from(rgba(230, 0, 0, 0.15)), to(rgba(160, 0, 0, 0.15)));">
                 <table style="width: 100%">
                     <tr>
-                        <td style="padding-left: 10px; padding-top: 7px; color: #c0c0c0; width:65px"><label for="player2TradeMoney">Dims</label></td>
+                        <td style="padding-left: 10px; padding-top: 7px; color: #c0c0c0; width:55px"><label for="player2TradeMoney">Dims</label></td>
                         <td style="width: auto">
-                            <div class="sliders" id="player2TradeMoney" style="width: 100%"></div>
+                            <!--<div class="sliders" id="player2TradeMoney" style="width: 100%"></div>-->
+                            <rzslider rz-slider-model="gameController.player2MoneySlider.value" rz-slider-options="gameController.player2MoneySlider.options"></rzslider>
                         </td>
-                        <td style="width: 80px; padding-left: 20px; padding-top: 3px; color: #c0c0c0;"><label style="font-size: 18px;">{{gameController.theme.moneySymbol}}{{gameController.tradeService.tradeState.secondPlayerMoney}}</label></td>
+                        <td style="width: 70px; padding-left: 10px; padding-top: 3px; color: #c0c0c0;"><label style="font-size: 18px;">{{gameController.theme.moneySymbol}}{{gameController.tradeService.tradeState.secondPlayerMoney}}</label></td>
                     </tr>
                 </table>
             </td>

@@ -1545,7 +1545,7 @@ var Model;
 //    var app = angular.module("angularWithTS", ['ngRoute']);
 //    app.config(angularWithTS.Routes.configureRoutes);
 //})() 
-var monopolyApp = angular.module('monopolyApp', ['ui.router', 'ui.bootstrap', 'ngTouch']);
+var monopolyApp = angular.module('monopolyApp', ['ui.router', 'ui.bootstrap', 'ngTouch', 'rzModule']);
 /// <reference path="../interfaces/serviceInterfaces.ts" />
 /// <reference path="../../../scripts/typings/angularjs/angular.d.ts" />
 /// <reference path="../../monopolyApp/modules/monopolyApp.ts" />
@@ -3470,44 +3470,6 @@ var Services;
                 this.initPlayers(settings);
                 this.initCards(settings);
                 this.game.gameParams.rules.loadDataFrom(settings.rules);
-                // TEST DATA
-                this.players[0].money = 1367;
-                this.players[1].money = 1457;
-                this.game.currentPlayer = this.game.players[0].playerName;
-                this.game.board.fields[1].asset.setOwner(this.players[0].playerName);
-                this.game.board.fields[3].asset.setOwner(this.players[1].playerName);
-                this.game.board.fields[3].asset.putUnderMortgage();
-                this.game.board.fields[5].asset.setOwner(this.players[1].playerName);
-                this.game.board.fields[6].asset.setOwner(this.players[0].playerName);
-                this.game.board.fields[6].asset.putUnderMortgage();
-                this.game.board.fields[8].asset.setOwner(this.players[1].playerName);
-                this.game.board.fields[8].asset.putUnderMortgage();
-                this.game.board.fields[9].asset.setOwner(this.players[0].playerName);
-                this.game.board.fields[9].asset.putUnderMortgage();
-                this.game.board.fields[11].asset.setOwner(this.players[0].playerName);
-                this.game.board.fields[12].asset.setOwner(this.players[1].playerName);
-                this.game.board.fields[12].asset.putUnderMortgage();
-                this.game.board.fields[13].asset.setOwner(this.players[1].playerName);
-                this.game.board.fields[13].asset.putUnderMortgage();
-                this.game.board.fields[14].asset.setOwner(this.players[0].playerName);
-                this.game.board.fields[14].asset.putUnderMortgage();
-                this.game.board.fields[15].asset.setOwner(this.players[1].playerName);
-                this.game.board.fields[16].asset.setOwner(this.players[1].playerName);
-                this.game.board.fields[16].asset.putUnderMortgage();
-                this.game.board.fields[19].asset.setOwner(this.players[0].playerName);
-                this.game.board.fields[21].asset.setOwner(this.players[1].playerName);
-                this.game.board.fields[24].asset.setOwner(this.players[1].playerName);
-                this.game.board.fields[25].asset.setOwner(this.players[1].playerName);
-                this.game.board.fields[27].asset.setOwner(this.players[1].playerName);
-                this.game.board.fields[28].asset.setOwner(this.players[1].playerName);
-                this.game.board.fields[29].asset.setOwner(this.players[1].playerName);
-                this.game.board.fields[31].asset.setOwner(this.players[0].playerName);
-                this.game.board.fields[31].asset.putUnderMortgage();
-                this.game.board.fields[32].asset.setOwner(this.players[0].playerName);
-                this.game.board.fields[34].asset.setOwner(this.players[1].playerName);
-                this.game.board.fields[35].asset.setOwner(this.players[1].playerName);
-                this.game.board.fields[37].asset.setOwner(this.players[0].playerName);
-                this.game.board.fields[39].asset.setOwner(this.players[1].playerName);
             }
             this.initManageGroups();
             if (!loadGame) {
@@ -5027,9 +4989,10 @@ var MonopolyApp;
     var controllers;
     (function (controllers) {
         var GameController = (function () {
-            function GameController(stateService, stateParamsService, swipeService, scope, timeoutService, compileService, gameService, drawingService, aiService, themeService, settingsService, tutorialService, tradeService) {
+            function GameController(stateService, stateParamsService, swipeService, scope, rootScope, timeoutService, compileService, gameService, drawingService, aiService, themeService, settingsService, tutorialService, tradeService) {
                 var _this = this;
                 this.scope = scope;
+                this.rootScope = rootScope;
                 this.stateService = stateService;
                 this.stateParamsService = stateParamsService;
                 this.timeoutService = timeoutService;
@@ -5304,10 +5267,6 @@ var MonopolyApp;
                                             that.tradeWith(action.tradeState.secondPlayer.playerName, tradeActions);
                                             var tradeState = that.tradeService.getTradeState();
                                             tradeState.initializeFrom(action.tradeState);
-                                            var range = document.getElementById("player1TradeMoney");
-                                            range.noUiSlider.set(tradeState.firstPlayerMoney);
-                                            range = document.getElementById("player2TradeMoney");
-                                            range.noUiSlider.set(tradeState.secondPlayerMoney);
                                             that.makeTradeOffer();
                                         }
                                         else {
@@ -5513,64 +5472,35 @@ var MonopolyApp;
                 });
                 treeContainer.on("activate_node.jstree", this, this.onActivateTradeNode);
                 var that = this;
-                //$("#player1TradeMoney").slider({
-                //    value: this.tradeService.getTradeState().firstPlayerMoney,
-                //    min: 0,
-                //    max: this.tradeService.getTradeState().firstPlayer.money,
-                //    step: 1,
-                //    slide(event, ui) {
-                //        that.scope.$apply(() => {
-                //            that.tradeService.getTradeState().firstPlayerMoney = ui.value;
-                //        });
-                //    }
-                //});
-                //$("#player2TradeMoney").slider({
-                //    value: this.tradeService.getTradeState().secondPlayerMoney,
-                //    min: 0,
-                //    max: this.tradeService.getTradeState().secondPlayer.money,
-                //    step: 1,
-                //    slide(event, ui) {
-                //        that.scope.$apply(() => {
-                //            that.tradeService.getTradeState().secondPlayerMoney = ui.value;
-                //        });
-                //    }
-                //});                     
-                var range = document.getElementById('player1TradeMoney');
-                noUiSlider.create(range, {
-                    start: [0],
-                    step: 10,
-                    connect: 'lower',
-                    orientation: 'horizontal',
-                    behaviour: 'tap',
-                    range: {
-                        'min': 0,
-                        'max': this.tradeService.getTradeState().firstPlayer.money
+                this.player1MoneySlider = {
+                    value: this.tradeService.getTradeState().firstPlayerMoney,
+                    options: {
+                        floor: 0,
+                        ceil: this.tradeService.getTradeState().firstPlayer.money,
+                        showSelectionBar: true,
+                        hidePointerLabels: true,
+                        hideLimitLabels: true,
+                        onChange: function (id) {
+                            that.tradeService.getTradeState().firstPlayerMoney = that.player1MoneySlider.value;
+                            that.tradeService.setCounterOffer();
+                        }
                     }
-                });
-                range.noUiSlider.on('slide', function (values, handle) {
-                    that.scope.$apply(function () {
-                        that.tradeService.getTradeState().firstPlayerMoney = parseInt(values[handle]);
-                        that.tradeService.setCounterOffer();
-                    });
-                });
-                range = document.getElementById('player2TradeMoney');
-                noUiSlider.create(range, {
-                    start: [0],
-                    step: 10,
-                    connect: 'lower',
-                    orientation: 'horizontal',
-                    behaviour: 'tap',
-                    range: {
-                        'min': 0,
-                        'max': this.tradeService.getTradeState().secondPlayer.money
+                };
+                this.player2MoneySlider = {
+                    value: this.tradeService.getTradeState().secondPlayerMoney,
+                    options: {
+                        floor: 0,
+                        ceil: this.tradeService.getTradeState().secondPlayer.money,
+                        showSelectionBar: true,
+                        hidePointerLabels: true,
+                        hideLimitLabels: true,
+                        onChange: function (id) {
+                            that.tradeService.getTradeState().secondPlayerMoney = that.player2MoneySlider.value;
+                            that.tradeService.setCounterOffer();
+                        }
                     }
-                });
-                range.noUiSlider.on('slide', function (values, handle) {
-                    that.scope.$apply(function () {
-                        that.tradeService.getTradeState().secondPlayerMoney = parseInt(values[handle]);
-                        that.tradeService.setCounterOffer();
-                    });
-                });
+                };
+                this.rootScope.$broadcast('rzSliderForceRender');
                 // fix the height so that it does not increase after additional data is added into container
                 //$("#firstPlayerSelectedAssets").css("max-height", $("#firstPlayerSelectedAssets").height() + "px");
                 //$("#firstPlayerSelectedAssets").css("height", $("#firstPlayerSelectedAssets").height() + "px");            
@@ -5588,10 +5518,6 @@ var MonopolyApp;
                     treeContainer.jstree("destroy");
                     //$("#player1TradeMoney").slider("destroy");
                     //$("#player2TradeMoney").slider("destroy");
-                    var range = document.getElementById('player1TradeMoney');
-                    range.noUiSlider.destroy();
-                    range = document.getElementById('player2TradeMoney');
-                    range.noUiSlider.destroy();
                     var that = this;
                     // show command panel in the next event loop iteration to avoid its mouse event handler to process this event by highlighting one of its buttons
                     this.timeoutService(function () {
@@ -6753,7 +6679,7 @@ var MonopolyApp;
                     this.showMessage(tradeState.firstPlayer.playerName + " traded " + tradeState.firstPlayerSelectedAssets.length + " assets" + player1MoneyMsg + " for " + tradeState.secondPlayerSelectedAssets.length + player2MoneyMsg + " with " + tradeState.secondPlayer.playerName + ".");
                 }
             };
-            GameController.$inject = ["$state", "$stateParams", "$swipe", "$scope", "$timeout", "$compile", "gameService", "drawingService", "aiService", "themeService", "settingsService", "tutorialService", "tradeService"];
+            GameController.$inject = ["$state", "$stateParams", "$swipe", "$scope", "$rootScope", "$timeout", "$compile", "gameService", "drawingService", "aiService", "themeService", "settingsService", "tutorialService", "tradeService"];
             return GameController;
         })();
         controllers.GameController = GameController;
@@ -6975,72 +6901,61 @@ var MonopolyApp;
                         newMeshes[3].material = mat2;
                         newMeshes[7].material = mat2;
                         newMeshes[8].material = mat2;
-                        rocketMesh.position = new BABYLON.Vector3(3, 0.6, 0);
-                        var animationplayerPosition = new BABYLON.Animation("menuplayerPositionAnimation", "position", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
-                        var animationplayerRotation = new BABYLON.Animation("menuplayerRotationAnimation", "rotationQuaternion", 30, BABYLON.Animation.ANIMATIONTYPE_QUATERNION, BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
-                        var keysPosition = [];
-                        var keysRotation = [];
-                        for (var i = 0; i <= 40; i++) {
-                            var frame = Math.floor((i / 40) * 620);
-                            //var x = Math.cos((i / 40) * 360 * (3.14 / 180)) * 3;
-                            //var z = Math.sin((i / 40) * 360 * (3.14 / 180)) * 3;
-                            var x = Math.cos((-90 + (i / 40) * 360) * (3.14 / 180)) * 3;
-                            var z = Math.sin((-90 + (i / 40) * 360) * (3.14 / 180)) * 3;
-                            keysPosition.push({
-                                frame: frame,
-                                value: new BABYLON.Vector3(x, 0.6, z)
+                        rocketMesh.visibility = 0;
+                        mat2.alpha = 0;
+                        mat.alpha = 0;
+                        rocketMesh.position = new BABYLON.Vector3(0, 0.6, 1);
+                        that.timeoutService(function () {
+                            rocketMesh.position = new BABYLON.Vector3(3, 0.6, 0);
+                            mat2.alpha = 1;
+                            mat.alpha = 1;
+                            rocketMesh.visibility = 1;
+                            var animationplayerPosition = new BABYLON.Animation("menuplayerPositionAnimation", "position", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+                            var animationplayerRotation = new BABYLON.Animation("menuplayerRotationAnimation", "rotationQuaternion", 30, BABYLON.Animation.ANIMATIONTYPE_QUATERNION, BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+                            var keysPosition = [];
+                            var keysRotation = [];
+                            for (var i = 0; i <= 40; i++) {
+                                var frame = Math.floor((i / 40) * 620);
+                                //var x = Math.cos((i / 40) * 360 * (3.14 / 180)) * 3;
+                                //var z = Math.sin((i / 40) * 360 * (3.14 / 180)) * 3;
+                                var x = Math.cos((-90 + (i / 40) * 360) * (3.14 / 180)) * 3;
+                                var z = Math.sin((-90 + (i / 40) * 360) * (3.14 / 180)) * 3;
+                                keysPosition.push({
+                                    frame: frame,
+                                    value: new BABYLON.Vector3(x, 0.6, z)
+                                });
+                            }
+                            var theme = that.themeService.theme;
+                            keysRotation.push({
+                                frame: 0,
+                                value: new BABYLON.Quaternion(theme.playerMeshRotationQuaternion[2][0], theme.playerMeshRotationQuaternion[2][1], theme.playerMeshRotationQuaternion[2][2], theme.playerMeshRotationQuaternion[2][3])
                             });
-                        }
-                        var theme = that.themeService.theme;
-                        //keysRotation.push({
-                        //    frame: 0,
-                        //    value: new BABYLON.Quaternion(theme.playerMeshRotationQuaternion[1][0], theme.playerMeshRotationQuaternion[1][1], theme.playerMeshRotationQuaternion[1][2], theme.playerMeshRotationQuaternion[1][3])
-                        //});
-                        //keysRotation.push({
-                        //    frame: 150,
-                        //    value: new BABYLON.Quaternion(theme.playerMeshRotationQuaternion[0][0], theme.playerMeshRotationQuaternion[0][1], theme.playerMeshRotationQuaternion[0][2], theme.playerMeshRotationQuaternion[0][3])
-                        //});
-                        //keysRotation.push({
-                        //    frame: 300,
-                        //    value: new BABYLON.Quaternion(theme.playerMeshRotationQuaternion[3][0], theme.playerMeshRotationQuaternion[3][1], theme.playerMeshRotationQuaternion[3][2], theme.playerMeshRotationQuaternion[3][3])
-                        //});
-                        //keysRotation.push({
-                        //    frame: 450,
-                        //    value: new BABYLON.Quaternion(theme.playerMeshRotationQuaternion[2][0], theme.playerMeshRotationQuaternion[2][1], theme.playerMeshRotationQuaternion[2][2], theme.playerMeshRotationQuaternion[2][3])
-                        //});
-                        //keysRotation.push({
-                        //    frame: 620,
-                        //    value: new BABYLON.Quaternion(theme.playerMeshRotationQuaternion[1][0], theme.playerMeshRotationQuaternion[1][1], theme.playerMeshRotationQuaternion[1][2], theme.playerMeshRotationQuaternion[1][3])
-                        //});
-                        keysRotation.push({
-                            frame: 0,
-                            value: new BABYLON.Quaternion(theme.playerMeshRotationQuaternion[2][0], theme.playerMeshRotationQuaternion[2][1], theme.playerMeshRotationQuaternion[2][2], theme.playerMeshRotationQuaternion[2][3])
-                        });
-                        keysRotation.push({
-                            frame: 150,
-                            value: new BABYLON.Quaternion(theme.playerMeshRotationQuaternion[1][0], theme.playerMeshRotationQuaternion[1][1], theme.playerMeshRotationQuaternion[1][2], theme.playerMeshRotationQuaternion[1][3])
-                        });
-                        keysRotation.push({
-                            frame: 300,
-                            value: new BABYLON.Quaternion(theme.playerMeshRotationQuaternion[0][0], theme.playerMeshRotationQuaternion[0][1], theme.playerMeshRotationQuaternion[0][2], theme.playerMeshRotationQuaternion[0][3])
-                        });
-                        keysRotation.push({
-                            frame: 450,
-                            value: new BABYLON.Quaternion(theme.playerMeshRotationQuaternion[3][0], theme.playerMeshRotationQuaternion[3][1], theme.playerMeshRotationQuaternion[3][2], theme.playerMeshRotationQuaternion[3][3])
-                        });
-                        keysRotation.push({
-                            frame: 620,
-                            value: new BABYLON.Quaternion(theme.playerMeshRotationQuaternion[2][0], theme.playerMeshRotationQuaternion[2][1], theme.playerMeshRotationQuaternion[2][2], theme.playerMeshRotationQuaternion[2][3])
-                        });
-                        animationplayerPosition.setKeys(keysPosition);
-                        animationplayerRotation.setKeys(keysRotation);
-                        rocketMesh.animations = [];
-                        rocketMesh.animations.push(animationplayerPosition);
-                        rocketMesh.animations.push(animationplayerRotation);
-                        var particleSystem = that.drawingService.addParticle(rocketMesh, that.scene);
-                        particleSystem.targetStopDuration = undefined;
-                        that.scene.beginAnimation(rocketMesh, 0, 620, true, undefined, function () { });
-                        particleSystem.start();
+                            keysRotation.push({
+                                frame: 150,
+                                value: new BABYLON.Quaternion(theme.playerMeshRotationQuaternion[1][0], theme.playerMeshRotationQuaternion[1][1], theme.playerMeshRotationQuaternion[1][2], theme.playerMeshRotationQuaternion[1][3])
+                            });
+                            keysRotation.push({
+                                frame: 300,
+                                value: new BABYLON.Quaternion(theme.playerMeshRotationQuaternion[0][0], theme.playerMeshRotationQuaternion[0][1], theme.playerMeshRotationQuaternion[0][2], theme.playerMeshRotationQuaternion[0][3])
+                            });
+                            keysRotation.push({
+                                frame: 450,
+                                value: new BABYLON.Quaternion(theme.playerMeshRotationQuaternion[3][0], theme.playerMeshRotationQuaternion[3][1], theme.playerMeshRotationQuaternion[3][2], theme.playerMeshRotationQuaternion[3][3])
+                            });
+                            keysRotation.push({
+                                frame: 620,
+                                value: new BABYLON.Quaternion(theme.playerMeshRotationQuaternion[2][0], theme.playerMeshRotationQuaternion[2][1], theme.playerMeshRotationQuaternion[2][2], theme.playerMeshRotationQuaternion[2][3])
+                            });
+                            animationplayerPosition.setKeys(keysPosition);
+                            animationplayerRotation.setKeys(keysRotation);
+                            rocketMesh.animations = [];
+                            rocketMesh.animations.push(animationplayerPosition);
+                            rocketMesh.animations.push(animationplayerRotation);
+                            var particleSystem = that.drawingService.addParticle(rocketMesh, that.scene);
+                            particleSystem.targetStopDuration = undefined;
+                            that.scene.beginAnimation(rocketMesh, 0, 620, true, undefined, function () { });
+                            particleSystem.start();
+                        }, 4000);
                     }
                 });
             };
@@ -7367,25 +7282,31 @@ var MonopolyApp;
     var controllers;
     (function (controllers) {
         var SettingsController = (function () {
-            function SettingsController(stateService, scope, timeoutService, settingsService, themeService) {
+            function SettingsController(stateService, scope, rootScope, timeoutService, settingsService, themeService) {
+                var _this = this;
                 this.stateService = stateService;
                 this.scope = scope;
+                this.rootScope = rootScope;
                 this.timeoutService = timeoutService;
                 this.settingsService = settingsService;
                 this.themeService = themeService;
                 $(".background").attr("src", this.themeService.theme.imagesFolder + this.themeService.theme.gameSetupImage);
                 this.loadSettings();
                 var that = this;
-                $("#numPlayersSlider").slider({
+                this.numPlayersSlider = {
                     value: this.settings.numPlayers,
-                    min: 2,
-                    max: 4,
-                    step: 1,
-                    slide: function (event, ui) {
-                        $("#numPlayers").val(ui.value);
-                        that.adjustNumPlayers(ui.value);
+                    options: {
+                        floor: 2,
+                        ceil: 4,
+                        showSelectionBar: false,
+                        hidePointerLabels: true,
+                        hideLimitLabels: true,
+                        onEnd: function (id) {
+                            $("#numPlayers").val(that.numPlayersSlider.value);
+                            that.adjustNumPlayers(that.numPlayersSlider.value);
+                        }
                     }
-                });
+                };
                 that.timeoutService(function () {
                     var playerTypeToggle = $('[id|="playerType"]');
                     playerTypeToggle.bootstrapToggle({
@@ -7403,6 +7324,7 @@ var MonopolyApp;
                             that.reassignComputerNames();
                         });
                     });
+                    _this.rootScope.$broadcast('rzSliderForceRender');
                 }, 1);
             }
             SettingsController.prototype.saveAndClose = function () {
@@ -7426,35 +7348,35 @@ var MonopolyApp;
             };
             SettingsController.prototype.adjustNumPlayers = function (numPlayers) {
                 var that = this;
-                this.scope.$apply(function () {
-                    while (numPlayers < that.settings.numPlayers) {
-                        var playerTypeToggle = $("#playerType-" + (that.settings.players.length - 1));
-                        playerTypeToggle.off();
-                        playerTypeToggle.bootstrapToggle('destroy');
-                        that.settings.players.pop();
-                        that.settings.numPlayers--;
-                    }
-                    while (numPlayers > that.settings.numPlayers) {
-                        var numComputers = that.settings.players.filter(function (p) { return !p.human; }).length;
-                        that.settings.players.push(new Model.Player("Computer " + (numComputers + 1), false));
-                        that.settings.numPlayers++;
-                        that.reassignComputerNames();
-                        that.timeoutService(function (i) {
-                            var playerTypeToggle = $("#playerType-" + i);
-                            playerTypeToggle.bootstrapToggle({
-                                on: "Human",
-                                off: "Computer"
+                //this.scope.$apply(() => {
+                while (numPlayers < that.settings.numPlayers) {
+                    var playerTypeToggle = $("#playerType-" + (that.settings.players.length - 1));
+                    playerTypeToggle.off();
+                    playerTypeToggle.bootstrapToggle('destroy');
+                    that.settings.players.pop();
+                    that.settings.numPlayers--;
+                }
+                while (numPlayers > that.settings.numPlayers) {
+                    var numComputers = that.settings.players.filter(function (p) { return !p.human; }).length;
+                    that.settings.players.push(new Model.Player("Computer " + (numComputers + 1), false));
+                    that.settings.numPlayers++;
+                    that.reassignComputerNames();
+                    that.timeoutService(function (i) {
+                        var playerTypeToggle = $("#playerType-" + i);
+                        playerTypeToggle.bootstrapToggle({
+                            on: "Human",
+                            off: "Computer"
+                        });
+                        playerTypeToggle.on("change", function () {
+                            that.scope.$apply(function () {
+                                var i = parseInt(playerTypeToggle.attr("id").substr(11));
+                                that.settings.players[i].human = playerTypeToggle.prop("checked") === true;
+                                that.reassignComputerNames();
                             });
-                            playerTypeToggle.on("change", function () {
-                                that.scope.$apply(function () {
-                                    var i = parseInt(playerTypeToggle.attr("id").substr(11));
-                                    that.settings.players[i].human = playerTypeToggle.prop("checked") === true;
-                                    that.reassignComputerNames();
-                                });
-                            });
-                        }, 1, false, that.settings.numPlayers - 1);
-                    }
-                });
+                        });
+                    }, 1, false, that.settings.numPlayers - 1);
+                }
+                //});
             };
             SettingsController.prototype.reassignComputerNames = function () {
                 var computerNames = ["Apollo", "Gemini", "Voshkod", "Altair"];
@@ -7500,7 +7422,7 @@ var MonopolyApp;
                 }
                 return unique && !empty;
             };
-            SettingsController.$inject = ["$state", "$scope", "$timeout", "settingsService", "themeService"];
+            SettingsController.$inject = ["$state", "$scope", "$rootScope", "$timeout", "settingsService", "themeService"];
             return SettingsController;
         })();
         controllers.SettingsController = SettingsController;

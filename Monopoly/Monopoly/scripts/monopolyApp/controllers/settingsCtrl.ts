@@ -9,29 +9,38 @@ module MonopolyApp.controllers {
         stateService: angular.ui.IStateService;
         settingsService: Interfaces.ISettingsService;
         scope: angular.IScope;
+        rootScope: angular.IRootScopeService;
         timeoutService: angular.ITimeoutService;
         themeService: Interfaces.IThemeService;
-        static $inject = ["$state", "$scope", "$timeout", "settingsService", "themeService"];
+        static $inject = ["$state", "$scope", "$rootScope", "$timeout", "settingsService", "themeService"];
 
-        constructor(stateService: angular.ui.IStateService, scope: angular.IScope, timeoutService: angular.ITimeoutService, settingsService: Interfaces.ISettingsService, themeService: Interfaces.IThemeService) {
+        private numPlayersSlider: any;
+
+        constructor(stateService: angular.ui.IStateService, scope: angular.IScope, rootScope: angular.IRootScopeService, timeoutService: angular.ITimeoutService, settingsService: Interfaces.ISettingsService, themeService: Interfaces.IThemeService) {
             this.stateService = stateService;
             this.scope = scope;
+            this.rootScope = rootScope;
             this.timeoutService = timeoutService;
             this.settingsService = settingsService;
             this.themeService = themeService;
             $(".background").attr("src", this.themeService.theme.imagesFolder + this.themeService.theme.gameSetupImage);
             this.loadSettings();
             var that = this;     
-            $("#numPlayersSlider").slider({
+            this.numPlayersSlider = {
                 value: this.settings.numPlayers,
-                min: 2,
-                max: 4,
-                step: 1,
-                slide(event, ui) {
-                    $("#numPlayers").val(ui.value);
-                    that.adjustNumPlayers(ui.value);
+                options: {
+                    floor: 2,
+                    ceil: 4,
+                    showSelectionBar: false,
+                    hidePointerLabels: true,
+                    hideLimitLabels: true,
+                    onEnd: function (id) {
+                        $("#numPlayers").val(that.numPlayersSlider.value);
+                        that.adjustNumPlayers(that.numPlayersSlider.value);
+                    }
                 }
-            });
+            };            
+
             that.timeoutService(() => {
                 var playerTypeToggle: any = $('[id|="playerType"]');
                 playerTypeToggle.bootstrapToggle({
@@ -49,6 +58,7 @@ module MonopolyApp.controllers {
                         that.reassignComputerNames();
                     });
                 });
+                this.rootScope.$broadcast('rzSliderForceRender');
             }, 1);
 
         }
@@ -80,7 +90,7 @@ module MonopolyApp.controllers {
 
         private adjustNumPlayers(numPlayers: number) {
             var that = this;
-            this.scope.$apply(() => {
+            //this.scope.$apply(() => {
                 while (numPlayers < that.settings.numPlayers) {
                     var playerTypeToggle: any = $("#playerType-" + (that.settings.players.length - 1));
                     playerTypeToggle.off();
@@ -108,7 +118,7 @@ module MonopolyApp.controllers {
                         });
                     }, 1, false, that.settings.numPlayers - 1);
                 }
-            });
+            //});
         }
 
         private reassignComputerNames() {
