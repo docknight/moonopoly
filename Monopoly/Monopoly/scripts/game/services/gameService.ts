@@ -15,6 +15,7 @@ module Services {
         private currentManageGroupIndex: number;
         private uncommittedHousesPrice: number; // price sum of currently uncommitted house deals
         private manageGroups: Array<Array<number>>;
+        private hasBeenLetOutOfPrison : boolean;
 
         static $inject = ["$http", "settingsService", "themeService"];
         constructor($http: ng.IHttpService, settingsService: Interfaces.ISettingsService, themeService: Interfaces.IThemeService) {
@@ -105,7 +106,9 @@ module Services {
 
         public endTurn() {
             if (this.canEndTurn) {
-                this.game.advanceToNextPlayer();
+                if (this.lastDiceResult !== 6 || this.hasBeenLetOutOfPrison) {
+                    this.game.advanceToNextPlayer();
+                }
                 this.game.setState(Model.GameState.BeginTurn);
                 this.lastDiceResult1 = undefined;
                 this.lastDiceResult2 = undefined;
@@ -379,6 +382,7 @@ module Services {
             }
             var player = this.game.players.filter(p => p.playerName === this.getCurrentPlayer())[0];
             var currentPositionIndex = player.position.index;
+            this.hasBeenLetOutOfPrison = false;
             if (player.turnsInPrison === undefined || this.letOutOfPrison(player)) {
                 newPositionIndex = newPositionIndex !== undefined ? newPositionIndex : Math.floor((currentPositionIndex + this.lastDiceResult1 + this.lastDiceResult2) % 40);
                 player.position = this.game.board.fields[newPositionIndex];
@@ -1135,6 +1139,7 @@ module Services {
             }
             if (this.lastDiceResult1 === 6) {
                 player.turnsInPrison = undefined;
+                this.hasBeenLetOutOfPrison = true;
                 return true;
             }
             if (player.turnsInPrison && player.turnsInPrison > 0) {

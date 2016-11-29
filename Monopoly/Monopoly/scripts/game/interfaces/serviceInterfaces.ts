@@ -75,6 +75,8 @@
         boardSize: number;
         framesToMoveOneBoardField: number;
         diceHeight: number;
+        initGame();
+        cleanup(scene: BABYLON.Scene);
         positionPlayer(playerModel: MonopolyApp.Viewmodels.Player);
         animatePlayerMove(oldPositionIndex: Model.BoardField, newPosition: Model.BoardField, playerModel: MonopolyApp.Viewmodels.Player, scene: BABYLON.Scene, fast?: boolean, backwards?: boolean): JQueryDeferred<{}>;
         animatePlayerPrisonMove(newPosition: Model.BoardField, playerModel: MonopolyApp.Viewmodels.Player, scene: BABYLON.Scene, camera: BABYLON.FreeCamera): JQueryDeferred<{}>;
@@ -82,11 +84,11 @@
         setManageCameraPosition(camera: BABYLON.FreeCamera, focusedAssetGroupIndex: number, scene: BABYLON.Scene, animate: boolean);
         returnFromManage(scene: BABYLON.Scene);
         pickBoardElement(scene: BABYLON.Scene, coords?: any): MonopolyApp.Viewmodels.PickedObject;
-        createBoard(scene: BABYLON.Scene);
+        createBoard(scene: BABYLON.Scene, excludedLights: Array<BABYLON.Light>);
         setBoardFieldOwner(boardField: MonopolyApp.Viewmodels.BoardField, asset: Model.Asset, scene: BABYLON.Scene, shootParticles: boolean);
         setBoardFieldHouses(viewBoardField: MonopolyApp.Viewmodels.BoardField, houses: number, hotel: boolean, uncommittedHouses: number, uncommittedHotel: boolean, scene: BABYLON.Scene);
         setBoardFieldMortgage(boardField: MonopolyApp.Viewmodels.BoardField, asset: Model.Asset, scene: BABYLON.Scene, particles: boolean);
-        loadMeshes(players: MonopolyApp.Viewmodels.Player[], scene: BABYLON.Scene, gameController: MonopolyApp.controllers.GameController): JQueryDeferred<{}>[];
+        loadMeshes(players: MonopolyApp.Viewmodels.Player[], scene: BABYLON.Scene, shadowGenerator: BABYLON.ShadowGenerator, gameController: MonopolyApp.controllers.GameController): JQueryDeferred<{}>[];
         showHouseButtons(focusedAssetGroupIndex: number, scene: BABYLON.Scene, focusedAssetGroup?: Model.AssetGroup);
         onSwipeMove(scene: BABYLON.Scene, coords: any);
         onSwipeEnd(scene: BABYLON.Scene, coords: any): MonopolyApp.Viewmodels.PickedObject;

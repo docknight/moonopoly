@@ -359,7 +359,7 @@
     <div id="messageOverlay" style="position: relative; display: none; color: red; font-size: 16px; font-weight: bold; width: 100%; text-align: center; z-index: 1" class="shadow-basic"></div>
 </div>
 
-<div id="commandPanel" style="position: fixed; bottom: 2%; left: 0px; width: 100%; z-index:100">
+<div id="commandPanel" style="position: fixed; bottom: {{gameController.commandPanelBottomOffset}}%; left: 0px; width: 100%; z-index:100">
     <div style="display: table; margin-left: auto; margin-right: auto; width: auto">
         <a ng-show="gameController.availableActions.throwDice" ng-click="gameController.setupThrowDice()" style="position: relative">
             <div style="position: absolute; top: -53px; left: 0px; width: 80px;">

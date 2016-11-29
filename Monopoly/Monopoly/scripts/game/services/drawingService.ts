@@ -7,6 +7,7 @@ module Services {
         private gameService: Interfaces.IGameService;
         private themeService: Interfaces.IThemeService;
         private timeoutService: angular.ITimeoutService;
+        private settingsService: Interfaces.ISettingsService;
 
         private boardFieldsInQuadrant: number = 11;
         private quadrantStartingCoordinate: MonopolyApp.Viewmodels.Coordinate[]; // top left corners of the individual board quadrants
@@ -32,13 +33,16 @@ module Services {
         private numFramesDiceIsAtRest: number;
         private dicePosition: BABYLON.Vector3; // position of the dice at the beginning of a throw
         private diceColliding: boolean;
+        private options: Model.Options;
+        private dicePhysicsImpostor : any;
 
-        static $inject = ["$http", "gameService", "themeService", "$timeout"];
+        static $inject = ["$http", "gameService", "themeService", "settingsService", "$timeout"];
 
-        constructor($http: ng.IHttpService, gameService: Interfaces.IGameService, themeService: Interfaces.IThemeService, timeoutService: angular.ITimeoutService) {
+        constructor($http: ng.IHttpService, gameService: Interfaces.IGameService, themeService: Interfaces.IThemeService, settingsService: Interfaces.ISettingsService,  timeoutService: angular.ITimeoutService) {
             this.httpService = $http;
             this.gameService = gameService;
             this.themeService = themeService;
+            this.settingsService = settingsService;
             this.timeoutService = timeoutService;
             this.boardFieldWidth = this.boardSize / (this.boardFieldsInQuadrant + 2); // assuming the corner fields are double the width of the rest of the fields
             this.boardFieldHeight = this.boardFieldWidth * 2;
@@ -60,6 +64,29 @@ module Services {
         // number of frames to animate player move between two neighbouring fields
         get framesToMoveOneBoardField(): number {
             return 10;
+        }
+
+        public initGame() {
+            this.options = this.settingsService.loadOptions();
+        }
+
+        public cleanup(scene: BABYLON.Scene) {
+            var allMeshes = scene.meshes.slice(0);
+            allMeshes.forEach(m => {
+                scene.removeMesh(m);
+                m.dispose();
+            });
+            var allLights = scene.lights.slice(0);
+            allLights.forEach(l => {
+                scene.removeLight(l);
+                l.dispose();
+            });
+            var allCameras = scene.cameras.slice(0);
+            allCameras.forEach(c => {
+                scene.removeCamera(c);
+                c.dispose();
+            });
+            scene.dispose();
         }
 
         positionPlayer(playerModel: MonopolyApp.Viewmodels.Player) {
@@ -176,20 +203,27 @@ module Services {
 
         unregisterPhysicsMeshes(scene: BABYLON.Scene) {
             var physicsEngine = scene.getPhysicsEngine();
-            physicsEngine._unregisterMesh(this.diceMesh);
+            //physicsEngine._unregisterMesh(this.diceMesh);
+            var physicsEngineAny: any = physicsEngine;
+            var diceImpostor: any = this.diceMesh.getPhysicsImpostor();
+            if (diceImpostor) {
+                //diceImpostor.unregisterOnPhysicsCollide(this.boardMesh.getPhysicsImpostor(), this.onDiceCollide);
+                physicsEngineAny.removeImpostor(diceImpostor);
+            }
         }
 
         moveDiceToPosition(position: BABYLON.Vector3, scene: BABYLON.Scene) {
             this.diceMesh.position.x = position.x;
             this.diceMesh.position.y = position.y;
             this.diceMesh.position.z = position.z;            
-            var physicsEngine = scene.getPhysicsEngine();
-            var body = physicsEngine.getPhysicsBodyOfMesh(this.diceMesh);
-            if (body) {
-                body.position.x = position.x;
-                body.position.y = position.y;
-                body.position.z = position.z;
-            }
+            // not required in new version of Physics engine
+            //var physicsEngine = scene.getPhysicsEngine();
+            //var body = physicsEngine.getPhysicsBodyOfMesh(this.diceMesh);
+            //if (body) {
+            //    body.position.x = position.x;
+            //    body.position.y = position.y;
+            //    body.position.z = position.z;
+            //}
         }
 
         moveCameraForDiceThrow(scene: BABYLON.Scene, camera: BABYLON.FreeCamera, currentPlayerPosition: Model.BoardField): JQueryDeferred<{}> {
@@ -198,7 +232,11 @@ module Services {
             var animationCameraRotation = new BABYLON.Animation("cameraDiceThrowRotateAnimation", "rotation", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
             var topCenter = this.getPositionCoordinate(currentPlayerPosition.index);
             var cameraDirection = new BABYLON.Vector3(topCenter.x, 6, topCenter.z).subtract(this.dicePosition).normalize();
-            var finalCameraPosition = this.dicePosition.add(new BABYLON.Vector3(cameraDirection.x * 1.5, cameraDirection.y * 1.5, cameraDirection.z * 1.5)); //this.getGameCameraPosition(currentPlayerPosition);
+            if (this.options.staticCamera) {
+                cameraDirection.x = -cameraDirection.x;
+                cameraDirection.z = -cameraDirection.z;
+            }
+            var finalCameraPosition = this.dicePosition.add(new BABYLON.Vector3(cameraDirection.x * 1.5, cameraDirection.y * 1.5, cameraDirection.z * 1.5));
             var keys = [];
             keys.push({
                 frame: 0,
@@ -237,12 +275,20 @@ module Services {
 
         animateDiceThrow(scene: BABYLON.Scene, impulsePoint?: BABYLON.Vector3) {
             this.numFramesDiceIsAtRest = 0;
-            this.diceMesh.setPhysicsState({ impostor: BABYLON.PhysicsEngine.BoxImpostor, mass: 0.1, friction: 0.5, restitution: 0.5 });
+            this.dicePhysicsImpostor = this.diceMesh.setPhysicsState({ impostor: BABYLON.PhysicsEngine.BoxImpostor, mass: 0.2, friction: 0.35/*0.35*/, restitution: 0.7 });
+            var diceImpostor: any = this.diceMesh.getPhysicsImpostor();
+            var that = this;
+            diceImpostor.registerOnPhysicsCollide(this.boardMesh.getPhysicsImpostor(), function() {
+                that.diceColliding = true;
+            });
+
             this.diceMesh.checkCollisions = true;
             if (impulsePoint) {
                 var dir = impulsePoint.subtract(scene.activeCamera.position);
                 dir.normalize();
-                this.diceMesh.applyImpulse(dir.scale(0.2), impulsePoint);
+                var diceImpostor: any = this.diceMesh.getPhysicsImpostor();
+                diceImpostor.setLinearVelocity(new BABYLON.Vector3(dir.x * 0.3, dir.y * 0.3, dir.z * 0.3));
+                this.diceMesh.applyImpulse(dir.scale(0.35/*0.05*/), impulsePoint);
             }
             this.throwingDice = true;
         }
@@ -291,8 +337,21 @@ module Services {
             camera.position.z = currentPosition.z;*/
             keysRotation.push({
                 frame: numFrames ? numFrames : 30,
-                value: this.getCameraRotationForTarget(new BABYLON.Vector3(closer ? targetCoordinate.x + 0.01 : 0, 0, closer ? targetCoordinate.z + 0.01 : 0), camera, finalCameraPosition) // closer ? targetRotation : this.getCameraRotationForTarget(new BABYLON.Vector3(closer ? targetCoordinate.x : 0, 0, closer ? targetCoordinate.z : 0), camera, finalCameraPosition)
+                value: this.getCameraRotationForTarget(new BABYLON.Vector3(closer ? targetCoordinate.x + 0.01 : 0, 0, closer ? targetCoordinate.z + 0.01 : 0), camera, finalCameraPosition)
             });
+            if (this.options.staticCamera && !closer) {
+                var fieldQuadrant = Math.floor(currentPlayerPositionIndex / (this.boardFieldsInQuadrant - 1));
+                if (!keysRotation[1].value.y) {
+                    if (fieldQuadrant === 0) {
+                        keysRotation[1].value.y = 3.14;
+                    } else if (fieldQuadrant === 1) {
+                        keysRotation[1].value.y = -1.56;
+                    } else if (fieldQuadrant === 3) {
+                        keysRotation[1].value.y = 1.56;
+                    }
+                }
+            }
+
             // make sure the starting and ending rotation angle are at the same side of the numeric scale; Math.Pi and -Math.Pi are the same in terms of object rotation, but for
             // computer animation, this is a 360 degree spin, which is undesirable...
             if (keysRotation[0].value.y < 0 && keysRotation[1].value.y >= 0 && keysRotation[1].value.y + Math.abs(keysRotation[0].value.y) > Math.PI) {
@@ -305,7 +364,7 @@ module Services {
             animationCameraPosition.setKeys(keys);
             animationCameraRotation.setKeys(keysRotation);
             camera.animations.splice(0, camera.animations.length);
-            camera.animations = [];            
+            camera.animations = [];       
             camera.animations.push(animationCameraPosition);
             camera.animations.push(animationCameraRotation);
             var speedRatio = 1;
@@ -317,10 +376,15 @@ module Services {
 
         isDiceAtRestAfterThrowing(scene: BABYLON.Scene): boolean {
             if (this.throwingDice) {
-                var physicsEngine = scene.getPhysicsEngine();
-                var body = physicsEngine.getPhysicsBodyOfMesh(this.diceMesh);
+                //var physicsEngine = scene.getPhysicsEngine();
+                //var body = physicsEngine.getPhysicsBodyOfMesh(this.diceMesh);
+                var impostor: any = this.diceMesh.getPhysicsImpostor();
+                var velocityVector = impostor.getLinearVelocity();//body.velocity;
+                var angularVelocityVector = impostor.getAngularVelocity();
                 //$("#debugMessage").html("Y=" + body.velocity.y.toPrecision(5));
-                if (Math.abs(body.velocity.x) > BABYLON.Engine.Epsilon * 100 || Math.abs(body.velocity.y) > BABYLON.Engine.Epsilon * 100 || Math.abs(body.velocity.z) > BABYLON.Engine.Epsilon * 100) {
+                if (Math.abs(velocityVector.x) > BABYLON.Engine.Epsilon || Math.abs(velocityVector.y) > BABYLON.Engine.Epsilon || Math.abs(velocityVector.z) > BABYLON.Engine.Epsilon ||
+                    Math.abs(angularVelocityVector.x) > BABYLON.Engine.Epsilon || Math.abs(angularVelocityVector.y) > BABYLON.Engine.Epsilon || Math.abs(angularVelocityVector.z) > BABYLON.Engine.Epsilon
+                    || Math.abs(this.diceMesh.position.y - this.boardMesh.position.y) > this.diceHeight*0.6) {
                     this.numFramesDiceIsAtRest -= 5;
                     if (this.numFramesDiceIsAtRest < 0) {
                         this.numFramesDiceIsAtRest = 0;
@@ -328,7 +392,11 @@ module Services {
                     return false;
                 }
                 this.numFramesDiceIsAtRest++;
-                if (this.numFramesDiceIsAtRest < scene.getEngine().getFps() * 2) {
+                if (this.numFramesDiceIsAtRest < scene.getEngine().getFps() * 2/*3*/) {
+                    return false;
+                }
+                var diceResult = this.getDiceResult();
+                if (diceResult === 0 && this.numFramesDiceIsAtRest < scene.getEngine().getFps() * 5/*8*/) {
                     return false;
                 }
                 this.throwingDice = false;
@@ -472,15 +540,22 @@ module Services {
             return undefined;
         }
 
-        createBoard(scene: BABYLON.Scene) {
+        createBoard(scene: BABYLON.Scene, excludedLights: Array<BABYLON.Light>) {
             var boardMaterial = new BABYLON.StandardMaterial("boardTexture", scene);
             var board = BABYLON.Mesh.CreateGround(this.groundMeshName, this.boardSize, this.boardSize, 2, scene);
             this.boardMesh = board;
-            boardMaterial.emissiveTexture = new BABYLON.Texture(this.themeService.theme.imagesFolder + this.themeService.theme.gameboardImage, scene);
+            board.receiveShadows = true;
+            //boardMaterial.emissiveTexture = new BABYLON.Texture(this.themeService.theme.imagesFolder + this.themeService.theme.gameboardImage, scene);
             boardMaterial.diffuseTexture = new BABYLON.Texture(this.themeService.theme.imagesFolder + this.themeService.theme.gameboardImage, scene);
+            boardMaterial.specularColor = new BABYLON.Color3(0, 0, 0);
             board.material = boardMaterial;
-            board.setPhysicsState({ impostor: BABYLON.PhysicsEngine.BoxImpostor, mass: 0, friction: 0.4, restitution: 0.5 });
+            board.setPhysicsState({ impostor: BABYLON.PhysicsEngine.BoxImpostor, mass: 0, friction: 0.25/*0.25*/, restitution: 0.75 });
             board.checkCollisions = true;
+            if (excludedLights) {
+                excludedLights.forEach(l => {
+                    //l.excludedMeshes = [board];
+                });
+            }
             var tableMaterial = new BABYLON.StandardMaterial("tableTexture", scene);
             if (this.themeService.theme.skyboxFolder) {
                 var skybox = BABYLON.Mesh.CreateBox("skyBox", 1000, scene);
@@ -695,7 +770,7 @@ module Services {
             }
         }
 
-        loadMeshes(players: MonopolyApp.Viewmodels.Player[], scene: BABYLON.Scene, gameController: MonopolyApp.controllers.GameController): JQueryDeferred<{}>[] {
+        loadMeshes(players: MonopolyApp.Viewmodels.Player[], scene: BABYLON.Scene, shadowGenerator: BABYLON.ShadowGenerator, gameController: MonopolyApp.controllers.GameController): JQueryDeferred<{}>[] {
             var meshLoads = [];
             this.gameService.players.forEach((player) => {
                 var playerModel = players.filter(p => p.name === player.playerName)[0];
@@ -735,6 +810,11 @@ module Services {
                             newMeshes[3].material = mat2;
                             newMeshes[7].material = mat2;
                             newMeshes[8].material = mat2;
+                            newMeshes.forEach(meshPart => {
+                                if (shadowGenerator) {
+                                    shadowGenerator.getShadowMap().renderList.push(meshPart);
+                                }
+                            });                    
                             d.resolve(gameController);
                         }
                     });
@@ -795,9 +875,15 @@ module Services {
                     that.diceMesh.getBoundingInfo().boundingBox = diceMeshImpostor.getBoundingInfo().boundingBox;
                     scene.removeMesh(diceMeshImpostor);
                     that.diceMesh.checkCollisions = true;
-                    that.diceMesh.onPhysicsCollide = (mesh, contact) => {
-                        that.diceColliding = true;
-                    };
+                    newMeshes.forEach(meshPart => {
+                        if (shadowGenerator) {
+                            shadowGenerator.getShadowMap().renderList.push(meshPart);
+                        }
+                        meshPart.receiveShadows = false;
+                    });                    
+                    //that.diceMesh.onPhysicsCollide = (mesh, contact) => {
+                    //    that.diceColliding = true;
+                    //};
                     d1.resolve(gameController);
                 }
             });
@@ -1045,6 +1131,10 @@ module Services {
             return coordinate;
         }
 
+        private onDiceCollide() {
+            this.diceColliding = true;
+        }
+
         private highlightGroupFields(focusedAssetGroupIndex: number, groupQuadrantIndex: number, groupCenter: BABYLON.Vector3, scene: BABYLON.Scene) {
             this.cleanupHighlights(scene);
             var meshes = [];
@@ -1272,9 +1362,16 @@ module Services {
             var heightCoordinate = this.getQuadrantRunningCoordinate(boardFieldQuadrant) === "x" ? "z" : "x";
             var heightDirection = boardFieldQuadrant === 0 || boardFieldQuadrant === 1 ? -1 : 1;
             var position = new BABYLON.Vector3(0, closer ? 2.65 : 5, -10);
-            position[heightCoordinate] = (closer ? 6.85 : 10) * heightDirection;
-            position[runningCoordinate] = center ? 0 : this.getPositionCoordinate(currentPlayerPositionIndex)[runningCoordinate];
-            return position;
+            if (this.options.staticCamera) {
+                position = new BABYLON.Vector3(0, closer ? 3 : 13, 0);
+                position[heightCoordinate] = (closer ? 1.2 : 0) * heightDirection;
+                position[runningCoordinate] = closer ? (center ? 0 : this.getPositionCoordinate(currentPlayerPositionIndex)[runningCoordinate]) : 0;
+                return position;                
+            } else {
+                position[heightCoordinate] = (closer ? 6.85 : 10) * heightDirection;
+                position[runningCoordinate] = center ? 0 : this.getPositionCoordinate(currentPlayerPositionIndex)[runningCoordinate];
+                return position;                
+            }
         }
     }
 

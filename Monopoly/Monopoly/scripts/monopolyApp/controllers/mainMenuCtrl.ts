@@ -44,6 +44,10 @@ module MonopolyApp.controllers {
             this.createScene();
             this.rotateAnimation("earthImage", 30, 0);
             this.scope.$on("$destroy", () => {
+                window.removeEventListener("resize", that.resizeEventListener);
+                var windowAny: any = window;
+                windowAny.menuEngine = undefined;
+                that.scene.stopAnimation(that.menuCamera);
                 that.menuEngine.stopRenderLoop();
                 that.menuEngine.dispose();
             });
@@ -115,9 +119,10 @@ module MonopolyApp.controllers {
 
         private createScene() {
             var canvas = <HTMLCanvasElement>document.getElementById("renderCanvas");
-            var engine = new BABYLON.Engine(canvas, true);
-            this.scene = new BABYLON.Scene(engine);
-            this.menuEngine = engine;
+            this.menuEngine = new BABYLON.Engine(canvas, true);
+            var windowAny: any = window;
+            windowAny.menuEngine = this.menuEngine;
+            this.scene = new BABYLON.Scene(this.menuEngine);
             this.menuCamera = new BABYLON.FreeCamera("menuCamera", BABYLON.Vector3.Zero(), this.scene);
             this.scene.activeCamera = this.menuCamera;
             var light = new BABYLON.HemisphericLight("menuLight", new BABYLON.Vector3(0, 1, 0), this.scene);
@@ -162,7 +167,7 @@ module MonopolyApp.controllers {
                 this.initRocketMesh();
             }
             var that = this;
-            engine.runRenderLoop(() => {
+            this.menuEngine.runRenderLoop(() => {
                 {
                     // not sure why, but the input handlers starve unless the render loop is re-inserted in the queue using a timeout service
                     that.timeoutService(() => {
@@ -170,18 +175,17 @@ module MonopolyApp.controllers {
                     }, 1, false);
                 }
             });
-            window.addEventListener("resize", function () {
-                engine.resize();
-            });
-
             // Watch for browser/canvas resize events
-            window.addEventListener("resize", function () {
-                engine.resize();
-                //var windowWidth = Math.min(window.screen.width, 575);
-                //if (windowWidth < 575) {
-                //    $("#buttonContainer").css("width", windowWidth + "px");
-                //}
-            });
+            window.addEventListener("resize", this.resizeEventListener);
+        }
+
+        private resizeEventListener() {
+            //this.menuEngine.resize();
+            var windowAny: any = window;
+            var menuEngine: any = windowAny.menuEngine;
+            if (menuEngine) {
+                menuEngine.resize();
+            }
         }
 
         private initRocketMesh() {

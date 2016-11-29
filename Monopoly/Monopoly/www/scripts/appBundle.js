@@ -1571,16 +1571,29 @@ var Services;
             this.loadOptions = function () {
                 var options = new Model.Options();
                 var localStorageAny = localStorage;
-                if (localStorage.getItem("options_v0_01")) {
-                    var savedOptions = JSON.parse(localStorageAny.options_v0_01);
+                var savedOptions;
+                if (localStorage.getItem("options_v0_02")) {
+                    savedOptions = JSON.parse(localStorageAny.options_v0_02);
                     options.tutorial = savedOptions.tutorial;
                     options.sound = savedOptions.sound;
                     options.music = savedOptions.music;
+                    options.staticCamera = savedOptions.staticCamera;
+                    options.shadows = savedOptions.shadows;
+                }
+                else if (localStorage.getItem("options_v0_01")) {
+                    savedOptions = JSON.parse(localStorageAny.options_v0_01);
+                    options.tutorial = savedOptions.tutorial;
+                    options.sound = savedOptions.sound;
+                    options.music = savedOptions.music;
+                    options.staticCamera = false;
+                    options.shadows = false;
                 }
                 else {
                     options.tutorial = true;
                     options.sound = false;
                     options.music = true;
+                    options.staticCamera = false;
+                    options.shadows = false;
                 }
                 _this._options = options;
                 return options;
@@ -1613,7 +1626,7 @@ var Services;
         };
         SettingsService.prototype.saveOptions = function (options) {
             var localStorageAny = localStorage;
-            localStorageAny.options_v0_01 = JSON.stringify(options);
+            localStorageAny.options_v0_02 = JSON.stringify(options);
         };
         SettingsService.$inject = ["$http"];
         return SettingsService;
@@ -2219,12 +2232,13 @@ var Services;
 var Services;
 (function (Services) {
     var DrawingService = (function () {
-        function DrawingService($http, gameService, themeService, timeoutService) {
+        function DrawingService($http, gameService, themeService, settingsService, timeoutService) {
             this.boardFieldsInQuadrant = 11;
             this.groundMeshName = "board";
             this.httpService = $http;
             this.gameService = gameService;
             this.themeService = themeService;
+            this.settingsService = settingsService;
             this.timeoutService = timeoutService;
             this.boardFieldWidth = this.boardSize / (this.boardFieldsInQuadrant + 2); // assuming the corner fields are double the width of the rest of the fields
             this.boardFieldHeight = this.boardFieldWidth * 2;
@@ -2256,6 +2270,27 @@ var Services;
             enumerable: true,
             configurable: true
         });
+        DrawingService.prototype.initGame = function () {
+            this.options = this.settingsService.loadOptions();
+        };
+        DrawingService.prototype.cleanup = function (scene) {
+            var allMeshes = scene.meshes.slice(0);
+            allMeshes.forEach(function (m) {
+                scene.removeMesh(m);
+                m.dispose();
+            });
+            var allLights = scene.lights.slice(0);
+            allLights.forEach(function (l) {
+                scene.removeLight(l);
+                l.dispose();
+            });
+            var allCameras = scene.cameras.slice(0);
+            allCameras.forEach(function (c) {
+                scene.removeCamera(c);
+                c.dispose();
+            });
+            scene.dispose();
+        };
         DrawingService.prototype.positionPlayer = function (playerModel) {
             if (playerModel.mesh) {
                 var player = this.gameService.players.filter(function (player, index) { return player.playerName === playerModel.name; })[0];
@@ -2370,19 +2405,26 @@ var Services;
         };
         DrawingService.prototype.unregisterPhysicsMeshes = function (scene) {
             var physicsEngine = scene.getPhysicsEngine();
-            physicsEngine._unregisterMesh(this.diceMesh);
+            //physicsEngine._unregisterMesh(this.diceMesh);
+            var physicsEngineAny = physicsEngine;
+            var diceImpostor = this.diceMesh.getPhysicsImpostor();
+            if (diceImpostor) {
+                //diceImpostor.unregisterOnPhysicsCollide(this.boardMesh.getPhysicsImpostor(), this.onDiceCollide);
+                physicsEngineAny.removeImpostor(diceImpostor);
+            }
         };
         DrawingService.prototype.moveDiceToPosition = function (position, scene) {
             this.diceMesh.position.x = position.x;
             this.diceMesh.position.y = position.y;
             this.diceMesh.position.z = position.z;
-            var physicsEngine = scene.getPhysicsEngine();
-            var body = physicsEngine.getPhysicsBodyOfMesh(this.diceMesh);
-            if (body) {
-                body.position.x = position.x;
-                body.position.y = position.y;
-                body.position.z = position.z;
-            }
+            // not required in new version of Physics engine
+            //var physicsEngine = scene.getPhysicsEngine();
+            //var body = physicsEngine.getPhysicsBodyOfMesh(this.diceMesh);
+            //if (body) {
+            //    body.position.x = position.x;
+            //    body.position.y = position.y;
+            //    body.position.z = position.z;
+            //}
         };
         DrawingService.prototype.moveCameraForDiceThrow = function (scene, camera, currentPlayerPosition) {
             var d = $.Deferred();
@@ -2390,7 +2432,11 @@ var Services;
             var animationCameraRotation = new BABYLON.Animation("cameraDiceThrowRotateAnimation", "rotation", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
             var topCenter = this.getPositionCoordinate(currentPlayerPosition.index);
             var cameraDirection = new BABYLON.Vector3(topCenter.x, 6, topCenter.z).subtract(this.dicePosition).normalize();
-            var finalCameraPosition = this.dicePosition.add(new BABYLON.Vector3(cameraDirection.x * 1.5, cameraDirection.y * 1.5, cameraDirection.z * 1.5)); //this.getGameCameraPosition(currentPlayerPosition);
+            if (this.options.staticCamera) {
+                cameraDirection.x = -cameraDirection.x;
+                cameraDirection.z = -cameraDirection.z;
+            }
+            var finalCameraPosition = this.dicePosition.add(new BABYLON.Vector3(cameraDirection.x * 1.5, cameraDirection.y * 1.5, cameraDirection.z * 1.5));
             var keys = [];
             keys.push({
                 frame: 0,
@@ -2427,12 +2473,17 @@ var Services;
         };
         DrawingService.prototype.animateDiceThrow = function (scene, impulsePoint) {
             this.numFramesDiceIsAtRest = 0;
-            this.diceMesh.setPhysicsState({ impostor: BABYLON.PhysicsEngine.BoxImpostor, mass: 0.1, friction: 0.5, restitution: 0.5 });
+            this.dicePhysicsImpostor = this.diceMesh.setPhysicsState({ impostor: BABYLON.PhysicsEngine.BoxImpostor, mass: 0.1, friction: 0.35, restitution: 0.9 });
+            var diceImpostor = this.diceMesh.getPhysicsImpostor();
+            var that = this;
+            diceImpostor.registerOnPhysicsCollide(this.boardMesh.getPhysicsImpostor(), function () {
+                that.diceColliding = true;
+            });
             this.diceMesh.checkCollisions = true;
             if (impulsePoint) {
                 var dir = impulsePoint.subtract(scene.activeCamera.position);
                 dir.normalize();
-                this.diceMesh.applyImpulse(dir.scale(0.2), impulsePoint);
+                this.diceMesh.applyImpulse(dir.scale(0.05), impulsePoint);
             }
             this.throwingDice = true;
         };
@@ -2479,8 +2530,22 @@ var Services;
             camera.position.z = currentPosition.z;*/
             keysRotation.push({
                 frame: numFrames ? numFrames : 30,
-                value: this.getCameraRotationForTarget(new BABYLON.Vector3(closer ? targetCoordinate.x + 0.01 : 0, 0, closer ? targetCoordinate.z + 0.01 : 0), camera, finalCameraPosition) // closer ? targetRotation : this.getCameraRotationForTarget(new BABYLON.Vector3(closer ? targetCoordinate.x : 0, 0, closer ? targetCoordinate.z : 0), camera, finalCameraPosition)
+                value: this.getCameraRotationForTarget(new BABYLON.Vector3(closer ? targetCoordinate.x + 0.01 : 0, 0, closer ? targetCoordinate.z + 0.01 : 0), camera, finalCameraPosition)
             });
+            if (this.options.staticCamera && !closer) {
+                var fieldQuadrant = Math.floor(currentPlayerPositionIndex / (this.boardFieldsInQuadrant - 1));
+                if (!keysRotation[1].value.y) {
+                    if (fieldQuadrant === 0) {
+                        keysRotation[1].value.y = 3.14;
+                    }
+                    else if (fieldQuadrant === 1) {
+                        keysRotation[1].value.y = -1.56;
+                    }
+                    else if (fieldQuadrant === 3) {
+                        keysRotation[1].value.y = 1.56;
+                    }
+                }
+            }
             // make sure the starting and ending rotation angle are at the same side of the numeric scale; Math.Pi and -Math.Pi are the same in terms of object rotation, but for
             // computer animation, this is a 360 degree spin, which is undesirable...
             if (keysRotation[0].value.y < 0 && keysRotation[1].value.y >= 0 && keysRotation[1].value.y + Math.abs(keysRotation[0].value.y) > Math.PI) {
@@ -2503,10 +2568,14 @@ var Services;
         };
         DrawingService.prototype.isDiceAtRestAfterThrowing = function (scene) {
             if (this.throwingDice) {
-                var physicsEngine = scene.getPhysicsEngine();
-                var body = physicsEngine.getPhysicsBodyOfMesh(this.diceMesh);
+                //var physicsEngine = scene.getPhysicsEngine();
+                //var body = physicsEngine.getPhysicsBodyOfMesh(this.diceMesh);
+                var impostor = this.diceMesh.getPhysicsImpostor();
+                var velocityVector = impostor.getLinearVelocity(); //body.velocity;
+                var angularVelocityVector = impostor.getAngularVelocity();
                 //$("#debugMessage").html("Y=" + body.velocity.y.toPrecision(5));
-                if (Math.abs(body.velocity.x) > BABYLON.Engine.Epsilon * 100 || Math.abs(body.velocity.y) > BABYLON.Engine.Epsilon * 100 || Math.abs(body.velocity.z) > BABYLON.Engine.Epsilon * 100) {
+                if (Math.abs(velocityVector.x) > BABYLON.Engine.Epsilon * 100 || Math.abs(velocityVector.y) > BABYLON.Engine.Epsilon * 100 || Math.abs(velocityVector.z) > BABYLON.Engine.Epsilon * 100 ||
+                    Math.abs(angularVelocityVector.x) > BABYLON.Engine.Epsilon || Math.abs(angularVelocityVector.y) > BABYLON.Engine.Epsilon || Math.abs(angularVelocityVector.z) > BABYLON.Engine.Epsilon) {
                     this.numFramesDiceIsAtRest -= 5;
                     if (this.numFramesDiceIsAtRest < 0) {
                         this.numFramesDiceIsAtRest = 0;
@@ -2514,7 +2583,7 @@ var Services;
                     return false;
                 }
                 this.numFramesDiceIsAtRest++;
-                if (this.numFramesDiceIsAtRest < scene.getEngine().getFps() * 2) {
+                if (this.numFramesDiceIsAtRest < scene.getEngine().getFps() * 2.5) {
                     return false;
                 }
                 this.throwingDice = false;
@@ -2652,15 +2721,22 @@ var Services;
             }
             return undefined;
         };
-        DrawingService.prototype.createBoard = function (scene) {
+        DrawingService.prototype.createBoard = function (scene, excludedLights) {
             var boardMaterial = new BABYLON.StandardMaterial("boardTexture", scene);
             var board = BABYLON.Mesh.CreateGround(this.groundMeshName, this.boardSize, this.boardSize, 2, scene);
             this.boardMesh = board;
-            boardMaterial.emissiveTexture = new BABYLON.Texture(this.themeService.theme.imagesFolder + this.themeService.theme.gameboardImage, scene);
+            board.receiveShadows = true;
+            //boardMaterial.emissiveTexture = new BABYLON.Texture(this.themeService.theme.imagesFolder + this.themeService.theme.gameboardImage, scene);
             boardMaterial.diffuseTexture = new BABYLON.Texture(this.themeService.theme.imagesFolder + this.themeService.theme.gameboardImage, scene);
+            boardMaterial.specularColor = new BABYLON.Color3(0, 0, 0);
             board.material = boardMaterial;
-            board.setPhysicsState({ impostor: BABYLON.PhysicsEngine.BoxImpostor, mass: 0, friction: 0.4, restitution: 0.5 });
+            board.setPhysicsState({ impostor: BABYLON.PhysicsEngine.BoxImpostor, mass: 0, friction: 0.25, restitution: 0.95 });
             board.checkCollisions = true;
+            if (excludedLights) {
+                excludedLights.forEach(function (l) {
+                    //l.excludedMeshes = [board];
+                });
+            }
             var tableMaterial = new BABYLON.StandardMaterial("tableTexture", scene);
             if (this.themeService.theme.skyboxFolder) {
                 var skybox = BABYLON.Mesh.CreateBox("skyBox", 1000, scene);
@@ -2873,7 +2949,7 @@ var Services;
                 boardField.houseMeshes = undefined;
             }
         };
-        DrawingService.prototype.loadMeshes = function (players, scene, gameController) {
+        DrawingService.prototype.loadMeshes = function (players, scene, shadowGenerator, gameController) {
             var _this = this;
             var meshLoads = [];
             this.gameService.players.forEach(function (player) {
@@ -2914,6 +2990,11 @@ var Services;
                             newMeshes[3].material = mat2;
                             newMeshes[7].material = mat2;
                             newMeshes[8].material = mat2;
+                            newMeshes.forEach(function (meshPart) {
+                                if (shadowGenerator) {
+                                    shadowGenerator.getShadowMap().renderList.push(meshPart);
+                                }
+                            });
                             d.resolve(gameController);
                         }
                     });
@@ -2973,9 +3054,15 @@ var Services;
                     that.diceMesh.getBoundingInfo().boundingBox = diceMeshImpostor.getBoundingInfo().boundingBox;
                     scene.removeMesh(diceMeshImpostor);
                     that.diceMesh.checkCollisions = true;
-                    that.diceMesh.onPhysicsCollide = function (mesh, contact) {
-                        that.diceColliding = true;
-                    };
+                    newMeshes.forEach(function (meshPart) {
+                        if (shadowGenerator) {
+                            shadowGenerator.getShadowMap().renderList.push(meshPart);
+                        }
+                        meshPart.receiveShadows = false;
+                    });
+                    //that.diceMesh.onPhysicsCollide = (mesh, contact) => {
+                    //    that.diceColliding = true;
+                    //};
                     d1.resolve(gameController);
                 }
             });
@@ -3215,6 +3302,9 @@ var Services;
             }
             return coordinate;
         };
+        DrawingService.prototype.onDiceCollide = function () {
+            this.diceColliding = true;
+        };
         DrawingService.prototype.highlightGroupFields = function (focusedAssetGroupIndex, groupQuadrantIndex, groupCenter, scene) {
             var _this = this;
             this.cleanupHighlights(scene);
@@ -3438,11 +3528,19 @@ var Services;
             var heightCoordinate = this.getQuadrantRunningCoordinate(boardFieldQuadrant) === "x" ? "z" : "x";
             var heightDirection = boardFieldQuadrant === 0 || boardFieldQuadrant === 1 ? -1 : 1;
             var position = new BABYLON.Vector3(0, closer ? 2.65 : 5, -10);
-            position[heightCoordinate] = (closer ? 6.85 : 10) * heightDirection;
-            position[runningCoordinate] = center ? 0 : this.getPositionCoordinate(currentPlayerPositionIndex)[runningCoordinate];
-            return position;
+            if (this.options.staticCamera) {
+                position = new BABYLON.Vector3(0, closer ? 3 : 13, 0);
+                position[heightCoordinate] = (closer ? 1.2 : 0) * heightDirection;
+                position[runningCoordinate] = closer ? (center ? 0 : this.getPositionCoordinate(currentPlayerPositionIndex)[runningCoordinate]) : 0;
+                return position;
+            }
+            else {
+                position[heightCoordinate] = (closer ? 6.85 : 10) * heightDirection;
+                position[runningCoordinate] = center ? 0 : this.getPositionCoordinate(currentPlayerPositionIndex)[runningCoordinate];
+                return position;
+            }
         };
-        DrawingService.$inject = ["$http", "gameService", "themeService", "$timeout"];
+        DrawingService.$inject = ["$http", "gameService", "themeService", "settingsService", "$timeout"];
         return DrawingService;
     })();
     Services.DrawingService = DrawingService;
@@ -3500,7 +3598,9 @@ var Services;
         };
         GameService.prototype.endTurn = function () {
             if (this.canEndTurn) {
-                this.game.advanceToNextPlayer();
+                if (this.lastDiceResult !== 6 || this.hasBeenLetOutOfPrison) {
+                    this.game.advanceToNextPlayer();
+                }
                 this.game.setState(Model.GameState.BeginTurn);
                 this.lastDiceResult1 = undefined;
                 this.lastDiceResult2 = undefined;
@@ -3811,6 +3911,7 @@ var Services;
             }
             var player = this.game.players.filter(function (p) { return p.playerName === _this.getCurrentPlayer(); })[0];
             var currentPositionIndex = player.position.index;
+            this.hasBeenLetOutOfPrison = false;
             if (player.turnsInPrison === undefined || this.letOutOfPrison(player)) {
                 newPositionIndex = newPositionIndex !== undefined ? newPositionIndex : Math.floor((currentPositionIndex + this.lastDiceResult1 + this.lastDiceResult2) % 40);
                 player.position = this.game.board.fields[newPositionIndex];
@@ -4510,6 +4611,7 @@ var Services;
             }
             if (this.lastDiceResult1 === 6) {
                 player.turnsInPrison = undefined;
+                this.hasBeenLetOutOfPrison = true;
                 return true;
             }
             if (player.turnsInPrison && player.turnsInPrison > 0) {
@@ -5014,10 +5116,15 @@ var MonopolyApp;
                 this.initMessageHistory();
                 this.currentCard = new MonopolyApp.Viewmodels.Card();
                 this.bindInputEvents();
+                this.commandPanelBottomOffset = this.settingsService.options.staticCamera ? 20 : 2;
                 var that = this;
                 this.scope.$on("$destroy", function () {
-                    that.gameEngine.stopRenderLoop();
+                    window.removeEventListener("resize", that.resizeEventListener);
+                    that.unbindInputEvents();
                     that.gameEngine.dispose();
+                    that.scene = undefined;
+                    delete that.gameEngine;
+                    console.log("Scene destroyed!");
                 });
                 this.timeoutService(function () {
                     that.initAudio();
@@ -5033,7 +5140,7 @@ var MonopolyApp;
                     //}
                     that.initTutorial(loadGame);
                     if (loadGame) {
-                        that.drawingService.returnCameraToMainPosition(that.scene, that.gameCamera, that.gameService.getCurrentPlayerPosition().index);
+                        that.drawingService.returnCameraToMainPosition(that.scene, that.gameCamera, that.gameService.getCurrentPlayerPosition().index, that.settingsService.options.staticCamera ? 1 : undefined);
                     }
                     if (_this.gameService.isComputerMove) {
                         that.timeoutService(function () {
@@ -5066,6 +5173,7 @@ var MonopolyApp;
             GameController.prototype.initGame = function (loadGame) {
                 this.tradeMode = false;
                 this.gameService.initGame(loadGame);
+                this.drawingService.initGame();
                 if (loadGame) {
                     this.assetToBuy = this.gameService.getCurrentPlayerPosition().asset;
                 }
@@ -5079,6 +5187,7 @@ var MonopolyApp;
                     this.executeTutorialCallback("setupthrow");
                     this.gameService.throwDice();
                     this.setAvailableActions();
+                    this.commandPanelBottomOffset = 2;
                     this.drawingService.setupDiceForThrow(this.scene);
                     $.when(this.drawingService.moveCameraForDiceThrow(this.scene, this.gameCamera, this.gameService.getCurrentPlayerPosition())).done(function () {
                         var that = _this;
@@ -5106,7 +5215,8 @@ var MonopolyApp;
                         }
                         else {
                             // something went wrong - unable to determine dice orientation; just drop it again from a height
-                            that.resetOverboardDice(new BABYLON.Vector3(0, 0, 0));
+                            that.resetOverboardDice(new BABYLON.Vector3(0, -1, 0));
+                            that.drawingService.unregisterPhysicsMeshes(that.scene);
                             that.throwDice();
                         }
                     });
@@ -5542,12 +5652,19 @@ var MonopolyApp;
                     if (viewPlayer.numTurnsToWaitBeforeTrade && viewPlayer.numTurnsToWaitBeforeTrade > 0) {
                         viewPlayer.numTurnsToWaitBeforeTrade--;
                     }
+                    var activePlayer = this.currentPlayer;
                     this.gameService.endTurn();
                     this.gameService.saveGame();
                     var that = this;
-                    this.showMessage(this.currentPlayer + " is starting his turn.");
+                    if (activePlayer === this.currentPlayer) {
+                        this.showMessage(this.currentPlayer + " has been granted another turn.");
+                    }
+                    else {
+                        this.showMessage(this.currentPlayer + " is starting his turn.");
+                    }
                     this.timeoutService(function () {
                         that.scope.$apply(function () {
+                            _this.commandPanelBottomOffset = _this.settingsService.options.staticCamera ? 20 : 2;
                             that.setAvailableActions();
                         });
                     });
@@ -5570,6 +5687,8 @@ var MonopolyApp;
                     return;
                 }
                 this.gameService.saveGame();
+                //this.drawingService.cleanup(this.scene);
+                //this.scene = undefined;
                 this.stateService.go("pause");
             };
             GameController.prototype.closeAssetManagementWindow = function () {
@@ -5729,66 +5848,88 @@ var MonopolyApp;
             };
             GameController.prototype.createScene = function () {
                 var canvas = document.getElementById("renderCanvas");
-                var engine = new BABYLON.Engine(canvas, true);
-                this.gameEngine = engine;
-                var d = this.createBoard(engine, canvas);
+                this.gameEngine = new BABYLON.Engine(canvas, true);
+                var d = this.createBoard(this.gameEngine, canvas);
                 //BABYLON.Scene.MaxDeltaTime = 30.0;
                 var that = this;
-                engine.runRenderLoop(function () {
-                    if (that.gameService.gameState === Model.GameState.Move || that.gameService.gameState === Model.GameState.Process) {
-                        that.scene.render();
-                    }
-                    else {
-                        // not sure why, but the input handlers starve unless the render loop is re-inserted in the queue using a timeout service
-                        that.timeoutService(function () {
-                            if (that.gameService.gameState === Model.GameState.ThrowDice && that.diceThrowCompleted) {
-                                // if the game is at the dice throw state and the dice throw has been triggered, verify if it is done, otherwise just follow with the camera
-                                if (that.drawingService.isDiceAtRestAfterThrowing(that.scene)) {
-                                    that.diceThrowCompleted.resolve();
-                                }
-                                else {
-                                    var dicePhysicsLocation = that.drawingService.getDiceLocation(that.scene);
-                                    if (dicePhysicsLocation) {
-                                        that.resetOverboardDice(dicePhysicsLocation);
-                                        that.gameCamera.setTarget(new BABYLON.Vector3(dicePhysicsLocation.x, dicePhysicsLocation.y, dicePhysicsLocation.z));
-                                        if (that.drawingService.diceIsColliding()) {
-                                            that.playBounceSound();
+                this.gameEngine.runRenderLoop(function () {
+                    if (that.scene) {
+                        if (that.gameService.gameState === Model.GameState.Move || that.gameService.gameState === Model.GameState.Process) {
+                            that.scene.render();
+                        }
+                        else {
+                            // not sure why, but the input handlers starve unless the render loop is re-inserted in the queue using a timeout service
+                            that.timeoutService(function () {
+                                if (that.scene) {
+                                    if (that.gameService.gameState === Model.GameState.ThrowDice && that.diceThrowCompleted) {
+                                        // if the game is at the dice throw state and the dice throw has been triggered, verify if it is done, otherwise just follow with the camera
+                                        if (that.drawingService.isDiceAtRestAfterThrowing(that.scene)) {
+                                            that.diceThrowCompleted.resolve();
+                                        }
+                                        else {
+                                            var dicePhysicsLocation = that.drawingService.getDiceLocation(that.scene);
+                                            if (dicePhysicsLocation) {
+                                                that.resetOverboardDice(dicePhysicsLocation);
+                                                that.gameCamera.setTarget(new BABYLON.Vector3(dicePhysicsLocation.x, dicePhysicsLocation.y, dicePhysicsLocation.z));
+                                                if (that.drawingService.diceIsColliding()) {
+                                                    that.playBounceSound();
+                                                }
+                                            }
                                         }
                                     }
+                                    that.scene.render();
                                 }
-                            }
-                            that.scene.render();
-                        }, 1, false);
+                            }, 1, false);
+                        }
                     }
                 });
-                window.addEventListener("resize", function () {
-                    engine.resize();
-                });
                 // Watch for browser/canvas resize events
-                window.addEventListener("resize", function () {
-                    engine.resize();
-                });
+                window.addEventListener("resize", this.resizeEventListener);
                 return d;
+            };
+            GameController.prototype.resizeEventListener = function () {
+                this.gameEngine.resize();
             };
             GameController.prototype.createBoard = function (engine, canvas) {
                 var d = $.Deferred();
                 // This creates a basic Babylon Scene object (non-mesh)
                 this.scene = new BABYLON.Scene(engine);
-                this.scene.enablePhysics(new BABYLON.Vector3(0, -10, 0), new BABYLON.CannonJSPlugin());
-                this.scene.setGravity(new BABYLON.Vector3(0, -10, 0));
+                this.scene.enablePhysics(new BABYLON.Vector3(0, -3, 0), new BABYLON.CannonJSPlugin());
+                //this.scene.setGravity(new BABYLON.Vector3(0, -10, 0));
                 // This creates and positions a free camera (non-mesh)
                 this.gameCamera = new BABYLON.FreeCamera("camera1", BABYLON.Vector3.Zero(), this.scene);
                 this.drawingService.setGameCameraInitialPosition(this.gameCamera);
                 this.scene.activeCamera = this.gameCamera;
                 // This attaches the camera to the canvas
                 //this.gameCamera.attachControl(canvas, true);
-                // This creates a light, aiming 0,1,0 - to the sky (non-mesh)
-                var light = new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(0, 1, 0), this.scene);
-                // default intensity is 1
-                light.intensity = 1;
-                this.drawingService.createBoard(this.scene);
+                //var light = new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(0, 1, 1), this.scene);
+                //light.intensity = 0.35;
+                //var light2 = new BABYLON.HemisphericLight("light2", new BABYLON.Vector3(0, 1, -1), this.scene);
+                //light2.intensity = 0.35;
+                //var light3 = new BABYLON.PointLight("light3", new BABYLON.Vector3(6, 27, 6), this.scene);
+                //light3.intensity = 0.55;
+                var light = new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(0, 1, 1), this.scene);
+                light.intensity = 0.43;
+                light.diffuse = new BABYLON.Color3(1, 1, 1);
+                light.specular = new BABYLON.Color3(1, 1, 1);
+                light.groundColor = new BABYLON.Color3(0.3, 0.3, 0.3);
+                var light2 = new BABYLON.HemisphericLight("light2", new BABYLON.Vector3(0, 1, -1), this.scene);
+                light2.intensity = 0.43;
+                light2.diffuse = new BABYLON.Color3(1, 1, 1);
+                light2.specular = new BABYLON.Color3(1, 1, 1);
+                light2.groundColor = new BABYLON.Color3(0.3, 0.3, 0.3);
+                var light3 = new BABYLON.PointLight("light3", new BABYLON.Vector3(12, 27, 12), this.scene);
+                light3.intensity = 0.58;
+                var shadowGenerator = undefined;
+                if (this.settingsService.options.shadows) {
+                    shadowGenerator = new BABYLON.ShadowGenerator(1024, light3);
+                    shadowGenerator.bias = 0.00001;
+                    //shadowGenerator.usePoissonSampling = true;
+                    shadowGenerator.useVarianceShadowMap = true;
+                }
+                this.drawingService.createBoard(this.scene, []);
                 this.initPlayers();
-                var meshLoads = this.drawingService.loadMeshes(this.players, this.scene, this);
+                var meshLoads = this.drawingService.loadMeshes(this.players, this.scene, shadowGenerator, this);
                 var that = this;
                 $.when.apply($, meshLoads).done(function () {
                     that.setupPlayerPositions(that);
@@ -6428,9 +6569,58 @@ var MonopolyApp;
                     }
                 });
             };
+            GameController.prototype.unbindInputEvents = function () {
+                //$(window).on("click", null, this, this.handleClickEvent);
+                var isTouch = (("ontouchstart" in window) || (navigator.msMaxTouchPoints > 0));
+                if (!isTouch) {
+                    $("#renderCanvas").off("click", this.handleClickEvent);
+                    $("#tutorialMessage").off("click", this.handleClickEvent);
+                }
+                else {
+                    if (window.navigator && window.navigator.pointerEnabled) {
+                        //$("#renderCanvas").bind("MSPointerDown", this, this.handleClickEvent);
+                        //$("#renderCanvas").bind("pointerdown", this, this.handleClickEvent);
+                        $("#renderCanvas").unbind("touchend", this.handleClickEvent);
+                        $("#tutorialMessage").unbind("touchend", this.handleClickEvent);
+                    }
+                    else {
+                        $("#renderCanvas").unbind("touchend", this.handleClickEvent);
+                        $("#tutorialMessage").unbind("touchend", this.handleClickEvent);
+                    }
+                }
+                $("#renderCanvas").unbind('mousedown');
+                $("#renderCanvas").unbind('mousemove');
+                $("#renderCanvas").unbind('mouseup');
+                $("#renderCanvas").unbind('touchstart');
+                $("#renderCanvas").unbind('touchmove');
+                $("#renderCanvas").unbind('touchend');
+                $("#renderCanvas").unbind('touchcancel');
+                $("#commandPanel").unbind('mousedown');
+                $("#tradeCommandPanel").unbind('mousedown');
+                $("#tradeCommandPanel").unbind('touchstart');
+                $("#manageCommandPanel").unbind('mousedown');
+                $("#manageCommandPanel").unbind('touchstart');
+                $("#commandPanel").unbind('mouseup');
+                $("#manageCommandPanel").unbind('mouseup');
+                $("#tradeCommandPanel").unbind('mouseup');
+                $("#commandPanel").unbind('mousedown');
+                $("#commandPanel").unbind('mousemove');
+                $("#commandPanel").unbind('mouseup');
+                $("#commandPanel").unbind('touchstart');
+                $("#commandPanel").unbind('touchmove');
+                $("#commandPanel").unbind('touchend');
+                $("#commandPanel").unbind('touchcancel');
+                $("#tradeCommandPanel").unbind('mousedown');
+                $("#tradeCommandPanel").unbind('mousemove');
+                $("#tradeCommandPanel").unbind('mouseup');
+                $("#tradeCommandPanel").unbind('touchstart');
+                $("#tradeCommandPanel").unbind('touchmove');
+                $("#tradeCommandPanel").unbind('touchend');
+                $("#tradeCommandPanel").unbind('touchcancel');
+            };
             GameController.prototype.resetOverboardDice = function (diceLocation) {
-                if (diceLocation.y < (this.drawingService.diceHeight / 2) * 0.8) {
-                    diceLocation.y = (this.drawingService.diceHeight / 2) * 2;
+                if (diceLocation.y < (this.drawingService.diceHeight / 2) * 0.4) {
+                    diceLocation.y = (this.drawingService.diceHeight / 2) * 2.2;
                     diceLocation.x = 0;
                     diceLocation.z = 0;
                     this.drawingService.moveDiceToPosition(diceLocation, this.scene);
@@ -6761,6 +6951,8 @@ var MonopolyApp;
                 this.createScene();
                 this.rotateAnimation("earthImage", 30, 0);
                 this.scope.$on("$destroy", function () {
+                    window.removeEventListener("resize", that.resizeEventListener);
+                    that.scene.stopAnimation(that.menuCamera);
                     that.menuEngine.stopRenderLoop();
                     that.menuEngine.dispose();
                 });
@@ -6815,9 +7007,8 @@ var MonopolyApp;
             };
             MainMenuController.prototype.createScene = function () {
                 var canvas = document.getElementById("renderCanvas");
-                var engine = new BABYLON.Engine(canvas, true);
-                this.scene = new BABYLON.Scene(engine);
-                this.menuEngine = engine;
+                this.menuEngine = new BABYLON.Engine(canvas, true);
+                this.scene = new BABYLON.Scene(this.menuEngine);
                 this.menuCamera = new BABYLON.FreeCamera("menuCamera", BABYLON.Vector3.Zero(), this.scene);
                 this.scene.activeCamera = this.menuCamera;
                 var light = new BABYLON.HemisphericLight("menuLight", new BABYLON.Vector3(0, 1, 0), this.scene);
@@ -6862,7 +7053,7 @@ var MonopolyApp;
                     this.initRocketMesh();
                 }
                 var that = this;
-                engine.runRenderLoop(function () {
+                this.menuEngine.runRenderLoop(function () {
                     {
                         // not sure why, but the input handlers starve unless the render loop is re-inserted in the queue using a timeout service
                         that.timeoutService(function () {
@@ -6870,17 +7061,11 @@ var MonopolyApp;
                         }, 1, false);
                     }
                 });
-                window.addEventListener("resize", function () {
-                    engine.resize();
-                });
                 // Watch for browser/canvas resize events
-                window.addEventListener("resize", function () {
-                    engine.resize();
-                    //var windowWidth = Math.min(window.screen.width, 575);
-                    //if (windowWidth < 575) {
-                    //    $("#buttonContainer").css("width", windowWidth + "px");
-                    //}
-                });
+                window.addEventListener("resize", this.resizeEventListener);
+            };
+            MainMenuController.prototype.resizeEventListener = function () {
+                this.menuEngine.resize();
             };
             MainMenuController.prototype.initRocketMesh = function () {
                 var that = this;

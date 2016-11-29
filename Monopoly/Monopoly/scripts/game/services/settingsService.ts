@@ -48,15 +48,27 @@ module Services {
         loadOptions = () => {
             var options: Model.Options = new Model.Options();
             var localStorageAny: any = localStorage;
-            if (localStorage.getItem("options_v0_01")) {
-                var savedOptions: Model.Options = JSON.parse(localStorageAny.options_v0_01);
+            var savedOptions: Model.Options;
+            if (localStorage.getItem("options_v0_02")) {
+                savedOptions = JSON.parse(localStorageAny.options_v0_02);
                 options.tutorial = savedOptions.tutorial;
                 options.sound = savedOptions.sound;
                 options.music = savedOptions.music;
+                options.staticCamera = savedOptions.staticCamera;
+                options.shadows = savedOptions.shadows;
+            } else if (localStorage.getItem("options_v0_01")) {
+                savedOptions = JSON.parse(localStorageAny.options_v0_01);
+                options.tutorial = savedOptions.tutorial;
+                options.sound = savedOptions.sound;
+                options.music = savedOptions.music;
+                options.staticCamera = false;
+                options.shadows = false;
             } else {
                 options.tutorial = true;
                 options.sound = false;
                 options.music = true;
+                options.staticCamera = false;
+                options.shadows = false;
             }
             this._options = options;
             return options;
@@ -64,7 +76,7 @@ module Services {
 
         saveOptions(options: Model.Options) {
             var localStorageAny: any = localStorage;
-            localStorageAny.options_v0_01 = JSON.stringify(options);
+            localStorageAny.options_v0_02 = JSON.stringify(options);
         }
     }
 
