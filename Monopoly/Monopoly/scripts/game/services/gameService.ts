@@ -106,7 +106,7 @@ module Services {
 
         public endTurn() {
             if (this.canEndTurn) {
-                if (this.lastDiceResult !== 6 || this.hasBeenLetOutOfPrison) {
+                if ((this.lastDiceResult1 && this.lastDiceResult1 !== this.lastDiceResult2) || this.hasBeenLetOutOfPrison) {
                     this.game.advanceToNextPlayer();
                 }
                 this.game.setState(Model.GameState.BeginTurn);
@@ -128,7 +128,7 @@ module Services {
         }
 
         get lastDiceResult(): number {
-            if (!this.lastDiceResult1 && !this.lastDiceResult2) {
+            if (!this.lastDiceResult1 || !this.lastDiceResult2) {
                 return undefined;
             }
             return this.lastDiceResult1 + this.lastDiceResult2;
@@ -203,7 +203,7 @@ module Services {
                         if (this.game.getState() === Model.GameState.BeginTurn) {
                             return true;
                         }
-                        if (this.game.getState() === Model.GameState.ProcessingDone && player.turnsInPrison === 0 && this.lastDiceResult !== 6) {
+                        if (this.game.getState() === Model.GameState.ProcessingDone && player.turnsInPrison === 0 && this.lastDiceResult1 !== this.lastDiceResult2) {
                             return true;
                         }
                     }
@@ -218,7 +218,7 @@ module Services {
                 if (player.money < 0 && player.active) {
                     return true;
                 }
-                if (player.money < this.gameParams.jailBail && player.turnsInPrison === 0 && this.lastDiceResult !== 6) {
+                if (player.money < this.gameParams.jailBail && player.turnsInPrison === 0 && this.lastDiceResult1 !== this.lastDiceResult2) {
                     return true;
                 }
             }
@@ -395,6 +395,8 @@ module Services {
                 }
             }
             this.game.setState(Model.GameState.Process);
+            this.game.lastDiceResult1 = this.lastDiceResult1;
+            this.game.lastDiceResult2 = this.lastDiceResult2;
             return player.position;
         }
 
@@ -657,9 +659,9 @@ module Services {
             return this.game.board.fields.filter(f => f.index === position).map(f => f.type === Model.BoardFieldType.Asset ? f.asset.group : undefined)[0];
         }
 
-        public setDiceResult(diceResult: number) {
-            this.lastDiceResult1 = diceResult;
-            this.lastDiceResult2 = 0;
+        public setDiceResult(diceResult: number[]) {
+            this.lastDiceResult1 = diceResult[0];
+            this.lastDiceResult2 = diceResult[1];
         }
 
         public getNextTreasureCard(): Model.TreasureCard {
@@ -1137,7 +1139,7 @@ module Services {
             if (player.turnsInPrison === undefined) {
                 return true;
             }
-            if (this.lastDiceResult1 === 6) {
+            if (this.lastDiceResult1 === this.lastDiceResult2) {
                 player.turnsInPrison = undefined;
                 this.hasBeenLetOutOfPrison = true;
                 return true;

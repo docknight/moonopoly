@@ -1,5 +1,5 @@
 ﻿module MonopolyApp.Viewmodels {
-    export enum PickedObjectType { None, BoardField, AddHouse, RemoveHouse, Dice };
+    export enum PickedObjectType { None, BoardField, AddHouse, RemoveHouse, Dice1, Dice2 };
 
     // represents an object that has been picked from the scene either via click/tap or via swipe
     export class PickedObject {

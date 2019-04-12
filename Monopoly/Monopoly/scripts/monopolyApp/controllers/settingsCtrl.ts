@@ -13,6 +13,8 @@ module MonopolyApp.controllers {
         timeoutService: angular.ITimeoutService;
         themeService: Interfaces.IThemeService;
         static $inject = ["$state", "$scope", "$rootScope", "$timeout", "settingsService", "themeService"];
+        playButtonText: string;
+        playButtonDisabled: boolean;
 
         private numPlayersSlider: any;
 
@@ -23,6 +25,8 @@ module MonopolyApp.controllers {
             this.timeoutService = timeoutService;
             this.settingsService = settingsService;
             this.themeService = themeService;
+            this.playButtonText = 'Play';
+            this.playButtonDisabled = false;
             $(".background").attr("src", this.themeService.theme.imagesFolder + this.themeService.theme.gameSetupImage);
             this.loadSettings();
             var that = this;     
@@ -66,6 +70,8 @@ module MonopolyApp.controllers {
 
         public saveAndClose() {
             if (this.checkData()) {
+                this.playButtonText = 'Please wait...';
+                this.playButtonDisabled = true;
                 this.saveSettings();
                 this.stateService.go("newgame", { loadGame: false });
             }

@@ -50,7 +50,7 @@
         rollbackHouseOrHotel(playerName: string, focusedAssetGroupIndex: number): boolean;
         canUpgradeAsset(asset: Model.Asset, playerName: string): boolean;
         canDowngradeAsset(asset: Model.Asset, playerName: string): boolean;
-        setDiceResult(diceResult: number);
+        setDiceResult(diceResult: number[]);
         getNextTreasureCard(): Model.TreasureCard;
         getNextEventCard(): Model.EventCard;
         processCard(card: Model.Card);
@@ -81,7 +81,7 @@
         animatePlayerMove(oldPositionIndex: Model.BoardField, newPosition: Model.BoardField, playerModel: MonopolyApp.Viewmodels.Player, scene: BABYLON.Scene, fast?: boolean, backwards?: boolean): JQueryDeferred<{}>;
         animatePlayerPrisonMove(newPosition: Model.BoardField, playerModel: MonopolyApp.Viewmodels.Player, scene: BABYLON.Scene, camera: BABYLON.FreeCamera): JQueryDeferred<{}>;
         setGameCameraInitialPosition(camera: BABYLON.FreeCamera);
-        setManageCameraPosition(camera: BABYLON.FreeCamera, focusedAssetGroupIndex: number, scene: BABYLON.Scene, animate: boolean);
+        setManageCameraPosition(camera: BABYLON.FreeCamera, focusedAssetGroupIndex: number, scene: BABYLON.Scene, animate: boolean): JQueryDeferred<{}>;
         returnFromManage(scene: BABYLON.Scene);
         pickBoardElement(scene: BABYLON.Scene, coords?: any): MonopolyApp.Viewmodels.PickedObject;
         createBoard(scene: BABYLON.Scene, excludedLights: Array<BABYLON.Light>);
@@ -93,19 +93,19 @@
         onSwipeMove(scene: BABYLON.Scene, coords: any);
         onSwipeEnd(scene: BABYLON.Scene, coords: any): MonopolyApp.Viewmodels.PickedObject;
         showActionButtons();
-        animateDiceThrow(scene: BABYLON.Scene, impulsePoint?: BABYLON.Vector3);
+        animateDiceThrow(scene: BABYLON.Scene, impulsePoint?: BABYLON.Vector3[]);
         isDiceAtRestAfterThrowing(scene: BABYLON.Scene): boolean; // whether the dice has come to rest after being thrown
         diceIsColliding(): boolean;
         setupDiceForThrow(scene: BABYLON.Scene);
         unregisterPhysicsMeshes(scene: BABYLON.Scene);
-        moveDiceToPosition(position: BABYLON.Vector3, scene: BABYLON.Scene);
-        getDiceLocation(scene: BABYLON.Scene): BABYLON.Vector3;
-        getDiceResult(): number;
+        moveDiceToPosition(diceIndex: number, position: BABYLON.Vector3, scene: BABYLON.Scene);
+        getDiceLocation(scene: BABYLON.Scene, diceIndex: number): BABYLON.Vector3;
+        getDiceResult(diceIndex: number): number;
         // get the rotation required for the camera to face the target; position determines the camera position, if it is not equal to its current position
         getCameraRotationForTarget(target: BABYLON.Vector3, camera: BABYLON.FreeCamera, position?: BABYLON.Vector3): BABYLON.Vector3;
         returnCameraToMainPosition(scene: BABYLON.Scene, camera: BABYLON.FreeCamera, currentPlayerPositionIndex: number, numFrames?: number, closer?: boolean): JQueryDeferred<{}>;
         moveCameraForDiceThrow(scene: BABYLON.Scene, camera: BABYLON.FreeCamera, currentPlayerPosition: Model.BoardField): JQueryDeferred<{}>;
-        getRandomPointOnDice(): BABYLON.Vector3;
+        getRandomPointOnDice(diceIndex: number): BABYLON.Vector3;
         addParticle(abstractMesh: BABYLON.AbstractMesh, scene: BABYLON.Scene): BABYLON.ParticleSystem;
         clearBoardField(boardField: MonopolyApp.Viewmodels.BoardField, scene: BABYLON.Scene);
     }
@@ -126,6 +126,7 @@
         initialize(data: Model.TutorialData);
         canAdvance: boolean; // whether the user can advance to the next tutorial step
         canAdvanceByClick: boolean; // whether the user can click to advance to the next tutorial step
+        canProcessClick: boolean; // whether the click event is processed by default event handlers instead of being swallowed after forwarding the tutorial to the next step
         currentStep: number; // 1-indexed step of the tutorial
         isActive: boolean;
         advanceToNextStep();

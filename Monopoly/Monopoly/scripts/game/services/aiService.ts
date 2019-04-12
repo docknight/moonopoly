@@ -64,19 +64,37 @@ module Services {
         public shouldBuy(asset: Model.Asset): boolean {
             var player = this.gameService.players.filter(p => p.playerName === this.gameService.getCurrentPlayer())[0];
             var severalOwners = this.severalOwners(asset.group);
-            if (player.money < 1800 && severalOwners) {
-                return false;
+            var assetGroupsToGain: number = undefined;
+            if (player.money < 1200 && severalOwners) {
+                assetGroupsToGain = this.numAssetGroupsToGain(player.playerName);
+                if (assetGroupsToGain > 0 || player.money < asset.price + 250) {
+                    return false;
+                }
             }
-            var assetGroupsToGain = this.numAssetGroupsToGain(player.playerName);
-            if (assetGroupsToGain <= 3 && player.money > asset.price + 250) {
+            assetGroupsToGain = assetGroupsToGain === undefined ? this.numAssetGroupsToGain(player.playerName) : assetGroupsToGain;
+            if (assetGroupsToGain <= 3 && player.money >= asset.price + 250) {
                 return true;
             }
+            var canOwnGroup: boolean = undefined;
             if (assetGroupsToGain > 3) {
                 if (player.money > asset.price + 700) {
                     return true;
                 }
+                if (player.money > asset.price + 250) {
+                    canOwnGroup = this.canOwnGroup(asset, player);
+                    if (canOwnGroup) {
+                        if (player.money > asset.price + 350) {
+                            return true;
+                        }
+                        var group_assets = this.gameService.getGroupBoardFields(asset.group);
+                        if (group_assets.filter(b => !b.asset.unowned).length > 0) {
+                            // if we already own at least one property in the group, let's risk more to get additional one
+                            return true;
+                        }
+                    }
+                }
             }
-            var canOwnGroup = this.canOwnGroup(asset, player);
+            canOwnGroup = canOwnGroup === undefined ? this.canOwnGroup(asset, player) : canOwnGroup;
             if (player.money > asset.price + 150 && asset.price >= 300 && canOwnGroup) {
                 // for higher valued properties AI is prepared to risk a bit more
                 return true;

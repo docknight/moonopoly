@@ -27,14 +27,15 @@ module Services {
         private houseRemoveButtonMaterial: BABYLON.StandardMaterial;
         private mortgageMaterial: BABYLON.StandardMaterial;
         private groundMeshName = "board";
-        private diceMesh: BABYLON.AbstractMesh;
+        private diceMesh: BABYLON.AbstractMesh[];
         private boardMesh: BABYLON.AbstractMesh;
         private throwingDice: boolean; // whether the dices are currently being thrown
-        private numFramesDiceIsAtRest: number;
-        private dicePosition: BABYLON.Vector3; // position of the dice at the beginning of a throw
+        private numFramesDiceIsAtRest: number[];
+        private dicePosition: BABYLON.Vector3[]; // position of the dice at the beginning of a throw
         private diceColliding: boolean;
         private options: Model.Options;
-        private dicePhysicsImpostor : any;
+        private dicePhysicsImpostor: any;
+        private manageModeInitialization: boolean;
 
         static $inject = ["$http", "gameService", "themeService", "settingsService", "$timeout"];
 
@@ -48,8 +49,9 @@ module Services {
             this.boardFieldHeight = this.boardFieldWidth * 2;
             this.boardFieldEdgeWidth = this.boardFieldWidth * 2;
             this.initQuadrantStartingCoordinates();
-            this.dicePosition = new BABYLON.Vector3(0, 3, 0);
+            this.dicePosition = [new BABYLON.Vector3(-0.3, 3, 0), new BABYLON.Vector3(0.3, 3, 0)];
             this.diceColliding = false;
+            this.manageModeInitialization = true;
         }
 
         /// board dimenzion in both, X and Z directions
@@ -68,6 +70,10 @@ module Services {
 
         public initGame() {
             this.options = this.settingsService.loadOptions();
+            this.manageModeInitialization = true;
+            this.numFramesDiceIsAtRest = [];
+            this.numFramesDiceIsAtRest.push(0);
+            this.numFramesDiceIsAtRest.push(0);
         }
 
         public cleanup(scene: BABYLON.Scene) {
@@ -195,9 +201,12 @@ module Services {
         }
 
         setupDiceForThrow(scene: BABYLON.Scene) {
-            this.diceMesh.position.x = this.dicePosition.x;
-            this.diceMesh.position.y = this.dicePosition.y;
-            this.diceMesh.position.z = this.dicePosition.z;
+            this.diceMesh[0].position.x = this.dicePosition[0].x;
+            this.diceMesh[0].position.y = this.dicePosition[0].y;
+            this.diceMesh[0].position.z = this.dicePosition[0].z;
+            this.diceMesh[1].position.x = this.dicePosition[1].x;
+            this.diceMesh[1].position.y = this.dicePosition[1].y;
+            this.diceMesh[1].position.z = this.dicePosition[1].z;
             this.unregisterPhysicsMeshes(scene);
         }
 
@@ -205,17 +214,22 @@ module Services {
             var physicsEngine = scene.getPhysicsEngine();
             //physicsEngine._unregisterMesh(this.diceMesh);
             var physicsEngineAny: any = physicsEngine;
-            var diceImpostor: any = this.diceMesh.getPhysicsImpostor();
+            var diceImpostor: any = this.diceMesh[0].getPhysicsImpostor();
+            if (diceImpostor) {
+                //diceImpostor.unregisterOnPhysicsCollide(this.boardMesh.getPhysicsImpostor(), this.onDiceCollide);
+                physicsEngineAny.removeImpostor(diceImpostor);
+            }
+            diceImpostor = this.diceMesh[1].getPhysicsImpostor();
             if (diceImpostor) {
                 //diceImpostor.unregisterOnPhysicsCollide(this.boardMesh.getPhysicsImpostor(), this.onDiceCollide);
                 physicsEngineAny.removeImpostor(diceImpostor);
             }
         }
 
-        moveDiceToPosition(position: BABYLON.Vector3, scene: BABYLON.Scene) {
-            this.diceMesh.position.x = position.x;
-            this.diceMesh.position.y = position.y;
-            this.diceMesh.position.z = position.z;            
+        moveDiceToPosition(diceIndex: number, position: BABYLON.Vector3, scene: BABYLON.Scene) {
+            this.diceMesh[diceIndex].position.x = position.x;
+            this.diceMesh[diceIndex].position.y = position.y;
+            this.diceMesh[diceIndex].position.z = position.z;            
             // not required in new version of Physics engine
             //var physicsEngine = scene.getPhysicsEngine();
             //var body = physicsEngine.getPhysicsBodyOfMesh(this.diceMesh);
@@ -231,12 +245,13 @@ module Services {
             var animationCameraPosition = new BABYLON.Animation("cameraDiceThrowMoveAnimation", "position", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
             var animationCameraRotation = new BABYLON.Animation("cameraDiceThrowRotateAnimation", "rotation", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
             var topCenter = this.getPositionCoordinate(currentPlayerPosition.index);
-            var cameraDirection = new BABYLON.Vector3(topCenter.x, 6, topCenter.z).subtract(this.dicePosition).normalize();
+            var diceMidpoint = new BABYLON.Vector3((this.dicePosition[0].x + this.dicePosition[1].x) / 2, (this.dicePosition[0].y + this.dicePosition[1].y) / 2, (this.dicePosition[0].z + this.dicePosition[1].z) / 2);
+            var cameraDirection = new BABYLON.Vector3(topCenter.x, 6, topCenter.z).subtract(diceMidpoint).normalize();
             if (this.options.staticCamera) {
                 cameraDirection.x = -cameraDirection.x;
                 cameraDirection.z = -cameraDirection.z;
             }
-            var finalCameraPosition = this.dicePosition.add(new BABYLON.Vector3(cameraDirection.x * 1.5, cameraDirection.y * 1.5, cameraDirection.z * 1.5));
+            var finalCameraPosition = diceMidpoint.add(new BABYLON.Vector3(cameraDirection.x * 1.5, cameraDirection.y * 1.5, cameraDirection.z * 1.5));
             var keys = [];
             keys.push({
                 frame: 0,
@@ -253,7 +268,7 @@ module Services {
             });
             keysRotation.push({
                 frame: 30,
-                value: this.getCameraRotationForTarget(this.dicePosition, camera, finalCameraPosition)
+                value: this.getCameraRotationForTarget(diceMidpoint, camera, finalCameraPosition)
             });
             // make sure the starting and ending rotation angle are at the same side of the numeric scale; Math.Pi and -Math.Pi are the same in terms of object rotation, but for
             // computer animation, this is a 360 degree spin, which is undesirable...
@@ -273,28 +288,30 @@ module Services {
             return d;
         }
 
-        animateDiceThrow(scene: BABYLON.Scene, impulsePoint?: BABYLON.Vector3) {
-            this.numFramesDiceIsAtRest = 0;
-            this.dicePhysicsImpostor = this.diceMesh.setPhysicsState({ impostor: BABYLON.PhysicsEngine.BoxImpostor, mass: 0.2, friction: 0.35/*0.35*/, restitution: 0.7 });
-            var diceImpostor: any = this.diceMesh.getPhysicsImpostor();
-            var that = this;
-            diceImpostor.registerOnPhysicsCollide(this.boardMesh.getPhysicsImpostor(), function() {
-                that.diceColliding = true;
-            });
+        animateDiceThrow(scene: BABYLON.Scene, impulsePoint?: BABYLON.Vector3[]) {
+            this.diceMesh.forEach((mesh, i) => {
+                this.numFramesDiceIsAtRest[i] = 0;
+                this.dicePhysicsImpostor = this.diceMesh[i].setPhysicsState({ impostor: BABYLON.PhysicsEngine.BoxImpostor, mass: 0.2, friction: 0.35/*0.35*/, restitution: 0.7 });
+                var diceImpostor: any = this.diceMesh[i].getPhysicsImpostor();
+                var that = this;
+                diceImpostor.registerOnPhysicsCollide(this.boardMesh.getPhysicsImpostor(), function () {
+                    that.diceColliding = true;
+                });
 
-            this.diceMesh.checkCollisions = true;
-            if (impulsePoint) {
-                var dir = impulsePoint.subtract(scene.activeCamera.position);
-                dir.normalize();
-                var diceImpostor: any = this.diceMesh.getPhysicsImpostor();
-                diceImpostor.setLinearVelocity(new BABYLON.Vector3(dir.x * 0.3, dir.y * 0.3, dir.z * 0.3));
-                this.diceMesh.applyImpulse(dir.scale(0.35/*0.05*/), impulsePoint);
-            }
+                this.diceMesh[i].checkCollisions = true;
+                if (impulsePoint && impulsePoint[i]) {
+                    var dir = impulsePoint[i].subtract(scene.activeCamera.position);
+                    dir.normalize();
+                    diceImpostor = this.diceMesh[i].getPhysicsImpostor();
+                    diceImpostor.setLinearVelocity(new BABYLON.Vector3(dir.x * 0.3, dir.y * 0.3, dir.z * 0.3));
+                    this.diceMesh[i].applyImpulse(dir.scale(0.55/*0.05*/), impulsePoint[i]);
+                }                
+            });
             this.throwingDice = true;
         }
 
-        getRandomPointOnDice(): BABYLON.Vector3 {
-            var point = new BABYLON.Vector3(this.diceMesh.position.x, this.diceMesh.position.y, this.diceMesh.position.z);
+        getRandomPointOnDice(diceIndex: number): BABYLON.Vector3 {
+            var point = new BABYLON.Vector3(this.diceMesh[diceIndex].position.x, this.diceMesh[diceIndex].position.y, this.diceMesh[diceIndex].position.z);
             point.x = point.x - this.diceHeight * 0.5 + Math.random() * this.diceHeight;
             point.y = point.y - this.diceHeight * 0.5 + Math.random() * this.diceHeight;
             point.z = point.z - this.diceHeight * 0.5 + Math.random() * this.diceHeight;
@@ -376,31 +393,44 @@ module Services {
 
         isDiceAtRestAfterThrowing(scene: BABYLON.Scene): boolean {
             if (this.throwingDice) {
-                //var physicsEngine = scene.getPhysicsEngine();
-                //var body = physicsEngine.getPhysicsBodyOfMesh(this.diceMesh);
-                var impostor: any = this.diceMesh.getPhysicsImpostor();
-                var velocityVector = impostor.getLinearVelocity();//body.velocity;
-                var angularVelocityVector = impostor.getAngularVelocity();
-                //$("#debugMessage").html("Y=" + body.velocity.y.toPrecision(5));
-                if (Math.abs(velocityVector.x) > BABYLON.Engine.Epsilon || Math.abs(velocityVector.y) > BABYLON.Engine.Epsilon || Math.abs(velocityVector.z) > BABYLON.Engine.Epsilon ||
-                    Math.abs(angularVelocityVector.x) > BABYLON.Engine.Epsilon || Math.abs(angularVelocityVector.y) > BABYLON.Engine.Epsilon || Math.abs(angularVelocityVector.z) > BABYLON.Engine.Epsilon
-                    || Math.abs(this.diceMesh.position.y - this.boardMesh.position.y) > this.diceHeight*0.6) {
-                    this.numFramesDiceIsAtRest -= 5;
-                    if (this.numFramesDiceIsAtRest < 0) {
-                        this.numFramesDiceIsAtRest = 0;
+                var dicesAtRest = true;
+                var that = this;
+                var fps = scene.getEngine().getFps();
+                this.diceMesh.forEach((mesh, i) => {
+                    //var physicsEngine = scene.getPhysicsEngine();
+                    //var body = physicsEngine.getPhysicsBodyOfMesh(this.diceMesh);
+                    var impostor: any = that.diceMesh[i].getPhysicsImpostor();
+                    var velocityVector = impostor.getLinearVelocity();//body.velocity;
+                    var angularVelocityVector = impostor.getAngularVelocity();
+                    //$("#debugMessage").html("Y=" + body.velocity.y.toPrecision(5));
+                    if (Math.abs(velocityVector.x) > BABYLON.Engine.Epsilon || Math.abs(velocityVector.y) > BABYLON.Engine.Epsilon || Math.abs(velocityVector.z) > BABYLON.Engine.Epsilon ||
+                        Math.abs(angularVelocityVector.x) > BABYLON.Engine.Epsilon || Math.abs(angularVelocityVector.y) > BABYLON.Engine.Epsilon || Math.abs(angularVelocityVector.z) > BABYLON.Engine.Epsilon
+                        || Math.abs(that.diceMesh[i].position.y - that.boardMesh.position.y) > that.diceHeight * 0.6) {
+                        that.numFramesDiceIsAtRest[i] -= 5;
+                        if (that.numFramesDiceIsAtRest[i] < 0) {
+                            that.numFramesDiceIsAtRest[i] = 0;
+                        }
+                        dicesAtRest = false;
                     }
-                    return false;
+                    that.numFramesDiceIsAtRest[i]++;
+                    if (that.numFramesDiceIsAtRest[i] < fps * 2/*3*/) {
+                        dicesAtRest = false;
+                    }
+                    var diceResult = that.getDiceResult(i);
+                    if (diceResult === 0 && that.numFramesDiceIsAtRest[i] < fps * 5/*8*/) {
+                        dicesAtRest = false;
+                    }                    
+                });
+
+                if (this.numFramesDiceIsAtRest[0] > fps * 12 || this.numFramesDiceIsAtRest[1] > fps * 12) {
+                    // one of the dices probably got stuck
+                    dicesAtRest = true;
                 }
-                this.numFramesDiceIsAtRest++;
-                if (this.numFramesDiceIsAtRest < scene.getEngine().getFps() * 2/*3*/) {
-                    return false;
+
+                if (dicesAtRest) {
+                    this.throwingDice = false;
+                    return true;
                 }
-                var diceResult = this.getDiceResult();
-                if (diceResult === 0 && this.numFramesDiceIsAtRest < scene.getEngine().getFps() * 5/*8*/) {
-                    return false;
-                }
-                this.throwingDice = false;
-                return true;
             }
             return false;
         }
@@ -411,13 +441,13 @@ module Services {
             return collision; //this.boardMesh.intersectsMesh(this.diceMesh, true);
         }
 
-        getDiceLocation(scene: BABYLON.Scene): BABYLON.Vector3 {
+        getDiceLocation(scene: BABYLON.Scene, diceIndex: number): BABYLON.Vector3 {
             //var physicsEngine = scene.getPhysicsEngine();
             //var body = physicsEngine.getPhysicsBodyOfMesh(this.diceMesh);
             //if (body) {
             //    return <BABYLON.Vector3>body.position;
             //}
-            return this.diceMesh.position;
+            return this.diceMesh[diceIndex].position;
         }
 
         setGameCameraInitialPosition(camera: BABYLON.FreeCamera) {
@@ -425,7 +455,8 @@ module Services {
             camera.setTarget(BABYLON.Vector3.Zero());
         }
 
-        setManageCameraPosition(camera: BABYLON.FreeCamera, focusedAssetGroupIndex: number, scene: BABYLON.Scene, animate: boolean) {
+        setManageCameraPosition(camera: BABYLON.FreeCamera, focusedAssetGroupIndex: number, scene: BABYLON.Scene, animate: boolean): JQueryDeferred<{}> {
+            var d = $.Deferred();
             var firstFocusedBoardField = this.gameService.getBoardFieldsInGroup(focusedAssetGroupIndex)[0];
             if (!this.boardGroupLeftCoordinate) {
                 this.initBoardGroupCoordinates();
@@ -496,13 +527,28 @@ module Services {
                 camera.animations.push(animationCameraRotation);
                 var that = this;
                 scene.beginAnimation(camera, 0, 15, false, undefined, () => {
-                    that.highlightGroupFields(focusedAssetGroupIndex, groupQuadrant, centerVector, scene); });
+                    if (that.manageModeInitialization) {
+                        $("#loadingBar").show();
+                    }
+                    that.highlightGroupFields(focusedAssetGroupIndex, groupQuadrant, centerVector, scene);
+                    if (that.manageModeInitialization) {
+                        that.manageModeInitialization = false;
+                        that.timeoutService(() => {
+                            $("#loadingBar").hide();
+                            d.resolve();
+                        }, 3000);
+                    } else {
+                        d.resolve();
+                    }
+                });
             } else {
                 camera.position = newPosition;
                 this.highlightGroupFields(focusedAssetGroupIndex, groupQuadrant, centerVector, scene);
+                d.resolve();
             }
 
             this.cleanupHouseButtons(scene);
+            return d;
         }
 
         returnFromManage(scene: BABYLON.Scene) {
@@ -531,8 +577,12 @@ module Services {
                     pickedObject.pickedObjectType = MonopolyApp.Viewmodels.PickedObjectType.RemoveHouse;
                     pickedObject.position = Number(pickResult.pickedMesh.name.substring(18));
                 }
-                if (pickResult.pickedMesh && (pickResult.pickedMesh.name.substring(0, 6) === "Boole_" || pickResult.pickedMesh.name === "Dice_obj")) {
-                    pickedObject.pickedObjectType = MonopolyApp.Viewmodels.PickedObjectType.Dice;
+                if (pickResult.pickedMesh && (pickResult.pickedMesh.name.substring(0, 8) === "0_Boole_" || pickResult.pickedMesh.name === "0_Dice_obj")) {
+                    pickedObject.pickedObjectType = MonopolyApp.Viewmodels.PickedObjectType.Dice1;
+                    pickedObject.pickedPoint = pickResult.pickedPoint;
+                }
+                if (pickResult.pickedMesh && (pickResult.pickedMesh.name.substring(0, 8) === "1_Boole_" || pickResult.pickedMesh.name === "1_Dice_obj")) {
+                    pickedObject.pickedObjectType = MonopolyApp.Viewmodels.PickedObjectType.Dice2;
                     pickedObject.pickedPoint = pickResult.pickedPoint;
                 }
                 return pickedObject;
@@ -845,11 +895,14 @@ module Services {
 
             var d1 = $.Deferred();
             meshLoads.push(d1);
-            var that = this;
+            that.diceMesh = [];
             BABYLON.SceneLoader.ImportMesh(null, "meshes/", "dice.babylon", scene, (newMeshes, particleSystems) => {
                 if (newMeshes != null) {
+                    newMeshes.forEach(m => {
+                        m.name = "0_" + m.name;
+                    });
                     var mesh = newMeshes[0];
-                    mesh.position.x = 0;
+                    mesh.position.x = -0.3;
                     mesh.position.z = 0;
                     mesh.position.y = this.diceHeight / 2;
                     //// DEBUGGING
@@ -863,7 +916,7 @@ module Services {
                     ////if (x > 1) {
                     ////    mesh.rotate(vector, 0.3);
                     ////}
-                    that.diceMesh = mesh;
+                    that.diceMesh.push(mesh);
                     /*
                     since the dice mesh has no bounding box assigned (required by the physics calculations), we borrow it from a temporary box object;
                     the size of the impostor box is determined by the bounding box of the dice shell mesh (newMeshes[1].getBoundingInfo().boundingBox.minimum & maximum), divided
@@ -872,9 +925,9 @@ module Services {
                     var diceMeshImpostor = BABYLON.Mesh.CreateBox("dice", 120, scene);
                     diceMeshImpostor.position.x = 5;
                     //diceMeshImpostor.scaling = new BABYLON.Vector3(0.003, 0.003, 0.003);
-                    that.diceMesh.getBoundingInfo().boundingBox = diceMeshImpostor.getBoundingInfo().boundingBox;
+                    that.diceMesh[0].getBoundingInfo().boundingBox = diceMeshImpostor.getBoundingInfo().boundingBox;
                     scene.removeMesh(diceMeshImpostor);
-                    that.diceMesh.checkCollisions = true;
+                    that.diceMesh[0].checkCollisions = true;
                     newMeshes.forEach(meshPart => {
                         if (shadowGenerator) {
                             shadowGenerator.getShadowMap().renderList.push(meshPart);
@@ -887,6 +940,41 @@ module Services {
                     d1.resolve(gameController);
                 }
             });
+
+            var d2 = $.Deferred();
+            meshLoads.push(d2);
+            $.when(d1).done(() => {
+                BABYLON.SceneLoader.ImportMesh(null, "meshes/", "dice.babylon", scene, (newMeshes, particleSystems) => {
+                    if (newMeshes != null) {
+                        newMeshes.forEach(m => {
+                            m.name = "1_" + m.name;
+                        });
+                        var mesh = newMeshes[0];
+                        mesh.position.x = 0.3;
+                        mesh.position.z = 0;
+                        mesh.position.y = this.diceHeight / 2;
+                        that.diceMesh.push(mesh);
+                        /*
+                        since the dice mesh has no bounding box assigned (required by the physics calculations), we borrow it from a temporary box object;
+                        the size of the impostor box is determined by the bounding box of the dice shell mesh (newMeshes[1].getBoundingInfo().boundingBox.minimum & maximum), divided
+                        by the dice mesh scaling factor (defined in the .babylon file)
+                        */
+                        var diceMeshImpostor = BABYLON.Mesh.CreateBox("dice", 120, scene);
+                        diceMeshImpostor.position.x = 5;
+                        that.diceMesh[1].getBoundingInfo().boundingBox = diceMeshImpostor.getBoundingInfo().boundingBox;
+                        scene.removeMesh(diceMeshImpostor);
+                        that.diceMesh[1].checkCollisions = true;
+                        newMeshes.forEach(meshPart => {
+                            if (shadowGenerator) {
+                                shadowGenerator.getShadowMap().renderList.push(meshPart);
+                            }
+                            meshPart.receiveShadows = false;
+                        });
+                        d2.resolve(gameController);
+                    }
+                });
+            });
+
 
             this.houseButtonMeshTemplate = BABYLON.Mesh.CreateGround("houseButton", 0.3, 0.3, 2, scene, true);
             this.houseButtonMaterial = new BABYLON.StandardMaterial("houseButtonTexture", scene);
@@ -1298,9 +1386,9 @@ module Services {
         /* 
         This has been coded with the help of http://www.euclideanspace.com/maths/discrete/groups/categorise/finite/cube/
         */
-        getDiceResult(): number {
+        getDiceResult(diceIndex: number): number {
             var rotationMatrix = new BABYLON.Matrix();
-            this.diceMesh.rotationQuaternion.toRotationMatrix(rotationMatrix);
+            this.diceMesh[diceIndex].rotationQuaternion.toRotationMatrix(rotationMatrix);
             if (this.epsilonCompare(rotationMatrix.m[0], 0) && this.epsilonCompare(rotationMatrix.m[1], 1) && this.epsilonCompare(rotationMatrix.m[2], 0) && this.epsilonCompare(rotationMatrix.m[5], 0) && this.epsilonCompare(rotationMatrix.m[9], 0)) {
                 return 1;
             }

@@ -20,6 +20,7 @@
 
         public initialize(data: Model.TutorialData) {
             this.data = data;
+            this.numSteps = this.numStepsGame;
             this.currentStep = undefined;
         }
 
@@ -61,6 +62,10 @@
             return this.canAdvance && !this.data.disableClickForward;
         }
 
+        get canProcessClick(): boolean {
+            return !this.data.disableClickForward && this.data.processClick;
+        }
+
         get isActive(): boolean {
             return this.currentStep && this.currentStep <= this.numSteps;
         }
@@ -99,7 +104,7 @@
                     scope.$apply(() => {
                         that.advanceToNextStep();
                     });                    
-                }, 1500);
+                }, 100);
             }
         }
 
@@ -115,7 +120,7 @@
                 this.data.messagePaddingTop = 50;
             } else if (this.currentStep === 3) {
                 this.data.messageDialogVisible = true;
-                this.data.messageDialogText = "In a turn based game you have a choice of THROWING the dice, MANAGING or TRADING your assets and ENDING current turn.";
+                this.data.messageDialogText = "In a turn based game you have a choice of THROWING the dices, MANAGING or TRADING your assets and ENDING current turn.";
                 this.data.messagePaddingTop = 35;
             } else if (this.currentStep === 4) {
                 this.data.messageDialogVisible = true;
@@ -173,7 +178,7 @@
                 };
             } else if (this.currentStep === 5) {
                 this.data.messageDialogVisible = true;
-                this.data.messageDialogText = "Try THROWING the dice for your first move.";
+                this.data.messageDialogText = "Try THROWING the dices for your first move.";
                 this.data.messagePaddingTop = 55;
                 this.data.disableClickForward = true;
                 this.data.customFunction = undefined;
@@ -187,15 +192,21 @@
                 }
             } else if (this.currentStep === 6) {
                 this.data.messageDialogVisible = true;
-                this.data.messageDialogText = "Tap anywhere on the dice to drop it to the Moon surface.";
+                this.data.messageDialogText = "Tap anywhere on any of the dices to drop them to the Moon surface.";
                 this.data.messageDialogTop = 180;
                 this.data.messagePaddingTop = 55;
                 this.data.disableClickForward = false;
+                this.data.processClick = true;
                 this.data.customFunction = undefined;
-                this.data.executeOnAction = undefined;
+                //this.data.executeOnAction = (action: string, tutorialService: Interfaces.ITutorialService, stepData: Model.TutorialData) => {
+                //    if (action === "throw") {
+                //        tutorialService.advanceToNextStep();
+                //    }
+                //}
             // step 7 is a marker that ends tutorial mode on the main screen
             } else if (this.currentStep === 8) {
                 this.data.messageDialogVisible = true;
+                this.data.processClick = false;
                 this.data.messageDialogText = "On this screen you can view properties and manage those owned by you.";
                 this.data.messageDialogTop = 70;
                 this.data.messagePaddingTop = 50;

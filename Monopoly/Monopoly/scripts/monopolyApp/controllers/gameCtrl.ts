@@ -31,6 +31,7 @@ module MonopolyApp.controllers {
         private gameCameraPosition: BABYLON.Vector3;
         private gameCameraRotation: BABYLON.Vector3;
         private manageMode: boolean;
+        private manageModeLoaded: boolean;
         private focusedAssetGroupIndex: number; // currently focused asset group in manage mode
         private swipeInProgress: boolean;
         private confirmButtonCallback: (data: any) => void; // callbacks currently assigned to action buttons
@@ -47,6 +48,7 @@ module MonopolyApp.controllers {
         actionButtonsVisible: boolean;
         tutorial: boolean;
         tutorialData: Model.TutorialData;
+        private tutorialInitialized: boolean;
         tradeMode: boolean;
         commandPanelBottomOffset: number;
 
@@ -87,6 +89,7 @@ module MonopolyApp.controllers {
             this.currentCard = new Viewmodels.Card();
             this.bindInputEvents();
             this.commandPanelBottomOffset = this.settingsService.options.staticCamera ? 20 : 2;
+            this.tutorialInitialized = false;
             var that = this;
             this.scope.$on("$destroy", () => {
                 window.removeEventListener("resize", that.resizeEventListener);
@@ -147,27 +150,37 @@ module MonopolyApp.controllers {
                         this.executeTutorialCallback("throw");
                     });
                     if (this.gameService.isComputerMove) {
-                        this.throwDice(this.drawingService.getRandomPointOnDice());
+                        this.throwDice([this.drawingService.getRandomPointOnDice(0), this.drawingService.getRandomPointOnDice(1)]);
                     }
                 });
             }
         }
 
-        throwDice(impulsePoint?: BABYLON.Vector3) {
+        throwDice(impulsePoint?: BABYLON.Vector3[]) {
             if (this.gameService.gameState === Model.GameState.ThrowDice) {
                 this.diceThrowCompleted = $.Deferred();
                 this.drawingService.animateDiceThrow(this.scene, impulsePoint);
                 var that = this;
                 $.when(this.diceThrowCompleted).done(() => {
                     that.diceThrowCompleted = undefined;
-                    var diceResult = that.drawingService.getDiceResult();
-                    if (diceResult && diceResult > 0) {
-                        that.gameService.setDiceResult(diceResult);
+                    var diceResult1 = that.drawingService.getDiceResult(0);
+                    var diceResult2: number = undefined;
+                    if (diceResult1 && diceResult1 > 0) {
+                        diceResult2 = that.drawingService.getDiceResult(1);
+                    }
+                    if (diceResult2 && diceResult2 > 0) {
+                        that.gameService.setDiceResult([diceResult1, diceResult2]);
                         that.drawingService.unregisterPhysicsMeshes(that.scene);
                         that.movePlayer();
                     } else {
                         // something went wrong - unable to determine dice orientation; just drop it again from a height
-                        that.resetOverboardDice(new BABYLON.Vector3(0, -1, 0));
+                        if (!diceResult1 || diceResult1 === 0) {
+                            that.resetOverboardDice(0, new BABYLON.Vector3(-0.3, -1, 0));
+                        }
+                        if (!diceResult2 || diceResult2 === 0) {
+                            that.resetOverboardDice(1, new BABYLON.Vector3(0.3, -1, 0));
+                        }
+
                         that.drawingService.unregisterPhysicsMeshes(that.scene);
                         that.throwDice();
                     }
@@ -203,6 +216,9 @@ module MonopolyApp.controllers {
                     $.when.apply($, [animateMoveCompleted, followBoardAnimation]).done(() => {
                         that.playerMoving = false;
                         that.playRocketSound(true);
+                        if (!that.gameService.isComputerMove) {
+                            that.gameService.saveGame();
+                        }
                         that.scope.$apply(() => {
                             that.setAvailableActions();
                             $.when(that.processDestinationField()).done(() => {
@@ -434,13 +450,19 @@ module MonopolyApp.controllers {
                 this.focusedAssetGroupIndex = this.gameService.manage();
                 this.gameCameraPosition = new BABYLON.Vector3(this.gameCamera.position.x, this.gameCamera.position.y, this.gameCamera.position.z);
                 this.gameCameraRotation = new BABYLON.Vector3(this.gameCamera.rotation.x, this.gameCamera.rotation.y, this.gameCamera.rotation.z);
-                this.setupManageHighlight(true);
+                var d = this.setupManageHighlight(true);
                 this.setAvailableActions();
+                var that = this;
                 $("#commandPanel").hide();
                 $("#manageCommandPanel").addClass("panelShown");
                 $("#manageCommandPanel").show();
                 if (this.tutorial) {
-                    this.tutorialService.initManageModeTutorial(this.scope);
+                    $.when(d).done(() => {
+                        that.tutorialService.initManageModeTutorial(that.scope);
+                        that.manageModeLoaded = true;
+                    });
+                } else {
+                    that.manageModeLoaded = true;
                 }
                 //var that = this;
                 //this.timeoutService(() => { $(window).on("click", null, that, that.handleClickEvent); }, 1000, false);
@@ -451,7 +473,12 @@ module MonopolyApp.controllers {
         }
 
         returnFromManage() {
+            if (!this.manageModeLoaded || this.isBlockedByTutorial("returnfrommanage")) {
+                return;
+            }
+
             this.manageMode = false;
+            this.manageModeLoaded = false;
             //$(window).off("click", this.handleClickEvent);
             this.closeAssetManagementWindow();            
             //this.scene.activeCamera = this.gameCamera;
@@ -474,6 +501,10 @@ module MonopolyApp.controllers {
 
         trade() {
             if (this.gameService.canTrade) {
+                if (this.isBlockedByTutorial("trade")) {
+                    return;
+                }
+
                 $("#commandPanel").hide();
                 var players = this.gameService.getPlayersForTrade();
                 var that = this;
@@ -841,10 +872,13 @@ module MonopolyApp.controllers {
                                     if (that.drawingService.isDiceAtRestAfterThrowing(that.scene)) {
                                         that.diceThrowCompleted.resolve();
                                     } else {
-                                        var dicePhysicsLocation = that.drawingService.getDiceLocation(that.scene);
-                                        if (dicePhysicsLocation) {
-                                            that.resetOverboardDice(dicePhysicsLocation);
-                                            that.gameCamera.setTarget(new BABYLON.Vector3(dicePhysicsLocation.x, dicePhysicsLocation.y, dicePhysicsLocation.z));
+                                        var dicePhysicsLocation1 = that.drawingService.getDiceLocation(that.scene, 0);
+                                        var dicePhysicsLocation2 = that.drawingService.getDiceLocation(that.scene, 1);
+                                        if (dicePhysicsLocation1 && dicePhysicsLocation2) {
+                                            that.resetOverboardDice(0, dicePhysicsLocation1);
+                                            that.resetOverboardDice(1, dicePhysicsLocation2);
+                                            var diceMidpoint = new BABYLON.Vector3((dicePhysicsLocation1.x + dicePhysicsLocation2.x) / 2, (dicePhysicsLocation1.y + dicePhysicsLocation2.y) / 2, (dicePhysicsLocation1.z + dicePhysicsLocation2.z) / 2);
+                                            that.gameCamera.setTarget(diceMidpoint);
                                             if (that.drawingService.diceIsColliding()) {
                                                 that.playBounceSound();
                                             }
@@ -1081,11 +1115,12 @@ module MonopolyApp.controllers {
             }
         }
 
-        private setupManageHighlight(animate: boolean) {
-            this.drawingService.setManageCameraPosition(this.gameCamera, this.focusedAssetGroupIndex, this.scene, animate);
+        private setupManageHighlight(animate: boolean): JQueryDeferred<{}> {
+            var d = this.drawingService.setManageCameraPosition(this.gameCamera, this.focusedAssetGroupIndex, this.scene, animate);
             if (this.gameService.hasMonopoly(this.gameService.getCurrentPlayer(), this.focusedAssetGroupIndex)) {
                 this.drawingService.showHouseButtons(this.focusedAssetGroupIndex, this.scene);
-            }            
+            }
+            return d;
         }
 
         private handleClickEvent(eventObject: JQueryEventObject, ...data: any[]) {
@@ -1095,7 +1130,9 @@ module MonopolyApp.controllers {
                 thisInstance.scope.$apply(() => {
                     thisInstance.tutorialService.advanceToNextStep();
                 });
-                return;
+                if (!thisInstance.tutorialService.canProcessClick) {
+                    return;
+                }
             }
             if (thisInstance.manageMode && !thisInstance.swipeInProgress) {
                 mouseEventObject = </*JQueryMouseEventObject*/TouchEvent>eventObject.originalEvent;
@@ -1121,8 +1158,11 @@ module MonopolyApp.controllers {
             if (thisInstance.gameService.gameState === Model.GameState.ThrowDice && !thisInstance.swipeInProgress && !thisInstance.gameService.isComputerMove) {
                 mouseEventObject = <TouchEvent>eventObject.originalEvent;
                 var pickedObject2 = thisInstance.drawingService.pickBoardElement(thisInstance.scene, mouseEventObject && mouseEventObject.changedTouches && mouseEventObject.changedTouches.length > 0 ? { x: mouseEventObject.changedTouches[0].clientX, y: mouseEventObject.changedTouches[0].clientY } : undefined);
-                if (pickedObject2 && pickedObject2.pickedObjectType === Viewmodels.PickedObjectType.Dice) {
-                    thisInstance.throwDice(pickedObject2.pickedPoint);
+                if (pickedObject2 && pickedObject2.pickedObjectType === Viewmodels.PickedObjectType.Dice1) {
+                    thisInstance.throwDice([pickedObject2.pickedPoint, thisInstance.drawingService.getRandomPointOnDice(1)]);
+                }
+                else if (pickedObject2 && pickedObject2.pickedObjectType === Viewmodels.PickedObjectType.Dice2) {
+                    thisInstance.throwDice([thisInstance.drawingService.getRandomPointOnDice(0), pickedObject2.pickedPoint]);
                 }
             }
         }
@@ -1620,12 +1660,12 @@ module MonopolyApp.controllers {
             $("#tradeCommandPanel").unbind('touchcancel');
         }
 
-        private resetOverboardDice(diceLocation: BABYLON.Vector3) {
+        private resetOverboardDice(diceIndex: number, diceLocation: BABYLON.Vector3) {
             if (diceLocation.y < (this.drawingService.diceHeight / 2) * 0.4) {
                 diceLocation.y = (this.drawingService.diceHeight / 2) * 2.2;
-                diceLocation.x = 0;
+                diceLocation.x = diceIndex === 0 ? -0.3 : 0.3;
                 diceLocation.z = 0;
-                this.drawingService.moveDiceToPosition(diceLocation, this.scene);
+                this.drawingService.moveDiceToPosition(diceIndex, diceLocation, this.scene);
             }            
         }
 
@@ -1663,7 +1703,7 @@ module MonopolyApp.controllers {
         }
 
         private isBlockedByTutorial(action: string) {
-            return this.tutorialService.isActive && !this.tutorialService.canExecuteAction(action);
+            return !this.tutorialInitialized || (this.tutorialService.isActive && !this.tutorialService.canExecuteAction(action));
         }
 
         private executeTutorialCallback(action: string) {
@@ -1683,11 +1723,15 @@ module MonopolyApp.controllers {
                         that.scope.$apply(() => {
                             that.tutorialService.initialize(that.tutorialData);
                             that.tutorialService.advanceToNextStep();
+                            that.tutorialInitialized = true;
                         });
+                    } else {
+                        this.tutorialInitialized = true;
                     }
                 }, 3000);
             } else {
                 this.tutorial = false;
+                this.tutorialInitialized = true;
                 this.timeoutService(() => {
                     $("#loadingBar").hide();
                 }, 3000);                

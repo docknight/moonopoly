@@ -127,7 +127,7 @@
             boardField = this.createAssetBoardField(theme.boardFieldName[12], this.fields.length, AssetGroup.Utility);
             boardField.asset.price = 150;
             boardField.asset.color = theme.boardFieldColor[12];
-            boardField.asset.priceMultiplierUtility.push(8, 20);
+            boardField.asset.priceMultiplierUtility.push(4, 10);
             boardField.asset.valueMortgage = 75;
             this.fields.push(boardField);
 
@@ -273,7 +273,7 @@
             boardField = this.createAssetBoardField(theme.boardFieldName[28], this.fields.length, AssetGroup.Utility);
             boardField.asset.price = 150;
             boardField.asset.color = theme.boardFieldColor[28];
-            boardField.asset.priceMultiplierUtility.push(8, 20);
+            boardField.asset.priceMultiplierUtility.push(4, 10);
             boardField.asset.valueMortgage = 75;
             this.fields.push(boardField);
 

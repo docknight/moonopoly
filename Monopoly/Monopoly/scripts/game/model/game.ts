@@ -24,6 +24,8 @@
         players: Array<Player>;
         currentTreasureCardIndex: number;
         currentEventCardIndex: number;
+        lastDiceResult1: number;
+        lastDiceResult2: number;
 
         get currentPlayer(): string {
             return this._currentPlayer;
@@ -121,6 +123,8 @@
             this._gameParams = new GameParams();
             this._gameParams.loadDataFrom(savedGame._gameParams);
             this.players = [];
+            this.lastDiceResult1 = savedGame.lastDiceResult1;
+            this.lastDiceResult2 = savedGame.lastDiceResult2;
             savedGame.players.forEach(savedPlayer => {
                 var player = new Player(savedPlayer.playerName, savedPlayer.human);
                 player.loadDataFrom(savedPlayer, this.board);
